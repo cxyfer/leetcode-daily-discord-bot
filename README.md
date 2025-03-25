@@ -53,7 +53,8 @@ Run `!leetcode` in the Discord channel to manually trigger the daily challenge.
 
 ## TODO
 
-- [ ] Add a command hint to the bot
-- [ ] Set the group ID for Admin users
-- [ ] Set the group ID for Admin users
+- [x] Add slash command hint to the bot
+- [x] Reply at the same channel when the slash command is used
+- [ ] Set the notification channel for Admin users
+- [ ] Set the notification message and role for Admin users
 
