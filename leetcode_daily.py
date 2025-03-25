@@ -88,6 +88,7 @@ def get_problem_rating(problem_id, ratings_file="./data/leetcode_ratings.json"):
     Returns:
         float or None: Problem rating if found, None otherwise
     """
+    os.makedirs(os.path.dirname(ratings_file), exist_ok=True)
     
     # Load existing ratings file if it exists
     if os.path.exists(ratings_file):
