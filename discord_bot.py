@@ -2,6 +2,8 @@ import os
 import json
 import asyncio
 import discord
+from discord import app_commands
+from discord.ext import commands
 import pytz
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
@@ -19,13 +21,16 @@ GROUP_ID = os.getenv('GROUP_ID')  # Group ID
 # Initialize Discord client
 intents = discord.Intents.default()
 intents.message_content = True  # Enable message content permission
-client = discord.Client(intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
-@client.event
+@bot.event
 async def on_ready():
     """When the bot successfully connects to Discord"""
-    print(f'{client.user} has connected to Discord!')
+    slash = await bot.tree.sync()  # Sync slash commands
+    
+    print(f'{bot.user} has connected to Discord!')
     print(f'The bot will send the LeetCode daily challenge at {POST_TIME} ({TIMEZONE} timezone)')
+    print(f'Loaded {len(slash)} slash commands')
     
     # Start the daily schedule task
     await schedule_daily_challenge()
@@ -54,14 +59,14 @@ async def schedule_daily_challenge():
         await asyncio.sleep(wait_seconds)
         
         # Get the channel and tag the LC role
-        channel = client.get_channel(CHANNEL_ID)
+        channel = bot.get_channel(CHANNEL_ID)
         if channel and GROUP_ID:
             await channel.send(f"<@&{GROUP_ID}>") 
             
         # Send the daily challenge
         await send_daily_challenge()
 
-async def send_daily_challenge():
+async def send_daily_challenge(interaction=None):
     """Get and send the LeetCode daily challenge to the Discord channel"""
     try:
         # Get the current date to create the file path
@@ -131,32 +136,43 @@ async def send_daily_challenge():
         
         embed.set_footer(text=f"LeetCode Daily Challenge | {info['date']}")
         
-        # Get the channel and send the message
-        channel = client.get_channel(CHANNEL_ID)
-        if channel:
-            await channel.send(embed=embed)
-            print(f"Sent LeetCode daily challenge to channel {CHANNEL_ID}")
+        # Determine how to send the message based on whether there is an interaction object
+        if interaction:
+            await interaction.followup.send(embed=embed)
+            print(f"Sent LeetCode daily challenge as response to slash command")
         else:
-            print(f"Failed to get channel {CHANNEL_ID}")
+            channel = bot.get_channel(CHANNEL_ID)
+            if channel:
+                await channel.send(embed=embed)
+                print(f"Sent LeetCode daily challenge to channel {CHANNEL_ID}")
+            else:
+                print(f"Failed to get channel {CHANNEL_ID}")
     
     except Exception as e:
         print(f"Error sending daily challenge: {e}")
+        if interaction:
+            await interaction.followup.send("An error occurred, unable to fetch the LeetCode daily challenge.")
 
-@client.event
+@bot.tree.command(name="daily", description="Get today's LeetCode daily challenge")
+async def daily_command(interaction: discord.Interaction):
+    """Slash command to get today's LeetCode challenge"""
+    await interaction.response.defer()  # Defer the response, because fetching data may take some time
+    await send_daily_challenge(interaction=interaction)
+
+@bot.event
 async def on_message(message):
     """Process user messages"""
     # Ignore messages from the bot itself
-    if message.author == client.user:
+    if message.author == bot.user:
         return
     
-    # Manually trigger the daily challenge
-    if message.content.lower() == '!leetcode':
-        await send_daily_challenge()
+    # Keep the original command functionality
+    await bot.process_commands(message)
 
 # Run the bot
 def run_bot():
     """Run the Discord bot"""
-    client.run(DISCORD_TOKEN)
+    bot.run(DISCORD_TOKEN)
 
 if __name__ == "__main__":
     run_bot() 
