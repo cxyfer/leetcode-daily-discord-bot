@@ -17,14 +17,17 @@ This is a bot that automatically fetches the LeetCode daily challenge and sends 
    cd leetcode-daily-discord-bot
    ```
 
-2. Install the dependencies
-   ```
-   uv pip install -r requirements.txt
-   ```
-
-3. Configure the environment variables
+2. Configure the environment variables
    - Copy `.env.example` to `.env`
+   ```
+   mv .env.example .env
+   ```
    - Edit `.env` and fill in your Discord bot token and channel ID
+
+3. Run the bot
+   ```
+   uv run discord_bot.py
+   ```
 
 ## Usage
 
