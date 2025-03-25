@@ -13,7 +13,7 @@ This is a bot that automatically fetches the LeetCode daily challenge and sends 
 
 1. Clone this repository
    ```
-   git clone https://github.com/your-username/leetcode-daily-discord-bot.git
+   git clone https://github.com/cxyfer/leetcode-daily-discord-bot.git
    cd leetcode-daily-discord-bot
    ```
 
