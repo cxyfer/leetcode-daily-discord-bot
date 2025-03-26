@@ -40,6 +40,7 @@ The bot provides the following slash commands:
 - `/set_channel` - Set the channel for the bot to send daily challenges (requires channel management permissions)
 - `/set_role` - Set the role for the bot to mention (requires role management permissions)
 - `/set_post_time` - Set the time to send the daily challenge, format HH:MM (requires server management permissions)
+   - The post time is actually HH:MM:10 to avoid getting yesterday's question information. 
 - `/set_timezone` - Set the timezone, e.g., Asia/Taipei (requires server management permissions)
 - `/show_settings` - Display the current server settings
 - `/remove_channel` - Remove the channel setting, stopping daily challenges (requires server management permissions)
@@ -61,8 +62,10 @@ The bot will automatically schedule the delivery of daily challenges according t
 - [x] Reply in the same channel where slash commands are used
 - [x] Allow admin users to set the configuration, including the notification channel, role to mention, and delivery time
 - [x] Support multi-server configuration
+- [ ] More readable runtime logs
 - [ ] Add Docker compose file and image
+- [ ] Refactor the code to be more readable and maintainable
 - [ ] Support LeetCode.cn
 - [ ] Allow users to set the account to trace submission records
 - [ ] Add ranking of submission records of each server
-- [ ] Support different languages
+- [ ] Support different display languages
