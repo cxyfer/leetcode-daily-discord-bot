@@ -66,6 +66,8 @@ The bot will automatically schedule the delivery of daily challenges according t
 - [ ] Add Docker compose file and image
 - [ ] Refactor the code to be more readable and maintainable
 - [ ] Support LeetCode.cn
+- [ ] Query problem information from the database
+- [ ] Query the past daily challenge from the database
 - [ ] Allow users to set the account to trace submission records
 - [ ] Add ranking of submission records of each server
 - [ ] Support different display languages
