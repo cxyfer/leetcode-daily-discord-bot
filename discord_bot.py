@@ -108,7 +108,7 @@ async def schedule_daily_challenges():
     
     print(f"總共為 {len(schedule_tasks)} 個伺服器設定了排程任務")
 
-async def schedule_server_daily_challenge(server_config):
+async def schedule_server_daily_challenge(server_config, offset_seconds=10):
     """Schedule daily LeetCode challenges for a single server
     
     Args:
@@ -129,7 +129,7 @@ async def schedule_server_daily_challenge(server_config):
                 hour, minute = map(int, post_time.split(':'))
                 
                 # Calculate next run time
-                target_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                target_time = now.replace(hour=hour, minute=minute, second=offset_seconds, microsecond=0)
                 if now >= target_time:
                     # If today's time has passed, schedule for tomorrow
                     target_time = target_time + timedelta(days=1)
@@ -137,8 +137,9 @@ async def schedule_server_daily_challenge(server_config):
                 # Convert back to UTC for scheduling
                 target_time_utc = target_time.astimezone(pytz.UTC)
                 wait_seconds = (target_time_utc - datetime.now(pytz.UTC)).total_seconds()
-                
-                print(f'伺服器 {server_id}: 下次挑戰時間 {target_time} ({timezone_str})，等待 {wait_seconds / 60:.2f} 分鐘')
+                wait_minutes = int((wait_seconds // 60) % 60)
+                wait_hours = int(wait_seconds // 3600)
+                print(f'伺服器 {server_id}: 下次挑戰時間 {target_time} ({timezone_str})，等待 {wait_hours} 小時 {wait_minutes} 分鐘 {int(wait_seconds % 60)} 秒')
                 
                 # Wait until the next schedule
                 await asyncio.sleep(wait_seconds)
