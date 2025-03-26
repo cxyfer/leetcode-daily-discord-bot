@@ -43,6 +43,7 @@ The bot provides the following slash commands:
 - `/set_timezone` - Set the timezone, e.g., Asia/Taipei (requires server management permissions)
 - `/show_settings` - Display the current server settings
 - `/remove_channel` - Remove the channel setting, stopping daily challenges (requires server management permissions)
+
 ### Server-specific Settings
 
 Each Discord server can have its own independent settings:
@@ -60,6 +61,7 @@ The bot will automatically schedule the delivery of daily challenges according t
 - [x] Reply in the same channel where slash commands are used
 - [x] Allow admin users to set the configuration, including the notification channel, role to mention, and delivery time
 - [x] Support multi-server configuration
+- [ ] Add Docker compose file and image
 - [ ] Support LeetCode.cn
 - [ ] Allow users to set the account to trace submission records
 - [ ] Add ranking of submission records of each server
