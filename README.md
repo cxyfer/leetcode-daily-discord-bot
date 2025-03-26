@@ -42,14 +42,14 @@ The bot provides the following slash commands:
 - `/set_post_time` - Set the time to send the daily challenge, format HH:MM (requires server management permissions)
 - `/set_timezone` - Set the timezone, e.g., Asia/Taipei (requires server management permissions)
 - `/show_settings` - Display the current server settings
-
+- `/remove_channel` - Remove the channel setting, stopping daily challenges (requires server management permissions)
 ### Server-specific Settings
 
 Each Discord server can have its own independent settings:
 
-1. Using `/set_channel` to set the channel is the first step, this must be completed first
+1. Using `/set_channel` to set the channel is the first step, this **must be completed first**
 2. Use `/set_role` to set the role to mention (optional)
-3. Use `/set_post_time` and `/set_timezone` to set the delivery time and timezone
+3. Use `/set_post_time` and `/set_timezone` to set the delivery time and timezone (optional)
 4. Use `/show_settings` to view current settings
 
 The bot will automatically schedule the delivery of daily challenges according to each server's settings.
@@ -61,6 +61,6 @@ The bot will automatically schedule the delivery of daily challenges according t
 - [x] Allow admin users to set the configuration, including the notification channel, role to mention, and delivery time
 - [x] Support multi-server configuration
 - [ ] Support LeetCode.cn
-- [ ] Support automatic translation of challenge titles
 - [ ] Allow users to set the account to trace submission records
-- [ ] Add ranking of submission records
+- [ ] Add ranking of submission records of each server
+- [ ] Support different languages
