@@ -4,10 +4,11 @@ This is a bot that automatically fetches the LeetCode daily challenge and sends 
 
 ## Features
 
-- Automatically fetches the LeetCode daily challenge
-- Sends the daily challenge to a Discord channel at a specified time
-- Supports a manual trigger feature, using the `!leetcode` command
-- The challenge information includes: title, difficulty, link, tags, etc.
+- Automatically retrieves the LeetCode daily challenge
+- Sends the daily challenge to the Discord channel at a specified time
+- Supports manual triggering using the `/daily` slash command
+- Daily challenge information includes: title, difficulty, link, tags, etc.
+- Supports multi-server configuration, each server can set its own notification channel, role to mention, and delivery time
 
 ## Installation
 
@@ -22,7 +23,7 @@ This is a bot that automatically fetches the LeetCode daily challenge and sends 
    ```
    mv .env.example .env
    ```
-   - Edit `.env` and fill in your Discord bot token and channel ID
+   - Edit `.env` and enter your Discord bot token
 
 3. Run the bot
    ```
@@ -31,30 +32,35 @@ This is a bot that automatically fetches the LeetCode daily challenge and sends 
 
 ## Usage
 
-### Fetch LeetCode daily challenge
+### Slash Commands
 
-Run `leetcode_daily.py` by itself to fetch and display today's LeetCode daily challenge, and save the result to a JSON file:
+The bot provides the following slash commands:
 
-```
-uv run leetcode_daily.py
-```
+- `/daily` - Manually display today's LeetCode daily challenge
+- `/set_channel` - Set the channel for the bot to send daily challenges (requires channel management permissions)
+- `/set_role` - Set the role for the bot to mention (requires role management permissions)
+- `/set_post_time` - Set the time to send the daily challenge, format HH:MM (requires server management permissions)
+- `/set_timezone` - Set the timezone, e.g., Asia/Taipei (requires server management permissions)
+- `/show_settings` - Display the current server settings
 
-### Run the Discord bot
+### Server-specific Settings
 
-Run `discord_bot.py` to start the Discord bot.
+Each Discord server can have its own independent settings:
 
-```
-uv run discord_bot.py
-```
+1. Using `/set_channel` to set the channel is the first step, this must be completed first
+2. Use `/set_role` to set the role to mention (optional)
+3. Use `/set_post_time` and `/set_timezone` to set the delivery time and timezone
+4. Use `/show_settings` to view current settings
 
-### Manually trigger the daily challenge
+The bot will automatically schedule the delivery of daily challenges according to each server's settings.
 
-Run `!leetcode` in the Discord channel to manually trigger the daily challenge.
+## Development Roadmap
 
-## TODO
-
-- [x] Add slash command hint to the bot
-- [x] Reply at the same channel when the slash command is used
-- [ ] Set the notification channel for Admin users
-- [ ] Set the notification message and role for Admin users
-
+- [x] Add slash command prompts
+- [x] Reply in the same channel where slash commands are used
+- [x] Allow admin users to set the configuration, including the notification channel, role to mention, and delivery time
+- [x] Support multi-server configuration
+- [ ] Support LeetCode.cn
+- [ ] Support automatic translation of challenge titles
+- [ ] Allow users to set the account to trace submission records
+- [ ] Add ranking of submission records
