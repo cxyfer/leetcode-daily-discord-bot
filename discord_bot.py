@@ -56,14 +56,14 @@ async def reschedule_daily_challenge(server_id=None):
                 print(f"已取消伺服器 {server_id} 的排程任務")
             schedule_tasks.pop(server_id, None)
             
-            # Only create a new schedule for this server, without rescheduling all servers
-            server_settings = db.get_server_settings(server_id)
-            if server_settings and server_settings.get("channel_id"):
-                # 使用 schedule_server_daily_challenge 來建立排程任務
-                task = asyncio.create_task(schedule_server_daily_challenge(server_settings))
-                schedule_tasks[server_id] = task
-            else:
-                print(f"伺服器 {server_id} 未設定頻道或不存在，不創建新排程")
+        # Only create a new schedule for this server, without rescheduling all servers
+        server_settings = db.get_server_settings(server_id)
+        if server_settings and server_settings.get("channel_id"):
+            # 使用 schedule_server_daily_challenge 來建立排程任務
+            task = asyncio.create_task(schedule_server_daily_challenge(server_settings))
+            schedule_tasks[server_id] = task
+        else:
+            print(f"伺服器 {server_id} 未設定頻道或不存在，不創建新排程")
     else:
         # Reschedule all servers
         for sid, task in list(schedule_tasks.items()):
