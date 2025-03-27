@@ -1,6 +1,12 @@
 import sqlite3
 import os
 from pathlib import Path
+import logging
+from utils.logger import setup_logging, get_logger
+
+# Set up logging
+setup_logging()
+logger = get_logger("bot.db")
 
 class SettingsDatabaseManager:
     """
@@ -18,6 +24,7 @@ class SettingsDatabaseManager:
         self.db_path = db_path
         Path(os.path.dirname(db_path)).mkdir(parents=True, exist_ok=True)
         self._init_db()
+        logger.info(f"Database manager initialized with database at {db_path}")
     
     def _init_db(self):
         """Initialize the database, create necessary tables"""
@@ -39,6 +46,7 @@ class SettingsDatabaseManager:
         
         conn.commit()
         conn.close()
+        logger.debug("Database tables initialized")
     
     def get_server_settings(self, server_id):
         """Get the settings for a specific server
@@ -100,7 +108,7 @@ class SettingsDatabaseManager:
             conn.commit()
             return True
         except Exception as e:
-            print(f"Error setting server settings: {e}")
+            logger.error(f"Error setting server settings: {e}")
             return False
         finally:
             conn.close()
@@ -234,7 +242,15 @@ class SettingsDatabaseManager:
             conn.commit()
             return cursor.rowcount > 0
         except Exception as e:
-            print(f"Error deleting server settings: {e}")
+            logger.error(f"Error deleting server settings: {e}")
             return False
         finally:
-            conn.close() 
+            conn.close()
+
+if __name__ == "__main__":
+    # Example usage
+    db_manager = SettingsDatabaseManager()
+    db_manager.set_server_settings(123456789, 987654321, role_id=111222333, post_time="12:00", timezone="UTC")
+    settings = db_manager.get_server_settings(123456789)
+    logger.debug(settings)
+    db_manager.delete_server_settings(123456789)  # Delete settings for server ID 123456789

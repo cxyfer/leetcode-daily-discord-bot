@@ -8,9 +8,15 @@ import pytz
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from pathlib import Path
+import logging
+from utils.logger import setup_logging, get_logger
 
-from leetcode_daily import fetch_raw_data, extract_challenge_info
+from leetcode_daily import get_daily_challenge
 from db_manager import SettingsDatabaseManager
+
+# Set up logging
+setup_logging()
+logger = get_logger("bot")
 
 load_dotenv(dotenv_path='.env', verbose=True, override=True)
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
@@ -33,8 +39,8 @@ async def on_ready():
     """When the bot successfully connects to Discord"""
     slash = await bot.tree.sync()  # Sync slash commands
     
-    print(f'{bot.user} has connected to Discord!')
-    print(f'Loaded {len(slash)} slash commands')
+    logger.info(f'{bot.user} has connected to Discord!')
+    logger.info(f'Loaded {len(slash)} slash commands')
     
     # Start the daily schedule tasks
     await schedule_daily_challenges()
@@ -53,26 +59,22 @@ async def reschedule_daily_challenge(server_id=None):
             task = schedule_tasks[server_id]
             if not task.done():
                 task.cancel()
-                print(f"已取消伺服器 {server_id} 的排程任務")
+                logger.info(f"Server {server_id} schedule task cancelled")
             schedule_tasks.pop(server_id, None)
             
-        # Only create a new schedule for this server, without rescheduling all servers
         server_settings = db.get_server_settings(server_id)
         if server_settings and server_settings.get("channel_id"):
-            # 使用 schedule_server_daily_challenge 來建立排程任務
             task = asyncio.create_task(schedule_server_daily_challenge(server_settings))
             schedule_tasks[server_id] = task
         else:
-            print(f"伺服器 {server_id} 未設定頻道或不存在，不創建新排程")
+            logger.info(f"Server {server_id} not set channel or not exist, not create new schedule")
     else:
         # Reschedule all servers
         for sid, task in list(schedule_tasks.items()):
             if not task.done():
                 task.cancel()
-                print(f"已取消伺服器 {sid} 的排程任務")
+                logger.info(f"Server {sid} schedule task cancelled")
         schedule_tasks.clear()
-        
-        # 使用現有的 schedule_daily_challenges 函數來為所有伺服器建立排程
         await schedule_daily_challenges()
 
 async def schedule_daily_challenges():
@@ -91,22 +93,22 @@ async def schedule_daily_challenges():
             
         # If the server doesn't have a channel setting, skip
         if not channel_id:
-            print(f"伺服器 {server_id} 未設定頻道，跳過排程")
+            logger.info(f"Server {server_id} not set channel, skip schedule")
             continue
         
         # If there is already a running task, cancel it
         if server_id in schedule_tasks and not schedule_tasks[server_id].done():
             schedule_tasks[server_id].cancel()
-            print(f"已取消伺服器 {server_id} 現有的排程任務")
+            logger.info(f"Server {server_id} existing schedule task cancelled")
         
         # Create task
         task = asyncio.create_task(
             schedule_server_daily_challenge(server)
         )
         schedule_tasks[server_id] = task
-        print(f"已為伺服器 {server_id} 創建排程任務")
+        logger.info(f"Server {server_id} schedule task created")
     
-    print(f"總共為 {len(schedule_tasks)} 個伺服器設定了排程任務")
+    logger.info(f"Total {len(schedule_tasks)} schedule tasks created")
 
 async def schedule_server_daily_challenge(server_config, offset_seconds=10):
     """Schedule daily LeetCode challenges for a single server
@@ -139,7 +141,7 @@ async def schedule_server_daily_challenge(server_config, offset_seconds=10):
                 wait_seconds = (target_time_utc - datetime.now(pytz.UTC)).total_seconds()
                 wait_minutes = int((wait_seconds // 60) % 60)
                 wait_hours = int(wait_seconds // 3600)
-                print(f'伺服器 {server_id}: 下次挑戰時間 {target_time} ({timezone_str})，等待 {wait_hours} 小時 {wait_minutes} 分鐘 {int(wait_seconds % 60)} 秒')
+                logger.info(f'Server {server_id}: Next challenge time {target_time} ({timezone_str}), waiting {wait_hours} hours {wait_minutes} minutes {int(wait_seconds % 60)} seconds')
                 
                 # Wait until the next schedule
                 await asyncio.sleep(wait_seconds)
@@ -152,48 +154,25 @@ async def schedule_server_daily_challenge(server_config, offset_seconds=10):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                print(f"Server {server_id} schedule task error: {e}")
+                logger.error(f"Server {server_id} schedule task error: {e}")
                 await asyncio.sleep(60)  # Wait 1 minute after error
     except asyncio.CancelledError:
-        print(f"Server {server_id} schedule task has been cancelled")
+        logger.debug(f"Server {server_id} schedule task has been cancelled")
     except Exception as e:
-        print(f"Server {server_id} schedule task error: {e}")
+        logger.error(f"Server {server_id} schedule task error: {e}")
         await asyncio.sleep(10)  # Wait 10 seconds before retrying
         schedule_tasks[server_id] = asyncio.create_task(schedule_server_daily_challenge(server_config))
 
 async def send_daily_challenge(channel_id=None, role_id=None, interaction=None):
     """Get and send the LeetCode daily challenge to the Discord channel"""
     try:
-        # Get the current date to create the file path
+        # Get the current date to create the date string
         timezone = pytz.timezone("UTC")  # **Fix timezone to UTC**
         now = datetime.now(timezone)
         date_str = now.strftime("%Y-%m-%d")
-        yy, mm, _ = date_str.split('-')
         
-        # Create the file path and directory
-        file_dir = Path(f"data/daily/{yy}/{mm}")
-        file_path = file_dir / f"{date_str}.json"
-        
-        # Check if there is already a file for today
-        info = None
-        if file_path.exists():
-            print(f"Found existing challenge data at {file_path}")
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    info = json.load(f)
-            except Exception as e:
-                print(f"Error reading existing file: {e}")
-                info = None
-        
-        # If no valid file is found, fetch the data
-        if info is None:
-            print("Fetching new challenge data...")
-            challenge_data = fetch_raw_data()
-            info = extract_challenge_info(challenge_data)
-            file_dir.mkdir(parents=True, exist_ok=True)
-            with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(info, f, ensure_ascii=False, indent=4)
-            print(f"Challenge data saved to {file_path}")
+        # Get challenge information from leetcode_daily module
+        info = get_daily_challenge(date_str)
         
         # Set the color based on the difficulty
         color_map = {
@@ -227,7 +206,7 @@ async def send_daily_challenge(channel_id=None, role_id=None, interaction=None):
         # Determine how to send the message based on whether there is an interaction object
         if interaction:
             await interaction.followup.send(embed=embed)
-            print(f"Sent LeetCode daily challenge as response to slash command")
+            logger.info(f"Sent LeetCode daily challenge as response to slash command")
             return
             
         # For scheduled messages
@@ -239,12 +218,12 @@ async def send_daily_challenge(channel_id=None, role_id=None, interaction=None):
                     await channel.send(f"<@&{role_id}>")
                 
                 await channel.send(embed=embed)
-                print(f"Sent LeetCode daily challenge to channel {channel_id}")
+                logger.info(f"Sent LeetCode daily challenge to channel {channel_id}")
             else:
-                print(f"Failed to get channel {channel_id}")
+                logger.warning(f"Failed to get channel {channel_id}")
     
     except Exception as e:
-        print(f"Error sending daily challenge: {e}")
+        logger.error(f"Error sending daily challenge: {e}")
         if interaction:
             await interaction.followup.send("無法取得 LeetCode 每日挑戰。")
 
@@ -389,14 +368,16 @@ async def show_settings_command(interaction: discord.Interaction):
         role_mention = role.mention if role else f"找不到身分組 (ID: {settings['role_id']})"
     
     embed = discord.Embed(
-        title="LeetCode 每日挑戰設定",
+        title="LeetCode 每日一題挑戰設定",
         color=0x3498db,
-        description=f"此伺服器的 LeetCode 每日挑戰設定如下："
+        description=f"此伺服器的 LeetCode 每日一題挑戰設定如下："
     )
     
     embed.add_field(name="發送頻道", value=channel_mention, inline=False)
     embed.add_field(name="標記身分組", value=role_mention, inline=False)
     embed.add_field(name="發送時間", value=f"{settings['post_time']} ({settings['timezone']})", inline=False)
+
+    logger.debug(f"Server {interaction.guild_id} settings: {settings}")
     
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -422,12 +403,13 @@ async def remove_channel_command(interaction: discord.Interaction):
     if server_id in schedule_tasks and not schedule_tasks[server_id].done():
         schedule_tasks[server_id].cancel()
         schedule_tasks.pop(server_id)
-        print(f"已取消伺服器 {server_id} 的排程任務")
+        logger.info(f"Server {server_id} schedule task cancelled")
     
     # Delete the server setting
     success = db.delete_server_settings(server_id)
     
     if success:
+        logger.info(f"Server {server_id} settings removed")
         await interaction.response.send_message("已移除 LeetCode 每日挑戰的設定，將不再在此伺服器發送挑戰。", ephemeral=True)
     else:
         await interaction.response.send_message("移除設定時發生錯誤，請稍後再試。", ephemeral=True)
@@ -445,6 +427,7 @@ async def on_message(message):
 # Run the bot
 def run_bot():
     """Run the Discord bot"""
+    logger.info("Starting LeetCode Daily Discord Bot...")
     bot.run(DISCORD_TOKEN)
 
 if __name__ == "__main__":
