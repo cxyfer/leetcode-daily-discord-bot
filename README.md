@@ -83,7 +83,7 @@ DISCORD_TOKEN=your_bot_token_here
 - [x] Reply in the same channel where slash commands are used
 - [x] Allow admin users to set the configuration
 - [x] Support multi-server configuration
-- [ ] More readable runtime logs
+- [x] More comfortable runtime logs
 - [ ] Add Docker compose file and image
 - [ ] Refactor the code to be more readable and maintainable
 - [ ] Support LeetCode.cn
