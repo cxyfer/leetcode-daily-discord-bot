@@ -12,7 +12,7 @@ import logging
 from utils.logger import setup_logging, get_logger
 
 from leetcode_daily import get_daily_challenge
-from db_manager import SettingsDatabaseManager
+from utils import SettingsDatabaseManager
 
 # Set up logging
 setup_logging()

@@ -2,7 +2,7 @@ import sqlite3
 import os
 from pathlib import Path
 import logging
-from utils.logger import setup_logging, get_logger
+from .logger import setup_logging, get_logger
 
 # Set up logging
 setup_logging()
@@ -68,6 +68,7 @@ class SettingsDatabaseManager:
         conn.close()
         
         if result:
+            logger.debug(f"Server {server_id} settings: {result}")
             return {"server_id": server_id,
                     "channel_id": result[0],
                     "role_id": result[1],
@@ -111,6 +112,7 @@ class SettingsDatabaseManager:
             logger.error(f"Error setting server settings: {e}")
             return False
         finally:
+            logger.debug(f"Server {server_id} settings updated: ({channel_id}, {role_id}, {post_time}, {timezone})")
             conn.close()
     
     def set_channel(self, server_id, channel_id):
@@ -253,4 +255,4 @@ if __name__ == "__main__":
     db_manager.set_server_settings(123456789, 987654321, role_id=111222333, post_time="12:00", timezone="UTC")
     settings = db_manager.get_server_settings(123456789)
     logger.debug(settings)
-    db_manager.delete_server_settings(123456789)  # Delete settings for server ID 123456789
+    db_manager.delete_server_settings(123456789)  # Delete settings for server ID 123456789 
