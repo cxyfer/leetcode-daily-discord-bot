@@ -99,10 +99,10 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ## 📦 Dependencies
 
-- discord.py - Discord bot framework
-- python-dotenv - Environment variable management
-- aiohttp - Async HTTP client
-- pytz - Timezone handling
+- [discord.py](https://github.com/Rapptz/discord.py) - Discord bot framework
+- [python-dotenv](https://github.com/theskumar/python-dotenv) - Environment variable management
+- [requests](https://github.com/psf/requests) - HTTP library for API calls
+- [pytz](https://github.com/stub42/pytz) - Timezone handling
 
 ## 📄 License
 
