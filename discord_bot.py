@@ -11,7 +11,7 @@ from pathlib import Path
 import logging
 from utils.logger import setup_logging, get_logger
 
-from leetcode_daily import get_daily_challenge
+from leetcode_daily import LeetCodeClient
 from utils import SettingsDatabaseManager
 
 # Set up logging
@@ -25,6 +25,10 @@ TIMEZONE = os.getenv('TIMEZONE', 'UTC')  # Default to UTC
 
 # Initialize the database manager
 db = SettingsDatabaseManager()
+
+# Initialize LeetCode client
+lcus = LeetCodeClient()
+lccn = LeetCodeClient(domain="cn")
 
 # Initialize Discord client
 intents = discord.Intents.default()
@@ -163,7 +167,7 @@ async def schedule_server_daily_challenge(server_config, offset_seconds=10):
         await asyncio.sleep(10)  # Wait 10 seconds before retrying
         schedule_tasks[server_id] = asyncio.create_task(schedule_server_daily_challenge(server_config))
 
-async def send_daily_challenge(channel_id=None, role_id=None, interaction=None):
+async def send_daily_challenge(channel_id=None, role_id=None, interaction=None, domain="com"):
     """Get and send the LeetCode daily challenge to the Discord channel"""
     try:
         # Get the current date to create the date string
@@ -172,7 +176,10 @@ async def send_daily_challenge(channel_id=None, role_id=None, interaction=None):
         date_str = now.strftime("%Y-%m-%d")
         
         # Get challenge information from leetcode_daily module
-        info = get_daily_challenge(date_str)
+        if domain == "com":
+            info = lcus.get_daily_challenge(date_str)
+        else:
+            info = lccn.get_daily_challenge(date_str)
         
         # Set the color based on the difficulty
         color_map = {
@@ -227,11 +234,17 @@ async def send_daily_challenge(channel_id=None, role_id=None, interaction=None):
         if interaction:
             await interaction.followup.send("無法取得 LeetCode 每日挑戰。")
 
-@bot.tree.command(name="daily", description="取得今天的 LeetCode 每日挑戰")
+@bot.tree.command(name="daily", description="取得今天的 LeetCode 每日挑戰 (LCUS)")
 async def daily_command(interaction: discord.Interaction):
     """Slash command to get today's LeetCode challenge"""
     await interaction.response.defer()  # Defer the response, because fetching data may take some time
-    await send_daily_challenge(interaction=interaction)
+    await send_daily_challenge(interaction=interaction, domain="com")
+
+@bot.tree.command(name="daily_cn", description="取得今天的 LeetCode 每日挑戰 (LCCN)")
+async def daily_cn_command(interaction: discord.Interaction):
+    """Slash command to get today's LeetCode challenge"""
+    await interaction.response.defer()  # Defer the response, because fetching data may take some time
+    await send_daily_challenge(interaction=interaction, domain="cn")
 
 @bot.tree.command(name="set_channel", description="設定 LeetCode 每日挑戰的發送頻道")
 @app_commands.describe(channel="選擇要發送每日挑戰的頻道")
