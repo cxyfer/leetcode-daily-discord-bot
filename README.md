@@ -62,7 +62,8 @@ DISCORD_TOKEN=your_bot_token_here
 
 | Command | Description | Required Permissions |
 |---------|-------------|---------------------|
-| `/daily` | Display today's LeetCode daily challenge | None |
+| `/daily` | Display today's LeetCode.com (LCUS) daily challenge | None |
+| `/daily_cn` | Display today's LeetCode.cn (LCCN) daily challenge | None |
 | `/set_channel` | Set notification channel | Manage Channels |
 | `/set_role` | Set role to mention | Manage Roles |
 | `/set_post_time` | Set posting time (HH:MM) | Manage Guild |
@@ -85,8 +86,12 @@ DISCORD_TOKEN=your_bot_token_here
 - [x] Support multi-server configuration
 - [x] More comfortable runtime logs
 - [ ] Add Docker compose file and image
-- [ ] Refactor the code to be more readable and maintainable
-- [ ] Support LeetCode.cn
+- [x] Refactor the code to be more readable and maintainable
+  - [x] Implement modular architecture
+  - [x] Add comprehensive documentation
+- [x] Support LeetCode.cn
+  - [x] Add slash command `/daily_cn` for LeetCode.cn daily challenge
+  - [ ] Add automatic posting scheduler for LeetCode.cn daily challenge
 - [ ] Query problem information from the database
 - [ ] Query the past daily challenge from the database
 - [x] Trace submission records of a specific user
