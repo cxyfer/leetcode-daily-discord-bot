@@ -80,24 +80,35 @@ DISCORD_TOKEN=your_bot_token_here
 
 ## 🗺️ Development Roadmap
 
-- [x] Add slash command prompts
-- [x] Reply in the same channel where slash commands are used
-- [x] Allow admin users to set the configuration
-- [x] Support multi-server configuration
-- [x] More comfortable runtime logs
-- [ ] Add Docker compose file and image
-- [x] Refactor the code to be more readable and maintainable
+- [x] 🎮 **Enhanced Command Interface**
+  - [x] Add slash command prompts
+  - [x] Reply in the same channel where slash commands are used
+- [x] ⚙️ **Advanced Configuration System**
+  - [x] Allow admin users to set the configuration
+    - [x] Set the channel to post the daily challenge
+    - [x] Set the posting time and timezone
+    - [x] Set the role to mention
+    - [ ] Set customizable message templates
+- [x] 🌐 **Multi-server Infrastructure**
+  - [x] Support server-specific configurations
+- [ ] 🐳 **Containerization Support**
+  - [ ] Add Docker compose file and image
+- [x] 📝 **Code Optimization**
+  - [x] Implement improved runtime logging
   - [x] Implement modular architecture
   - [x] Add comprehensive documentation
-- [x] Support LeetCode.cn
+- [x] 🇨🇳 **LeetCode.cn Integration**
   - [x] Add slash command `/daily_cn` for LeetCode.cn daily challenge
-  - [ ] Add automatic posting scheduler for LeetCode.cn daily challenge
-- [ ] Query problem information from the database
-- [ ] Query the past daily challenge from the database
-- [x] Trace submission records of a specific user
-- [ ] Allow users to set the account to trace submission records
-- [ ] Add ranking of submission records of each server
-- [ ] Support different display languages
+  - [ ] Implement separate scheduler for LeetCode.cn challenges
+- [ ] 🗄️ **Database Integration**
+  - [ ] Store and query problem information in database
+  - [ ] Enable historical daily challenge lookup
+- [ ] 📊 **User Engagement Features**
+  - [x] Track submission records of specific users
+  - [ ] Allow users to configure tracked LeetCode accounts
+  - [ ] Implement server-wide submission leaderboards
+- [ ] 🌍 **Internationalization**
+  - [ ] Support multiple display languages
 
 ## 🤝 Contributing
 
