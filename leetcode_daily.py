@@ -286,6 +286,89 @@ class LeetCodeClient:
             logger.info(f"Challenge data saved to {file_path}")
         
         return info
+    
+    def fetch_recent_ac_submissions(self, username, limit=15):
+        """
+        Fetch recent AC (Accepted) submissions for a given username
+        
+        Args:
+            username (str): LeetCode username
+            limit (int): Number of submissions to fetch (default: 15)
+        
+        Returns:
+            list: List of recent AC submissions, each containing:
+                - id: submission id
+                - title: problem title
+                - titleSlug: problem title slug
+                - timestamp: submission timestamp
+        """
+        # GraphQL query for recent AC submissions
+        query = """
+        query recentAcSubmissions($username: String!, $limit: Int!) {
+            recentAcSubmissionList(username: $username, limit: $limit) {
+                id
+                title
+                titleSlug
+                timestamp
+            }
+        }
+        """
+        
+        # Variables for the query
+        variables = {
+            "username": username,
+            "limit": limit
+        }
+        
+        # Request headers
+        headers = {
+            'Content-Type': 'application/json',
+            'Referer': f'{self.base_url}/u/{username}/'
+        }
+        
+        # Request payload
+        payload = {
+            "query": query,
+            "variables": variables,
+            "operationName": "recentAcSubmissions"
+        }
+        
+        try:
+            logger.info(f"Fetching recent AC submissions for user: {username}")
+            response = requests.post(self.api_endpoint, headers=headers, json=payload)
+            
+            if response.status_code != 200:
+                logger.error(f"API request failed: {response.status_code} - {response.text}")
+                return []
+            
+            data = response.json()
+            if 'errors' in data:
+                logger.error(f"GraphQL errors: {data['errors']}")
+                return []
+            
+            submissions = data.get('data', {}).get('recentAcSubmissionList', [])
+            logger.info(f"Successfully fetched {len(submissions)} submissions")
+            return submissions
+            
+        except Exception as e:
+            logger.error(f"Error fetching submissions: {str(e)}")
+            return []
+
+    # Placeholder for future API methods
+    def fetch_problem_by_id(self, problem_id):
+        """
+        Fetch a specific problem by ID
+        
+        Args:
+            problem_id (str): LeetCode problem ID
+            
+        Returns:
+            dict: Problem information
+        """
+        # Placeholder for implementation
+        logger.info(f"Method fetch_problem_by_id not fully implemented yet")
+        pass
+
 
 if __name__ == "__main__":
     try:
