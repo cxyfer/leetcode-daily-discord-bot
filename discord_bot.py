@@ -194,19 +194,27 @@ async def send_daily_challenge(channel_id=None, role_id=None, interaction=None, 
         
         # Create a Discord embed message
         embed = discord.Embed(
-            title=f"{info['qid']}. {info['title']}",
+            title=f"🔗 {info['qid']}. {info['title']}",
             color=embed_color,
             url=info['link']
         )
-        
+
+        # Add links to solve on both platforms
+        if domain == "com":
+            cn_link = info['link'].replace("leetcode.com", "leetcode.cn")
+            embed.description = f"You can also solve it on [LCCN (leetcode.cn)]({cn_link}) !"
+        else:
+            us_link = info['link'].replace("leetcode.cn", "leetcode.com")
+            embed.description = f"You can also solve it on [LCUS (leetcode.com)]({us_link}) !"
+
         # Add fields
-        embed.add_field(name="Difficulty", value=info['difficulty'], inline=True)
-        embed.add_field(name="Rating", value=f"|| {round(info['rating'])} ||", inline=True)
-        if info['tags']:
-            tags = ", ".join([f"||{tag}||" for tag in info['tags']])
-            embed.add_field(name="Tags", value=tags, inline=True)
+        embed.add_field(name="📊 Difficulty", value=f"**{info['difficulty']}**", inline=True)
+        embed.add_field(name="⭐ Rating", value=f"**{round(info['rating'])}**", inline=True)
+        if info['tags']:    
+            tags = ", ".join([f"|| *{tag}* ||" for tag in info['tags']])
+            embed.add_field(name="🏷️ Tags", value=tags, inline=True)
         
-        embed.set_footer(text=f"LeetCode Daily Challenge | {info['date']}")
+        embed.set_footer(text=f"LeetCode Daily Challenge ｜ {info['date']}", icon_url="https://leetcode.com/static/images/LeetCode_logo.png")
         
         # Determine how to send the message based on whether there is an interaction object
         if interaction:
