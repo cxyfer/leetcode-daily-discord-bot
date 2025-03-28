@@ -208,12 +208,12 @@ async def send_daily_challenge(channel_id=None, role_id=None, interaction=None, 
             embed.description = f"You can also solve it on [LCUS (leetcode.com)]({us_link}) !"
 
         # Add fields
-        embed.add_field(name="📊 Difficulty", value=f"**{info['difficulty']}**", inline=True)
+        embed.add_field(name="🔥 Difficulty", value=f"**{info['difficulty']}**", inline=True)
         embed.add_field(name="⭐ Rating", value=f"**{round(info['rating'])}**", inline=True)
+        embed.add_field(name="📈 AC Rate", value=f"**{round(info['ac_rate'], 2)}%**", inline=True)
         if info['tags']:    
             tags = ", ".join([f"|| *{tag}* ||" for tag in info['tags']])
-            embed.add_field(name="🏷️ Tags", value=tags, inline=True)
-        
+            embed.add_field(name="🏷️ Tags", value=tags, inline=False)
         embed.set_footer(text=f"LeetCode Daily Challenge ｜ {info['date']}", icon_url="https://leetcode.com/static/images/LeetCode_logo.png")
         
         # Determine how to send the message based on whether there is an interaction object

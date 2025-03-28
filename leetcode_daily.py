@@ -35,6 +35,8 @@ class LeetCodeClient:
         
         # Ensure data directory exists
         self.data_dir.mkdir(parents=True, exist_ok=True)
+
+        self.slug_to_id = {}
         
         logger.info(f"Initialized LeetCode client with domain: leetcode.{self.domain}")
     
@@ -137,16 +139,21 @@ class LeetCodeClient:
             question_info = raw_data['data']['activeDailyCodingChallengeQuestion']
             question = question_info['question']
             link = f"{self.base_url}{question_info['link']}"
+
+        logger.debug(f"Question info: {question_info}")
         
         # Extract the fields
-        date = question_info['date']
-        title = question['title']
-        difficulty = question['difficulty']
         qid = question['frontendQuestionId']
-        tags = [tag['name'] for tag in question['topicTags']]
-        rating = self.get_problem_rating(qid)
-        
-        return dict(date=date, qid=qid, title=title, difficulty=difficulty, rating=rating, link=link, tags=tags)
+        return dict(date=question_info['date'],
+                    qid=qid,
+                    title=question['title'],
+                    title_cn=question.get('titleCn', ''),
+                    difficulty=question['difficulty'],
+                    rating=self.get_problem_rating(qid),
+                    ac_rate=question['acRate'] if self.domain == "com" else question['acRate'] * 100,
+                    slug=question['titleSlug'],
+                    link=link,
+                    tags=[tag['name'] for tag in question['topicTags']])
 
     def get_problem_rating(self, problem_id):
         """
@@ -372,22 +379,25 @@ class LeetCodeClient:
 
 if __name__ == "__main__":
     try:
-        # For testing, create a client instance
-        import datetime
-        today = datetime.date.today().strftime("%Y-%m-%d")
+        import pytz
+        from datetime import datetime
 
         lcus = LeetCodeClient()
-        info = lcus.get_daily_challenge(today)
-        logger.debug(f"Today's challenge in LCUS: {info['qid']}. {info['title']} ({info['difficulty']})")
-
         lccn = LeetCodeClient(domain="cn")
-        info_cn = lccn.get_daily_challenge(today)
+
+        today_us = datetime.now(pytz.UTC).astimezone(pytz.timezone(lcus.time_zone)).strftime("%Y-%m-%d")
+        today_cn = datetime.now(pytz.UTC).astimezone(pytz.timezone(lccn.time_zone)).strftime("%Y-%m-%d")
+
+        info_us = lcus.get_daily_challenge(today_us)
+        logger.debug(f"Today's challenge in LCUS: {info_us['qid']}. {info_us['title']} ({info_us['difficulty']})")
+
+        info_cn = lccn.get_daily_challenge(today_cn)
         logger.debug(f"Today's challenge in LCCN: {info_cn['qid']}. {info_cn['title']} ({info_cn['difficulty']})")
 
         # Fetch recent AC submissions
         submissions = lcus.fetch_recent_ac_submissions("Yawn_Sean", limit=10)
         for submission in submissions:
             logger.debug(f"Submission: {submission['title']} ({submission['timestamp']})")
-        
+
     except Exception as e:
         logger.error(f"Error: {e}") 
