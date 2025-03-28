@@ -29,7 +29,7 @@ class LeetCodeClient:
         
         self.base_url = f"https://leetcode.{self.domain}"
         self.api_endpoint = f"{self.base_url}/graphql"
-        self.time_zone = "UTC+8" if self.domain == "cn" else "UTC"
+        self.time_zone = "Asia/Shanghai" if self.domain == "cn" else "UTC"
         self.data_dir = Path(data_dir)
         self.ratings_file = self.data_dir / "leetcode_ratings.json"
         

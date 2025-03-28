@@ -170,16 +170,14 @@ async def schedule_server_daily_challenge(server_config, offset_seconds=10):
 async def send_daily_challenge(channel_id=None, role_id=None, interaction=None, domain="com"):
     """Get and send the LeetCode daily challenge to the Discord channel"""
     try:
-        # Get the current date to create the date string
-        timezone = pytz.timezone("UTC")  # **Fix timezone to UTC**
+        client = lcus if domain == "com" else lccn
+
+        timezone = pytz.timezone(client.time_zone)
         now = datetime.now(timezone)
         date_str = now.strftime("%Y-%m-%d")
         
         # Get challenge information from leetcode_daily module
-        if domain == "com":
-            info = lcus.get_daily_challenge(date_str)
-        else:
-            info = lccn.get_daily_challenge(date_str)
+        info = client.get_daily_challenge(date_str)
         
         # Set the color based on the difficulty
         color_map = {
