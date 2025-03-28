@@ -226,11 +226,9 @@ async def send_daily_challenge(channel_id=None, role_id=None, interaction=None, 
         if channel_id:
             channel = bot.get_channel(channel_id)
             if channel:
-                # Only mention the role if it's set and not None
-                if role_id:
-                    await channel.send(f"<@&{role_id}>")
-                
-                await channel.send(embed=embed)
+                # 將角色提及和嵌入式訊息合併成一條訊息
+                mention_content = f"<@&{role_id}>" if role_id else None
+                await channel.send(content=mention_content, embed=embed)
                 logger.info(f"Sent LeetCode daily challenge to channel {channel_id}")
             else:
                 logger.warning(f"Failed to get channel {channel_id}")
