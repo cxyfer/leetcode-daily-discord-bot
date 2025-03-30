@@ -89,13 +89,15 @@ DISCORD_TOKEN=your_bot_token_here
     - [x] Set the posting time and timezone
     - [x] Set the role to mention
     - [ ] Set customizable message templates
+    - [ ] Integrate the existing excessive setup instructions
+    - [ ] More flexible notification settings
 - [x] 🌐 **Multi-server Infrastructure**
   - [x] Support server-specific configurations
 - [ ] 🐳 **Containerization Support**
   - [ ] Add Docker compose file and image
 - [x] 📝 **Code Optimization**
   - [x] Implement improved runtime logging
-  - [x] Implement modular architecture
+  - [ ] Implement modular architecture
   - [x] Add comprehensive documentation
 - [x] 🇨🇳 **LeetCode.cn Integration**
   - [x] Add slash command `/daily_cn` for LeetCode.cn daily challenge
