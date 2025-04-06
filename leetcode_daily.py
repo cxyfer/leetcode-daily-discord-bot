@@ -163,7 +163,7 @@ class LeetCodeClient:
             problem_id (str): LeetCode problem ID
             
         Returns:
-            float or int: Problem rating if found, -1 otherwise
+            float or int: Problem rating if found, 0 otherwise
         """
         os.makedirs(os.path.dirname(self.ratings_file), exist_ok=True)
         
@@ -193,8 +193,8 @@ class LeetCodeClient:
         except Exception as e:
             logger.error(f"Error updating ratings: {e}")
         
-        # Return -1 if problem rating is not found
-        return -1
+        # Return 0 if problem rating is not found
+        return 0
 
     def update_ratings_file(self):
         """

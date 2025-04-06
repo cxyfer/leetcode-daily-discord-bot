@@ -209,7 +209,8 @@ async def send_daily_challenge(channel_id=None, role_id=None, interaction=None, 
 
         # Add fields
         embed.add_field(name="🔥 Difficulty", value=f"**{info['difficulty']}**", inline=True)
-        embed.add_field(name="⭐ Rating", value=f"**{round(info['rating'])}**", inline=True)
+        if round(info['rating']) != 0:
+            embed.add_field(name="⭐ Rating", value=f"**{round(info['rating'])}**", inline=True)
         embed.add_field(name="📈 AC Rate", value=f"**{round(info['ac_rate'], 2)}%**", inline=True)
         if info['tags']:    
             tags = ", ".join([f"|| *{tag}* ||" for tag in info['tags']])
