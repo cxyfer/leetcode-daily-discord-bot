@@ -37,7 +37,7 @@
 
 3. Run the bot:
    ```bash
-   uv run discord_bot.py
+   uv run bot.py
    ```
 
 ## 🛠️ Configuration

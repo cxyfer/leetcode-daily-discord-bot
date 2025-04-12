@@ -1,4 +1,4 @@
 """
 Utils package initialization file.
 """
-from .db_manager import SettingsDatabaseManager 
+from .database import SettingsDatabaseManager 

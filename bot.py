@@ -11,7 +11,7 @@ from pathlib import Path
 import logging
 from utils.logger import setup_logging, get_logger
 
-from leetcode_daily import LeetCodeClient
+from leetcode import LeetCodeClient
 from utils import SettingsDatabaseManager
 
 # Set up logging
@@ -177,8 +177,8 @@ async def send_daily_challenge(channel_id=None, role_id=None, interaction=None, 
         date_str = now.strftime("%Y-%m-%d")
         
         # Get challenge information from leetcode_daily module
-        info = client.get_daily_challenge(date_str)
-        
+        info = await client.get_daily_challenge(date_str)
+
         # Set the color based on the difficulty
         color_map = {
             'Easy': 0x00FF00,  # Green
@@ -194,7 +194,7 @@ async def send_daily_challenge(channel_id=None, role_id=None, interaction=None, 
         
         # Create a Discord embed message
         embed = discord.Embed(
-            title=f"🔗 {info['qid']}. {info['title']}",
+            title=f"🔗 {info['id']}. {info['title']}",
             color=embed_color,
             url=info['link']
         )
@@ -215,6 +215,13 @@ async def send_daily_challenge(channel_id=None, role_id=None, interaction=None, 
         if info['tags']:    
             tags = ", ".join([f"|| *{tag}* ||" for tag in info['tags']])
             embed.add_field(name="🏷️ Tags", value=tags, inline=False)
+        if info['similar_questions']:
+            similar_questions = []
+            for question in info['similar_questions']:
+                sqi = await client.get_problem(slug=question['titleSlug'])
+                similar_questions.append(f"- {emoji_map[sqi['difficulty']]} [{sqi['id']}. {sqi['title']}]({sqi['link']})" + (f" *{round(sqi['rating'], 2)}*" if sqi['rating'] > 0 else ""))
+            embed.add_field(name="🔍 Similar Questions", value="\n".join(similar_questions), inline=False)
+
         embed.set_footer(text=f"LeetCode Daily Challenge ｜ {info['date']}", icon_url="https://leetcode.com/static/images/LeetCode_logo.png")
         
         # Determine how to send the message based on whether there is an interaction object
