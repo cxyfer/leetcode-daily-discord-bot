@@ -93,8 +93,6 @@ DISCORD_TOKEN=your_bot_token_here
     - [ ] More flexible notification settings
 - [x] 🌐 **Multi-server Infrastructure**
   - [x] Support server-specific configurations
-- [ ] 🐳 **Containerization Support**
-  - [ ] Add Docker compose file and image
 - [x] 📝 **Code Optimization**
   - [x] Implement improved runtime logging
   - [ ] Implement modular architecture
@@ -103,12 +101,14 @@ DISCORD_TOKEN=your_bot_token_here
   - [x] Add slash command `/daily_cn` for LeetCode.cn daily challenge
   - [ ] Implement separate scheduler for LeetCode.cn challenges
 - [ ] 🗄️ **Database Integration**
-  - [ ] Store and query problem information in database
-  - [ ] Enable historical daily challenge lookup
+  - [x] Store and query problem information in database
+  - [x] Enable historical daily challenge lookup
 - [ ] 📊 **User Engagement Features**
   - [x] Track submission records of specific users
   - [ ] Allow users to configure tracked LeetCode accounts
   - [ ] Implement server-wide submission leaderboards
+- [ ] 🐳 **Containerization Support**
+  - [ ] Add Docker compose file and image
 - [ ] 🌍 **Internationalization**
   - [ ] Support multiple display languages
 
