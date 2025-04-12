@@ -103,6 +103,8 @@ DISCORD_TOKEN=your_bot_token_here
 - [ ] 🗄️ **Database Integration**
   - [x] Store and query problem information in database
   - [x] Enable historical daily challenge lookup
+- [ ] 🔍 **Large Language Model Integration**
+  - [ ] Integrate LLM to generate problem translation
 - [ ] 📊 **User Engagement Features**
   - [x] Track submission records of specific users
   - [ ] Allow users to configure tracked LeetCode accounts
