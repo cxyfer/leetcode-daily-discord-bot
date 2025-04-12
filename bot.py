@@ -39,26 +39,83 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # Schedule tasks are stored here to be cancelled later
 schedule_tasks = {}
 
-# 新增一個Discord視圖類別來處理按鈕
-class DailyProblemView(View):
-    def __init__(self, description, timeout=300):
-        super().__init__(timeout=timeout)
-        self.description = description
+# Define a fixed custom ID prefix
+LEETCODE_BUTTON_PREFIX = "leetcode_problem_"
+
+# Global interaction event handler
+@bot.event
+async def on_interaction(interaction):
+    # Ignore non-button interactions
+    if interaction.type != discord.InteractionType.component:
+        return
+    
+    # Check if it's our LeetCode button
+    custom_id = interaction.data.get("custom_id", "")
+    if custom_id.startswith(LEETCODE_BUTTON_PREFIX):
+        logger.debug(f"接收到LeetCode按鈕交互: custom_id={custom_id}")
         
-    @discord.ui.button(label="顯示題目描述（僅自己可見）", style=discord.ButtonStyle.primary, emoji="📖")
-    async def show_description(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(self.description, ephemeral=True)
+        # Parse problem ID and domain
+        try:
+            parts = custom_id.split("_")
+            problem_id = parts[2]
+            domain = parts[3] if len(parts) > 3 else "com"
+            
+            logger.debug(f"嘗試獲取題目: problem_id={problem_id}, domain={domain}")
+            
+            # Select client based on domain
+            client = lcus if domain == "com" else lccn
+            
+            # Get problem from API
+            if problem_id and problem_id.isdigit():
+                problem_info = await client.get_problem(problem_id=problem_id)
+                
+                if problem_info and problem_info.get("content"):
+                    problem_content = html_to_text(problem_info["content"])
+                    
+                    # Limit character count
+                    if len(problem_content) > 1900:
+                        problem_content = problem_content[:1900] + "...\n(內容已截斷，請前往 LeetCode 網站查看完整題目)"
+                    
+                    # Add title and difficulty
+                    problem_content = f"# {problem_info['id']}. {problem_info['title']} ({problem_info['difficulty']})\n\n{problem_content}"
+                    
+                    logger.debug(f"成功獲取題目內容: length={len(problem_content)}")
+                else:
+                    problem_content = "無法獲取題目描述，請前往 LeetCode 網站查看。"
+                    logger.warning(f"題目沒有內容: problem_id={problem_id}")
+            else:
+                problem_content = "無效的題目ID，無法顯示題目描述。"
+                logger.warning(f"無效的題目ID: {problem_id}")
+            
+            # Respond to interaction
+            await interaction.response.send_message(problem_content, ephemeral=True)
+            logger.debug(f"成功發送題目描述: problem_id={problem_id}")
+            
+        except discord.errors.InteractionResponded:
+            await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
+        except Exception as e:
+            logger.error(f"處理按鈕交互時發生錯誤: {e}", exc_info=True)
+            try:
+                await interaction.response.send_message(f"顯示題目時發生錯誤：{str(e)}", ephemeral=True)
+            except:
+                try:
+                    await interaction.followup.send(f"顯示題目時發生錯誤：{str(e)}", ephemeral=True)
+                except:
+                    pass
 
 @bot.event
 async def on_ready():
     """When the bot successfully connects to Discord"""
+    logger.info(f'開始同步 slash 命令...')
     slash = await bot.tree.sync()  # Sync slash commands
     
     logger.info(f'{bot.user} has connected to Discord!')
     logger.info(f'Loaded {len(slash)} slash commands')
     
     # Start the daily schedule tasks
+    logger.info(f'開始排程每日挑戰任務...')
     await schedule_daily_challenges()
+    logger.info(f'排程每日挑戰任務完成')
 
 async def reschedule_daily_challenge(server_id=None):
     """Reschedule the daily challenge task
@@ -181,14 +238,19 @@ async def schedule_server_daily_challenge(server_config, offset_seconds=10):
 async def send_daily_challenge(channel_id=None, role_id=None, interaction=None, domain="com"):
     """Get and send the LeetCode daily challenge to the Discord channel"""
     try:
+        logger.info(f"開始獲取每日挑戰: domain={domain}, channel_id={channel_id}, interaction_id={interaction.id if interaction else None}")
+        
         client = lcus if domain == "com" else lccn
 
         timezone = pytz.timezone(client.time_zone)
         now = datetime.now(timezone)
         date_str = now.strftime("%Y-%m-%d")
+        logger.debug(f"獲取日期: {date_str}, timezone: {client.time_zone}")
         
         # Get challenge information from leetcode_daily module
+        logger.debug(f"開始從 LeetCode 獲取挑戰: {date_str}")
         info = await client.get_daily_challenge(date_str)
+        logger.debug(f"獲取挑戰成功: id={info['id']}, title={info['title']}")
 
         # Set the color based on the difficulty
         color_map = {
@@ -235,39 +297,42 @@ async def send_daily_challenge(channel_id=None, role_id=None, interaction=None, 
 
         embed.set_footer(text=f"LeetCode Daily Challenge ｜ {info['date']}", icon_url="https://leetcode.com/static/images/LeetCode_logo.png")
         
-        # 處理題目描述內容
-        problem_content = "無題目描述"
-        if info.get("content"):
-            problem_content = html_to_text(info["content"])
-            # 限制字符數，避免超過Discord訊息限制
-            if len(problem_content) > 1900:
-                problem_content = problem_content[:1900] + "...\n(內容已截斷，請前往 LeetCode 網站查看完整題目)"
-            
-            # 添加標題和提示
-            problem_content = f"# {info['id']}. {info['title']} ({info['difficulty']})\n\n{problem_content}"
+        # 創建一個自訂ID，包含問題ID和域名
+        custom_id = f"{LEETCODE_BUTTON_PREFIX}{info['id']}_{domain}"
         
-        # 建立按鈕視圖
-        view = DailyProblemView(problem_content)
+        # 創建按鈕組件
+        button = discord.ui.Button(
+            style=discord.ButtonStyle.primary,
+            label="顯示題目描述（僅自己可見）",
+            emoji="📖",
+            custom_id=custom_id
+        )
+        
+        # 創建包含按鈕的視圖
+        view = discord.ui.View(timeout=None)
+        view.add_item(button)
 
-        # Determine how to send the message based on whether there is an interaction object
+        # Determine how to send the message
         if interaction:
+            logger.debug(f"通過互動發送訊息: interaction_id={interaction.id}")
             await interaction.followup.send(embed=embed, view=view)
-            logger.info(f"Sent LeetCode daily challenge as response to slash command")
+            logger.info(f"成功發送每日挑戰到互動: interaction_id={interaction.id}")
             return
             
         # For scheduled messages
         if channel_id:
+            logger.debug(f"獲取頻道: channel_id={channel_id}")
             channel = bot.get_channel(channel_id)
             if channel:
-                # 將角色提及和嵌入式訊息合併成一條訊息
                 mention_content = f"<@&{role_id}>" if role_id else None
+                logger.debug(f"發送訊息到頻道: channel_id={channel_id}, mention={mention_content is not None}")
                 await channel.send(content=mention_content, embed=embed, view=view)
-                logger.info(f"Sent LeetCode daily challenge to channel {channel_id}")
+                logger.info(f"成功發送每日挑戰到頻道: channel_id={channel_id}")
             else:
-                logger.warning(f"Failed to get channel {channel_id}")
+                logger.warning(f"無法獲取頻道: channel_id={channel_id}")
     
     except Exception as e:
-        logger.error(f"Error sending daily challenge: {e}")
+        logger.error(f"獲取/發送每日挑戰時出錯: {e}", exc_info=True)
         if interaction:
             await interaction.followup.send("無法取得 LeetCode 每日挑戰。")
 
