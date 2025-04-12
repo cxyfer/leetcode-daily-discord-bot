@@ -76,8 +76,9 @@ async def on_interaction(interaction):
                     if len(problem_content) > 1900:
                         problem_content = problem_content[:1900] + "...\n(內容已截斷，請前往 LeetCode 網站查看完整題目)"
                     
+                    emoji = {'Easy': '🟢', 'Medium': '🟡', 'Hard': '🔴'}.get(problem_info['difficulty'], '')
                     # Add title and difficulty
-                    problem_content = f"# {problem_info['id']}. {problem_info['title']} ({problem_info['difficulty']})\n\n{problem_content}"
+                    problem_content = f"# {emoji} [{problem_info['id']}. {problem_info['title']}]({problem_info['link']}) ({problem_info['difficulty']})\n\n{problem_content}"
                     
                     logger.debug(f"成功獲取題目內容: length={len(problem_content)}")
                 else:
