@@ -11,8 +11,9 @@ from pathlib import Path
 import logging
 from utils.logger import setup_logging, get_logger
 
-from leetcode import LeetCodeClient
+from leetcode import LeetCodeClient, html_to_text
 from utils import SettingsDatabaseManager
+from discord.ui import View, Button
 
 # Set up logging
 setup_logging()
@@ -37,6 +38,16 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Schedule tasks are stored here to be cancelled later
 schedule_tasks = {}
+
+# 新增一個Discord視圖類別來處理按鈕
+class DailyProblemView(View):
+    def __init__(self, description, timeout=300):
+        super().__init__(timeout=timeout)
+        self.description = description
+        
+    @discord.ui.button(label="顯示題目描述（僅自己可見）", style=discord.ButtonStyle.primary, emoji="📖")
+    async def show_description(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message(self.description, ephemeral=True)
 
 @bot.event
 async def on_ready():
@@ -224,9 +235,23 @@ async def send_daily_challenge(channel_id=None, role_id=None, interaction=None, 
 
         embed.set_footer(text=f"LeetCode Daily Challenge ｜ {info['date']}", icon_url="https://leetcode.com/static/images/LeetCode_logo.png")
         
+        # 處理題目描述內容
+        problem_content = "無題目描述"
+        if info.get("content"):
+            problem_content = html_to_text(info["content"])
+            # 限制字符數，避免超過Discord訊息限制
+            if len(problem_content) > 1900:
+                problem_content = problem_content[:1900] + "...\n(內容已截斷，請前往 LeetCode 網站查看完整題目)"
+            
+            # 添加標題和提示
+            problem_content = f"# {info['id']}. {info['title']} ({info['difficulty']})\n\n{problem_content}"
+        
+        # 建立按鈕視圖
+        view = DailyProblemView(problem_content)
+
         # Determine how to send the message based on whether there is an interaction object
         if interaction:
-            await interaction.followup.send(embed=embed)
+            await interaction.followup.send(embed=embed, view=view)
             logger.info(f"Sent LeetCode daily challenge as response to slash command")
             return
             
@@ -236,7 +261,7 @@ async def send_daily_challenge(channel_id=None, role_id=None, interaction=None, 
             if channel:
                 # 將角色提及和嵌入式訊息合併成一條訊息
                 mention_content = f"<@&{role_id}>" if role_id else None
-                await channel.send(content=mention_content, embed=embed)
+                await channel.send(content=mention_content, embed=embed, view=view)
                 logger.info(f"Sent LeetCode daily challenge to channel {channel_id}")
             else:
                 logger.warning(f"Failed to get channel {channel_id}")
