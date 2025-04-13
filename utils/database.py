@@ -435,6 +435,170 @@ class ProblemsDatabaseManager:
         return None
 
     def _row_to_dict(self, row):
+        keys = [
+            "id", "slug", "title", "title_cn", "difficulty", "ac_rate", "rating",
+            "contest", "problem_index", "tags", "link", "category", "paid_only",
+            "content", "content_cn", "similar_questions"
+        ]
+        return dict(zip(keys, row))
+
+class LLMTranslateDatabaseManager:
+    """
+    管理 LLM 翻譯結果的資料庫操作
+    """
+    def __init__(self, db_path="data/data.db"):
+        self.db_path = db_path
+        Path(os.path.dirname(db_path)).mkdir(parents=True, exist_ok=True)
+        self._init_db()
+        logger.info(f"LLMTranslate DB manager initialized with database at {db_path}")
+
+    def _init_db(self):
+        """建立 llm_translate_results 資料表"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS llm_translate_results (
+            problem_id INTEGER NOT NULL,
+            domain TEXT NOT NULL,
+            translation TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (problem_id, domain)
+        )
+        ''')
+        conn.commit()
+        conn.close()
+        logger.debug("llm_translate_results table initialized")
+
+    def get_translation(self, problem_id, domain, expire_seconds=604800):
+        """
+        查詢翻譯結果，若超過 expire_seconds（預設一週）則回傳 None
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT translation, created_at FROM llm_translate_results WHERE problem_id = ? AND domain = ?",
+            (problem_id, domain)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            import datetime
+            translation, created_at = row
+            # created_at 可能是字串
+            try:
+                created_at_dt = datetime.datetime.fromisoformat(created_at)
+            except Exception:
+                import time
+                created_at_dt = datetime.datetime.fromtimestamp(time.mktime(time.strptime(created_at, "%Y-%m-%d %H:%M:%S")))
+            now = datetime.datetime.now()
+            if (now - created_at_dt).total_seconds() <= expire_seconds:
+                return translation
+        return None
+
+    def save_translation(self, problem_id, domain, translation):
+        """
+        寫入或覆蓋翻譯結果
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+        INSERT OR REPLACE INTO llm_translate_results (problem_id, domain, translation, created_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        ''', (problem_id, domain, translation))
+        conn.commit()
+        conn.close()
+        logger.info(f"Saved LLM translation for problem_id={problem_id}, domain={domain}")
+
+class LLMInspireDatabaseManager:
+    """
+    管理 LLM 靈感啟發結果的資料庫操作
+    """
+    def __init__(self, db_path="data/data.db"):
+        self.db_path = db_path
+        Path(os.path.dirname(db_path)).mkdir(parents=True, exist_ok=True)
+        self._init_db()
+        logger.info(f"LLMInspire DB manager initialized with database at {db_path}")
+
+    def _init_db(self):
+        """建立 llm_inspire_results 資料表"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS llm_inspire_results (
+            problem_id INTEGER NOT NULL,
+            domain TEXT NOT NULL,
+            thinking TEXT,
+            traps TEXT,
+            algorithms TEXT,
+            inspiration TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (problem_id, domain)
+        )
+        ''')
+        conn.commit()
+        conn.close()
+        logger.debug("llm_inspire_results table initialized")
+
+    def get_inspire(self, problem_id, domain, expire_seconds=604800):
+        """
+        查詢靈感啟發結果，若超過 expire_seconds（預設一週）則回傳 None
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT thinking, traps, algorithms, inspiration, created_at FROM llm_inspire_results WHERE problem_id = ? AND domain = ?",
+            (problem_id, domain)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            import datetime
+            thinking, traps, algorithms, inspiration, created_at = row
+            try:
+                created_at_dt = datetime.datetime.fromisoformat(created_at)
+            except Exception:
+                import time
+                created_at_dt = datetime.datetime.fromtimestamp(time.mktime(time.strptime(created_at, "%Y-%m-%d %H:%M:%S")))
+            now = datetime.datetime.now()
+            if (now - created_at_dt).total_seconds() <= expire_seconds:
+                return {
+                    "thinking": thinking,
+                    "traps": traps,
+                    "algorithms": algorithms,
+                    "inspiration": inspiration
+                }
+        return None
+
+    def save_inspire(self, problem_id, domain, thinking, traps, algorithms, inspiration):
+        """
+        寫入或覆蓋靈感啟發結果
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        # 確保所有欄位都是 str
+        def safe_str(val):
+            if val is None:
+                return ""
+            if isinstance(val, (dict, list)):
+                import json
+                return json.dumps(val, ensure_ascii=False)
+            return str(val)
+        cursor.execute('''
+        INSERT OR REPLACE INTO llm_inspire_results (problem_id, domain, thinking, traps, algorithms, inspiration, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ''', (
+            problem_id,
+            domain,
+            safe_str(thinking),
+            safe_str(traps),
+            safe_str(algorithms),
+            safe_str(inspiration)
+        ))
+        conn.commit()
+        conn.close()
+        logger.info(f"Saved LLM inspire for problem_id={problem_id}, domain={domain}")
+
+    def _row_to_dict(self, row):
         keys = ["id", "slug", "title", "title_cn", "difficulty", "ac_rate", "rating", "contest", "problem_index", "tags", "link", "category", "paid_only", "content", "content_cn", "similar_questions"]
         return dict(zip(keys, row))
 
