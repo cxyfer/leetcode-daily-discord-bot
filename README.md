@@ -103,8 +103,9 @@ DISCORD_TOKEN=your_bot_token_here
 - [ ] 🗄️ **Database Integration**
   - [x] Store and query problem information in database
   - [x] Enable historical daily challenge lookup
-- [ ] 🔍 **Large Language Model Integration**
-  - [ ] Integrate LLM to generate problem translation
+- [x] 🔍 **Large Language Model Integration**
+  - [x] Integrate LLM to generate problem translation and inspiration
+  - [x] Cache LLM results to improve performance
 - [ ] 📊 **User Engagement Features**
   - [x] Track submission records of specific users
   - [ ] Allow users to configure tracked LeetCode accounts
@@ -120,10 +121,15 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ## 📦 Dependencies
 
-- [discord.py](https://github.com/Rapptz/discord.py) - Discord bot framework
-- [python-dotenv](https://github.com/theskumar/python-dotenv) - Environment variable management
-- [requests](https://github.com/psf/requests) - HTTP library for API calls
-- [pytz](https://github.com/stub42/pytz) - Timezone handling
+- [discord.py](https://pypi.org/project/discord.py/) - Discord bot framework
+- [python-dotenv](https://pypi.org/project/python-dotenv/) - Environment variable management
+- [requests](https://pypi.org/project/requests/) - HTTP library for API calls
+- [pytz](https://pypi.org/project/pytz/) - Timezone handling
+- [beautifulsoup4](https://pypi.org/project/beautifulsoup4/) - HTML parsing
+- [colorlog](https://pypi.org/project/colorlog/) - Colored logging output
+- [langchain](https://pypi.org/project/langchain/) - LLM application framework
+- [langchain-google-genai](https://pypi.org/project/langchain-google-genai/) - Google Gemini LLM integration
+- [aiohttp](https://pypi.org/project/aiohttp/) - Asynchronous HTTP client/server
 
 ## 📄 License
 
