@@ -454,7 +454,7 @@ async def send_daily_challenge(channel_id=None, role_id=None, interaction=None, 
             similar_questions = []
             for question in info['similar_questions']:
                 sqi = await client.get_problem(slug=question['titleSlug'])
-                similar_questions.append(f"- {emoji_map[sqi['difficulty']]} [{sqi['id']}. {sqi['title']}]({sqi['link']})" + (f" *{round(sqi['rating'], 2)}*" if sqi['rating'] > 0 else ""))
+                similar_questions.append(f"- {emoji_map[sqi['difficulty']]} [{sqi['id']}. {sqi['title']}]({sqi['link']})" + (f" *{int(sqi['rating'])}*" if sqi['rating'] > 0 else ""))
             embed.add_field(name="🔍 Similar Questions", value="\n".join(similar_questions), inline=False)
 
         embed.set_footer(text=f"LeetCode Daily Challenge ｜ {info['date']}", icon_url="https://leetcode.com/static/images/LeetCode_logo.png")
