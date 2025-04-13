@@ -1,6 +1,7 @@
 import sqlite3
 import os
 import json
+import time
 from pathlib import Path
 from .logger import setup_logging, get_logger
 
@@ -446,11 +447,12 @@ class LLMTranslateDatabaseManager:
     """
     管理 LLM 翻譯結果的資料庫操作
     """
-    def __init__(self, db_path="data/data.db"):
+    def __init__(self, db_path="data/data.db", expire_seconds=604800):
         self.db_path = db_path
+        self.expire_seconds = expire_seconds
         Path(os.path.dirname(db_path)).mkdir(parents=True, exist_ok=True)
         self._init_db()
-        logger.info(f"LLMTranslate DB manager initialized with database at {db_path}")
+        logger.info(f"LLMTranslate DB manager initialized with database at {db_path}, expire_seconds={expire_seconds}")
 
     def _init_db(self):
         """建立 llm_translate_results 資料表"""
@@ -461,7 +463,7 @@ class LLMTranslateDatabaseManager:
             problem_id INTEGER NOT NULL,
             domain TEXT NOT NULL,
             translation TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at INTEGER NOT NULL,
             PRIMARY KEY (problem_id, domain)
         )
         ''')
@@ -469,10 +471,13 @@ class LLMTranslateDatabaseManager:
         conn.close()
         logger.debug("llm_translate_results table initialized")
 
-    def get_translation(self, problem_id, domain, expire_seconds=604800):
+    def get_translation(self, problem_id, domain, expire_seconds=None):
         """
-        查詢翻譯結果，若超過 expire_seconds（預設一週）則回傳 None
+        查詢翻譯結果，若超過 expire_seconds 則回傳 None
         """
+        if expire_seconds is None:
+            expire_seconds = self.expire_seconds
+            
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute(
@@ -481,30 +486,27 @@ class LLMTranslateDatabaseManager:
         )
         row = cursor.fetchone()
         conn.close()
+        
         if row:
-            import datetime
+            
             translation, created_at = row
-            # created_at 可能是字串
-            try:
-                created_at_dt = datetime.datetime.fromisoformat(created_at)
-            except Exception:
-                import time
-                created_at_dt = datetime.datetime.fromtimestamp(time.mktime(time.strptime(created_at, "%Y-%m-%d %H:%M:%S")))
-            now = datetime.datetime.now()
-            if (now - created_at_dt).total_seconds() <= expire_seconds:
+            now = int(time.time())
+            if now - created_at <= expire_seconds:
                 return translation
         return None
 
     def save_translation(self, problem_id, domain, translation):
         """
-        寫入或覆蓋翻譯結果
+        寫入或覆蓋翻譯結果，使用 UNIX timestamp 儲存時間
         """
+        now = int(time.time())
+        
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
         INSERT OR REPLACE INTO llm_translate_results (problem_id, domain, translation, created_at)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-        ''', (problem_id, domain, translation))
+        VALUES (?, ?, ?, ?)
+        ''', (problem_id, domain, translation, now))
         conn.commit()
         conn.close()
         logger.info(f"Saved LLM translation for problem_id={problem_id}, domain={domain}")
@@ -513,11 +515,12 @@ class LLMInspireDatabaseManager:
     """
     管理 LLM 靈感啟發結果的資料庫操作
     """
-    def __init__(self, db_path="data/data.db"):
+    def __init__(self, db_path="data/data.db", expire_seconds=604800):
         self.db_path = db_path
+        self.expire_seconds = expire_seconds
         Path(os.path.dirname(db_path)).mkdir(parents=True, exist_ok=True)
         self._init_db()
-        logger.info(f"LLMInspire DB manager initialized with database at {db_path}")
+        logger.info(f"LLMInspire DB manager initialized with database at {db_path}, expire_seconds={expire_seconds}")
 
     def _init_db(self):
         """建立 llm_inspire_results 資料表"""
@@ -531,7 +534,7 @@ class LLMInspireDatabaseManager:
             traps TEXT,
             algorithms TEXT,
             inspiration TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at INTEGER NOT NULL,
             PRIMARY KEY (problem_id, domain)
         )
         ''')
@@ -539,10 +542,13 @@ class LLMInspireDatabaseManager:
         conn.close()
         logger.debug("llm_inspire_results table initialized")
 
-    def get_inspire(self, problem_id, domain, expire_seconds=604800):
+    def get_inspire(self, problem_id, domain, expire_seconds=None):
         """
-        查詢靈感啟發結果，若超過 expire_seconds（預設一週）則回傳 None
+        查詢靈感啟發結果，若超過 expire_seconds（預設使用初始化時設定的值）則回傳 None
         """
+        if expire_seconds is None:
+            expire_seconds = self.expire_seconds
+            
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute(
@@ -551,16 +557,11 @@ class LLMInspireDatabaseManager:
         )
         row = cursor.fetchone()
         conn.close()
+        
         if row:
-            import datetime
             thinking, traps, algorithms, inspiration, created_at = row
-            try:
-                created_at_dt = datetime.datetime.fromisoformat(created_at)
-            except Exception:
-                import time
-                created_at_dt = datetime.datetime.fromtimestamp(time.mktime(time.strptime(created_at, "%Y-%m-%d %H:%M:%S")))
-            now = datetime.datetime.now()
-            if (now - created_at_dt).total_seconds() <= expire_seconds:
+            now = int(time.time())
+            if now - created_at <= expire_seconds:
                 return {
                     "thinking": thinking,
                     "traps": traps,
@@ -571,8 +572,10 @@ class LLMInspireDatabaseManager:
 
     def save_inspire(self, problem_id, domain, thinking, traps, algorithms, inspiration):
         """
-        寫入或覆蓋靈感啟發結果
+        寫入或覆蓋靈感啟發結果，使用 UNIX timestamp 儲存時間
         """
+        now = int(time.time())
+        
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         # 確保所有欄位都是 str
@@ -585,14 +588,15 @@ class LLMInspireDatabaseManager:
             return str(val)
         cursor.execute('''
         INSERT OR REPLACE INTO llm_inspire_results (problem_id, domain, thinking, traps, algorithms, inspiration, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', (
             problem_id,
             domain,
             safe_str(thinking),
             safe_str(traps),
             safe_str(algorithms),
-            safe_str(inspiration)
+            safe_str(inspiration),
+            now
         ))
         conn.commit()
         conn.close()

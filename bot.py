@@ -29,8 +29,8 @@ TIMEZONE = os.getenv('TIMEZONE', 'UTC')  # Default to UTC
 
 # Initialize the database manager
 db = SettingsDatabaseManager()
-llm_translate_db = LLMTranslateDatabaseManager()
-llm_inspire_db = LLMInspireDatabaseManager()
+llm_translate_db = LLMTranslateDatabaseManager(expire_seconds=3600)
+llm_inspire_db = LLMInspireDatabaseManager(expire_seconds=86400)
 
 # Initialize LeetCode client
 lcus = LeetCodeClient()
