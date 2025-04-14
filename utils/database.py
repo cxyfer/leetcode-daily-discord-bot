@@ -464,6 +464,7 @@ class LLMTranslateDatabaseManager:
             domain TEXT NOT NULL,
             translation TEXT,
             created_at INTEGER NOT NULL,
+            model_name TEXT,
             PRIMARY KEY (problem_id, domain)
         )
         ''')
@@ -481,35 +482,43 @@ class LLMTranslateDatabaseManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT translation, created_at FROM llm_translate_results WHERE problem_id = ? AND domain = ?",
+            "SELECT translation, created_at, model_name FROM llm_translate_results WHERE problem_id = ? AND domain = ?",
             (problem_id, domain)
         )
         row = cursor.fetchone()
         conn.close()
         
         if row:
-            
-            translation, created_at = row
+            translation, created_at, model_name = row
             now = int(time.time())
             if now - created_at <= expire_seconds:
-                return translation
+                return {
+                    "translation": translation,
+                    "model_name": model_name
+                }
         return None
 
-    def save_translation(self, problem_id, domain, translation):
+    def save_translation(self, problem_id, domain, translation, model_name=None):
         """
         寫入或覆蓋翻譯結果，使用 UNIX timestamp 儲存時間
+        
+        Args:
+            problem_id (int): 題目ID
+            domain (str): 網域 (com/cn)
+            translation (str): 翻譯內容
+            model_name (str, optional): 使用的模型名稱
         """
         now = int(time.time())
         
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
-        INSERT OR REPLACE INTO llm_translate_results (problem_id, domain, translation, created_at)
-        VALUES (?, ?, ?, ?)
-        ''', (problem_id, domain, translation, now))
+        INSERT OR REPLACE INTO llm_translate_results (problem_id, domain, translation, created_at, model_name)
+        VALUES (?, ?, ?, ?, ?)
+        ''', (problem_id, domain, translation, now, model_name))
         conn.commit()
         conn.close()
-        logger.info(f"Saved LLM translation for problem_id={problem_id}, domain={domain}")
+        logger.info(f"Saved LLM translation for problem_id={problem_id}, domain={domain}, model={model_name}")
 
 class LLMInspireDatabaseManager:
     """
@@ -535,6 +544,7 @@ class LLMInspireDatabaseManager:
             algorithms TEXT,
             inspiration TEXT,
             created_at INTEGER NOT NULL,
+            model_name TEXT,
             PRIMARY KEY (problem_id, domain)
         )
         ''')
@@ -552,27 +562,37 @@ class LLMInspireDatabaseManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT thinking, traps, algorithms, inspiration, created_at FROM llm_inspire_results WHERE problem_id = ? AND domain = ?",
+            "SELECT thinking, traps, algorithms, inspiration, created_at, model_name FROM llm_inspire_results WHERE problem_id = ? AND domain = ?",
             (problem_id, domain)
         )
         row = cursor.fetchone()
         conn.close()
         
         if row:
-            thinking, traps, algorithms, inspiration, created_at = row
+            thinking, traps, algorithms, inspiration, created_at, model_name = row
             now = int(time.time())
             if now - created_at <= expire_seconds:
                 return {
                     "thinking": thinking,
                     "traps": traps,
                     "algorithms": algorithms,
-                    "inspiration": inspiration
+                    "inspiration": inspiration,
+                    "model_name": model_name
                 }
         return None
 
-    def save_inspire(self, problem_id, domain, thinking, traps, algorithms, inspiration):
+    def save_inspire(self, problem_id, domain, thinking, traps, algorithms, inspiration, model_name=None):
         """
         寫入或覆蓋靈感啟發結果，使用 UNIX timestamp 儲存時間
+        
+        Args:
+            problem_id (int): 題目ID
+            domain (str): 網域 (com/cn)
+            thinking (str): 思路內容
+            traps (str): 陷阱內容
+            algorithms (str): 演算法內容
+            inspiration (str): 靈感內容
+            model_name (str, optional): 使用的模型名稱
         """
         now = int(time.time())
         
@@ -587,8 +607,8 @@ class LLMInspireDatabaseManager:
                 return json.dumps(val, ensure_ascii=False)
             return str(val)
         cursor.execute('''
-        INSERT OR REPLACE INTO llm_inspire_results (problem_id, domain, thinking, traps, algorithms, inspiration, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO llm_inspire_results (problem_id, domain, thinking, traps, algorithms, inspiration, created_at, model_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             problem_id,
             domain,
@@ -596,11 +616,12 @@ class LLMInspireDatabaseManager:
             safe_str(traps),
             safe_str(algorithms),
             safe_str(inspiration),
-            now
+            now,
+            model_name
         ))
         conn.commit()
         conn.close()
-        logger.info(f"Saved LLM inspire for problem_id={problem_id}, domain={domain}")
+        logger.info(f"Saved LLM inspire for problem_id={problem_id}, domain={domain}, model={model_name}")
 
     def _row_to_dict(self, row):
         keys = ["id", "slug", "title", "title_cn", "difficulty", "ac_rate", "rating", "contest", "problem_index", "tags", "link", "category", "paid_only", "content", "content_cn", "similar_questions"]

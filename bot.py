@@ -67,156 +67,13 @@ async def on_interaction(interaction):
 
     custom_id = interaction.data.get("custom_id", "")
 
-    # Button for LLM translation
-    if custom_id.startswith(LEETCODE_TRANSLATE_BUTTON_PREFIX):
-        logger.debug(f"接收到LeetCode LLM翻譯按鈕交互: custom_id={custom_id}")
-        try:
-            # 先 defer，避免 interaction 過期
-            await interaction.response.defer(ephemeral=True)
-            parts = custom_id.split("_")
-            # 格式: leetcode_translate_{problem_id}_{domain}
-            problem_id = parts[2]
-            domain = parts[3] if len(parts) > 3 else "com"
-
-            logger.debug(f"嘗試獲取題目並進行LLM翻譯: problem_id={problem_id}, domain={domain}")
-
-            client = lcus if domain == "com" else lccn
-
-            if problem_id and problem_id.isdigit():
-                # 先查詢 DB cache
-                translation = llm_translate_db.get_translation(int(problem_id), domain)
-                if translation:
-                    logger.debug(f"從DB取得LLM翻譯: problem_id={problem_id}")
-                    await interaction.followup.send(translation, ephemeral=True)
-                    return
-
-                problem_info = await client.get_problem(problem_id=problem_id)
-                if problem_info and problem_info.get("content"):
-                    problem_content = html_to_text(problem_info["content"])
-                    # LLM 翻譯
-                    try:
-                        translation = llm.translate(problem_content, "zh-TW")
-                        # 長度限制
-                        if len(translation) > 1900:
-                            translation = translation[:1900] + "...\n(翻譯內容已截斷)"
-                        # 寫入 DB
-                        llm_translate_db.save_translation(int(problem_id), domain, translation)
-                        await interaction.followup.send(translation, ephemeral=True)
-                        logger.debug(f"成功發送LLM翻譯並寫入DB: problem_id={problem_id}")
-                    except Exception as llm_e:
-                        logger.error(f"LLM 翻譯失敗: {llm_e}", exc_info=True)
-                        await interaction.followup.send(f"LLM 翻譯失敗：{str(llm_e)}", ephemeral=True)
-                else:
-                    logger.warning(f"題目沒有內容: problem_id={problem_id}")
-                    await interaction.followup.send("無法獲取題目描述，請前往 LeetCode 網站查看。", ephemeral=True)
-            else:
-                logger.warning(f"無效的題目ID: {problem_id}")
-                await interaction.followup.send("無效的題目ID，無法顯示翻譯。", ephemeral=True)
-        except discord.errors.InteractionResponded:
-            await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
-        except Exception as e:
-            logger.error(f"處理LLM翻譯按鈕交互時發生錯誤: {e}", exc_info=True)
-            try:
-                await interaction.followup.send(f"LLM 翻譯時發生錯誤：{str(e)}", ephemeral=True)
-            except:
-                pass
-        return
-    
-    # Button for LLM inspire
-    def format_inspire_field(val):
-        if isinstance(val, list):
-            return '\n'.join(f"- {x}" for x in val)
-        return str(val)
-
-    INSPIRE_FIELDS = [
-        ("thinking", "🧠 思路"),
-        ("traps", "⚠️ 陷阱"),
-        ("algorithms", "🛠️ 推薦演算法"),
-        ("inspiration", "✨ 其他靈感"),
-    ]
-
-    if custom_id.startswith(LEETCODE_INSPIRE_BUTTON_PREFIX):
-        logger.debug(f"接收到LeetCode 靈感啟發按鈕交互: custom_id={custom_id}")
-        try:
-            await interaction.response.defer(ephemeral=True)
-            parts = custom_id.split("_")
-            # 格式: leetcode_inspire_{problem_id}_{domain}
-            problem_id = parts[2]
-            domain = parts[3] if len(parts) > 3 else "com"
-
-            logger.debug(f"嘗試獲取題目並進行LLM靈感啟發: problem_id={problem_id}, domain={domain}")
-
-            if not problem_id or not problem_id.isdigit():
-                logger.warning(f"無效的題目ID: {problem_id}")
-                await interaction.followup.send("無效的題目ID，無法顯示靈感啟發。", ephemeral=True)
-                return
-
-            inspire_result = llm_inspire_db.get_inspire(int(problem_id), domain)
-            if inspire_result:
-                logger.debug(f"Get inspire result from DB: problem_id={problem_id}")
-            else:
-                client = lcus if domain == "com" else lccn
-                problem_info = await client.get_problem(problem_id=problem_id)
-                if problem_info and problem_info.get("content"):
-                    problem_content = html_to_text(problem_info["content"])
-                    tags = problem_info.get("tags", [])
-                    difficulty = problem_info.get("difficulty", "")
-                else:
-                    logger.warning(f"題目沒有內容: problem_id={problem_id}")
-                    await interaction.followup.send("無法獲取題目資訊。", ephemeral=True)
-                    return
-                
-                # Get inspire result from LLM
-                try:
-                    inspire_result = llm_pro.inspire(problem_content, tags, difficulty)
-                    if not isinstance(inspire_result, dict) or not all(k in inspire_result for k in ["thinking", "traps", "algorithms", "inspiration"]):
-                        # 回傳原始 LLM 回覆
-                        raw = inspire_result.get("raw", inspire_result)
-                        if len(str(raw)) > 1900:
-                            raw = str(raw)[:1900] + "...\n(內容已截斷)"
-                        await interaction.followup.send(str(raw), ephemeral=True)
-                        logger.debug(f"發送原始 LLM 靈感回覆: problem_id={problem_id}")
-                        return
-                    # --- DB cache: save inspire result ---
-                    formatted_fields = [format_inspire_field(inspire_result[k]) for k, _ in INSPIRE_FIELDS]
-                    llm_inspire_db.save_inspire(
-                        int(problem_id), domain,
-                        *formatted_fields
-                    )
-                except Exception as llm_e:
-                    logger.error(f"LLM 靈感啟發失敗: {llm_e}", exc_info=True)
-                    await interaction.followup.send(f"LLM 靈感啟發失敗：{str(llm_e)}", ephemeral=True)
-                    return
-            
-            embed = discord.Embed(
-                title="💡 靈感啟發",
-                color=0x8e44ad,
-            )
-            total_len = 0
-            for key, field_name in INSPIRE_FIELDS:
-                val = format_inspire_field(inspire_result.get(key, ""))
-                embed.add_field(name=field_name, value=val, inline=False)
-                total_len += len(val)
-            if total_len > 1800:
-                embed.set_footer(text="內容已截斷，請嘗試更精簡提示。")
-            await interaction.followup.send(embed=embed, ephemeral=True)
-           
-        except discord.errors.InteractionResponded:
-            await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
-        except Exception as e:
-            logger.error(f"處理LLM靈感啟發按鈕交互時發生錯誤: {e}", exc_info=True)
-            try:
-                await interaction.followup.send(f"LLM 靈感啟發時發生錯誤：{str(e)}", ephemeral=True)
-            except:
-                pass
-        return
-
     # Button for displaying LeetCode problem description
     if custom_id.startswith(LEETCODE_DISCRIPTION_BUTTON_PREFIX):
         logger.debug(f"接收到LeetCode按鈕交互: custom_id={custom_id}")
         
         # Parse problem ID and domain
         try:
+            # await interaction.response.defer(ephemeral=True)  # Prevent interaction timeout
             parts = custom_id.split("_")
             problem_id = parts[2]
             domain = parts[3] if len(parts) > 3 else "com"
@@ -264,6 +121,179 @@ async def on_interaction(interaction):
                     await interaction.followup.send(f"顯示題目時發生錯誤：{str(e)}", ephemeral=True)
                 except:
                     pass
+
+    # Button for LLM translation
+    if custom_id.startswith(LEETCODE_TRANSLATE_BUTTON_PREFIX):
+        logger.debug(f"接收到LeetCode LLM翻譯按鈕交互: custom_id={custom_id}")
+        try:
+            await interaction.response.defer(ephemeral=True)  # Prevent interaction timeout
+            parts = custom_id.split("_")
+            problem_id = parts[2]
+            domain = parts[3] if len(parts) > 3 else "com"
+
+            logger.debug(f"嘗試獲取題目並進行LLM翻譯: problem_id={problem_id}, domain={domain}")
+
+            client = lcus if domain == "com" else lccn
+
+            if problem_id and problem_id.isdigit():
+                # 先查詢 DB cache
+                translation_data = llm_translate_db.get_translation(int(problem_id), domain)
+                if translation_data:
+                    logger.debug(f"從DB取得LLM翻譯: problem_id={problem_id}")
+                    translation = translation_data["translation"]
+                    model_name = translation_data.get("model_name", "Unknown Model")
+                    
+                    # 添加模型資訊到訊息末尾
+                    if translation and model_name:
+                        footer_text = f"\n\n✨ 由 `{model_name}` 提供翻譯"
+                        # 確保添加 footer 後不超過 Discord 訊息上限
+                        if len(translation) + len(footer_text) > 2000:
+                            translation = translation[:2000-len(footer_text)]
+                        translation += footer_text
+                        
+                    await interaction.followup.send(translation, ephemeral=True)
+                    return
+
+                problem_info = await client.get_problem(problem_id=problem_id)
+                if problem_info and problem_info.get("content"):
+                    problem_content = html_to_text(problem_info["content"])
+                    # LLM 翻譯
+                    try:
+                        translation = llm.translate(problem_content, "zh-TW")
+                        model_name = getattr(llm, "model_name", "Unknown Model")
+                        
+                        # 添加模型資訊到訊息末尾
+                        footer_text = f"\n\n✨ 由 `{model_name}` 提供翻譯"
+                        
+                        # 長度限制
+                        max_length = 2000 - len(footer_text)
+                        if len(translation) > max_length:
+                            translation = translation[:max_length-10] + "...\n(翻譯內容已截斷)"
+                            
+                        # 寫入 DB
+                        llm_translate_db.save_translation(int(problem_id), domain, translation, model_name)
+                        
+                        # 添加 footer
+                        translation += footer_text
+                        
+                        await interaction.followup.send(translation, ephemeral=True)
+                        logger.debug(f"成功發送LLM翻譯並寫入DB: problem_id={problem_id}")
+                    except Exception as llm_e:
+                        logger.error(f"LLM 翻譯失敗: {llm_e}", exc_info=True)
+                        await interaction.followup.send(f"LLM 翻譯失敗：{str(llm_e)}", ephemeral=True)
+                else:
+                    logger.warning(f"題目沒有內容: problem_id={problem_id}")
+                    await interaction.followup.send("無法獲取題目描述，請前往 LeetCode 網站查看。", ephemeral=True)
+            else:
+                logger.warning(f"無效的題目ID: {problem_id}")
+                await interaction.followup.send("無效的題目ID，無法顯示翻譯。", ephemeral=True)
+        except discord.errors.InteractionResponded:
+            await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
+        except Exception as e:
+            logger.error(f"處理LLM翻譯按鈕交互時發生錯誤: {e}", exc_info=True)
+            try:
+                await interaction.followup.send(f"LLM 翻譯時發生錯誤：{str(e)}", ephemeral=True)
+            except:
+                pass
+        return
+    
+    # Button for LLM inspire
+    def format_inspire_field(val):
+        if isinstance(val, list):
+            return '\n'.join(f"- {x}" for x in val)
+        return str(val)
+
+    INSPIRE_FIELDS = [
+        ("thinking", "🧠 思路"),
+        ("traps", "⚠️ 陷阱"),
+        ("algorithms", "🛠️ 推薦演算法"),
+        ("inspiration", "✨ 其他靈感"),
+    ]
+
+    if custom_id.startswith(LEETCODE_INSPIRE_BUTTON_PREFIX):
+        logger.debug(f"接收到LeetCode 靈感啟發按鈕交互: custom_id={custom_id}")
+        try:
+            await interaction.response.defer(ephemeral=True)  # Prevent interaction timeout
+            parts = custom_id.split("_")
+            # 格式: leetcode_inspire_{problem_id}_{domain}
+            problem_id = parts[2]
+            domain = parts[3] if len(parts) > 3 else "com"
+
+            logger.debug(f"嘗試獲取題目並進行LLM靈感啟發: problem_id={problem_id}, domain={domain}")
+
+            if not problem_id or not problem_id.isdigit():
+                logger.warning(f"無效的題目ID: {problem_id}")
+                await interaction.followup.send("無效的題目ID，無法顯示靈感啟發。", ephemeral=True)
+                return
+
+            inspire_result = llm_inspire_db.get_inspire(int(problem_id), domain)
+            if inspire_result:
+                logger.debug(f"Get inspire result from DB: problem_id={problem_id}")
+                model_name = inspire_result.get("model_name", "Unknown Model")
+            else:
+                client = lcus if domain == "com" else lccn
+                problem_info = await client.get_problem(problem_id=problem_id)
+                if problem_info and problem_info.get("content"):
+                    problem_content = html_to_text(problem_info["content"])
+                    tags = problem_info.get("tags", [])
+                    difficulty = problem_info.get("difficulty", "")
+                else:
+                    logger.warning(f"題目沒有內容: problem_id={problem_id}")
+                    await interaction.followup.send("無法獲取題目資訊。", ephemeral=True)
+                    return
+                
+                # Get inspire result from LLM
+                try:
+                    inspire_result = llm_pro.inspire(problem_content, tags, difficulty)
+                    model_name = getattr(llm_pro, "model_name", "Unknown Model")
+                    
+                    if not isinstance(inspire_result, dict) or not all(k in inspire_result for k in ["thinking", "traps", "algorithms", "inspiration"]):
+                        # 回傳原始 LLM 回覆
+                        raw = inspire_result.get("raw", inspire_result)
+                        if len(str(raw)) > 1900:
+                            raw = str(raw)[:1900] + "...\n(內容已截斷)"
+                            
+                        await interaction.followup.send(str(raw), ephemeral=True)
+                        logger.debug(f"發送原始 LLM 靈感回覆: problem_id={problem_id}")
+                        return
+                    # --- DB cache: save inspire result ---
+                    formatted_fields = [format_inspire_field(inspire_result[k]) for k, _ in INSPIRE_FIELDS]
+                    llm_inspire_db.save_inspire(
+                        int(problem_id), domain,
+                        *formatted_fields,
+                        model_name=model_name
+                    )
+                except Exception as llm_e:
+                    logger.error(f"LLM 靈感啟發失敗: {llm_e}", exc_info=True)
+                    await interaction.followup.send(f"LLM 靈感啟發失敗：{str(llm_e)}", ephemeral=True)
+                    return
+            
+            embed = discord.Embed(
+                title="💡 靈感啟發",
+                color=0x8e44ad,
+            )
+            total_len = 0
+            for key, field_name in INSPIRE_FIELDS:
+                val = format_inspire_field(inspire_result.get(key, ""))
+                embed.add_field(name=field_name, value=val, inline=False)
+                total_len += len(val)
+            
+            footer_text = f"由 {model_name} 提供靈感"
+            if total_len > 1800:
+                footer_text = "內容已截斷，請嘗試更精簡提示。 " + footer_text
+            
+            embed.set_footer(text=footer_text, icon_url="https://brandlogos.net/wp-content/uploads/2025/03/gemini_icon-logo_brandlogos.net_bqzeu.png")
+            await interaction.followup.send(embed=embed, ephemeral=True)
+           
+        except discord.errors.InteractionResponded:
+            await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
+        except Exception as e:
+            logger.error(f"處理LLM靈感啟發按鈕交互時發生錯誤: {e}", exc_info=True)
+            try:
+                await interaction.followup.send(f"LLM 靈感啟發時發生錯誤：{str(e)}", ephemeral=True)
+            except:
+                pass
+        return
 
 @bot.event
 async def on_ready():
