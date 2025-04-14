@@ -14,6 +14,7 @@ class LLMBase(ABC):
     """
     def __init__(self):
         self.llm = None
+        self.model_name = None
 
     @abstractmethod
     def generate(self, prompt: str) -> str:

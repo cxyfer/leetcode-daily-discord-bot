@@ -49,6 +49,7 @@ class GeminiLLM(LLMBase):
             timeout=timeout,
             max_retries=max_retries,
         )
+        self.model_name = model
 
     def generate(self, prompt: str) -> str:
         """
