@@ -275,6 +275,9 @@ async def on_interaction(interaction):
             total_len = 0
             for key, field_name in INSPIRE_FIELDS:
                 val = format_inspire_field(inspire_result.get(key, ""))
+                # 限制欄位值長度不超過 1024 字元
+                if len(val) > 1024:
+                    val = val[:1020] + "..."
                 embed.add_field(name=field_name, value=val, inline=False)
                 total_len += len(val)
             
