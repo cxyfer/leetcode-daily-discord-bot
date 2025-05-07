@@ -17,7 +17,7 @@ class LLMBase(ABC):
         self.model_name = None
 
     @abstractmethod
-    def generate(self, prompt: str) -> str:
+    async def generate(self, prompt: str) -> str:
         """
         Generate a response from the LLM based on the input prompt.
 
@@ -29,7 +29,7 @@ class LLMBase(ABC):
         """
         pass
 
-    def translate(self, content: str, target_language: str, from_lang: str = "auto") -> str:
+    async def translate(self, content: str, target_language: str, from_lang: str = "auto") -> str:
         """
         Translate the input content to the target language using the LLM.
 
@@ -48,7 +48,7 @@ class LLMBase(ABC):
             text=content,
         )
 
-        response = self.generate(prompt)
+        response = await self.generate(prompt)
         parser = SimpleJsonOutputParser()
         try:
             parsed = parser.parse(response)
@@ -56,7 +56,7 @@ class LLMBase(ABC):
         except Exception:
             return response
 
-    def inspire(self, content: str, tags: list, difficulty: str) -> dict:
+    async def inspire(self, content: str, tags: list, difficulty: str) -> dict:
         """
         根據題目描述、tags、難度，產生解題靈感（僅繁體中文，禁止程式碼），回傳 JSON dict。
         Args:
@@ -72,7 +72,7 @@ class LLMBase(ABC):
             tags=", ".join(tags) if tags else "",
             difficulty=difficulty
         )
-        response = self.generate(prompt)
+        response = await self.generate(prompt)
         parser = SimpleJsonOutputParser()
         try:
             parsed = parser.parse(response)

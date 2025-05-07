@@ -51,7 +51,7 @@ class GeminiLLM(LLMBase):
         )
         self.model_name = model
 
-    def generate(self, prompt: str) -> str:
+    async def generate(self, prompt: str) -> str:
         """
         Generate a response from the LLM based on the input prompt.
 
@@ -61,7 +61,7 @@ class GeminiLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        result = self.llm.invoke(prompt)
+        result = await self.llm.ainvoke(prompt)
         if hasattr(result, "content"):
             return result.content
         return str(result)
