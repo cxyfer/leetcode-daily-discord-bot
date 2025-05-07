@@ -331,7 +331,7 @@ class LeetCodeClient:
 
         # If problem found, update problem detail and rating if needed
         problem_id_for_log = problem.get('id')
-        logger.info(f"Problem {problem_id_for_log} found in database: {problem['rating']}")
+        logger.debug(f"Problem {problem_id_for_log} found in database: {problem['rating']}")
         if problem['slug'] and (not problem.get('tags') or not problem.get('content')):
             logger.debug(f"Problem {problem_id_for_log} still not have detail information, fetching problem detail from LeetCode API...")
             problem_detail = await self.fetch_problem_detail(problem['slug'])
