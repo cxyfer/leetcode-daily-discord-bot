@@ -43,8 +43,8 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # LLM
 try:
-    llm = GeminiLLM(model="gemini-2.0-flash")
-    llm_pro = GeminiLLM(model="gemini-2.5-pro-preview-05-06")
+    llm = GeminiLLM(model="gemini-2.5-flash", temperature=0.0)
+    llm_pro = GeminiLLM(model="gemini-2.5-pro", temperature=0.0)
 except Exception as e:
     logger.error(f"Error while initializing LLM: {e}")
     llm = None
