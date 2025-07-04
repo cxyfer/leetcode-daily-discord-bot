@@ -234,6 +234,30 @@ async def reload(ctx, extension):
         await ctx.send(f"Error reloading `{extension}`: {e}")
         bot.logger.error(f"Error reloading extension cogs.{extension}: {e}", exc_info=True)
 
+
+@bot.event
+async def on_ready():
+    """Called when the bot is ready"""
+    bot.logger.info(f"Bot logged in as {bot.user} (ID: {bot.user.id})")
+    bot.logger.info(f"Discord.py version: {discord.__version__}")
+    bot.logger.info(f"Connected to {len(bot.guilds)} guilds")
+    
+    # Initialize schedules
+    schedule_cog = bot.get_cog("ScheduleManagerCog")
+    if schedule_cog:
+        await schedule_cog.initialize_schedules()
+    else:
+        bot.logger.warning("ScheduleManagerCog not found during bot startup")
+    
+    # Auto-sync commands on startup (optional, comment out if not needed)
+    try:
+        synced = await bot.tree.sync()
+        bot.logger.info(f"Auto-synced {len(synced)} slash commands on startup")
+    except Exception as e:
+        bot.logger.error(f"Failed to auto-sync commands on startup: {e}")
+    
+    bot.logger.info("Bot is ready and operational!")
+
 async def load_extensions():
     if not os.path.exists("./cogs"):
         os.makedirs("./cogs")

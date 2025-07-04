@@ -4,6 +4,7 @@ from discord import app_commands
 from discord.ext import commands
 import pytz # For timezone validation in set_timezone
 import os   # For os.getenv to get default POST_TIME and TIMEZONE
+import re   # For date format validation
 
 # Default values, similar to how they are defined in bot.py or schedule_manager_cog.py
 # These are used for display in show_settings if a server doesn't have specific settings.
@@ -15,9 +16,10 @@ class SlashCommandsCog(commands.Cog):
         self.bot = bot
         self.logger = bot.logger
 
-    @app_commands.command(name="daily", description="取得今天的 LeetCode 每日挑戰 (LCUS)")
-    async def daily_command(self, interaction: discord.Interaction):
-        """Get today's LeetCode daily challenge (LCUS)"""
+    @app_commands.command(name="daily", description="取得 LeetCode 每日挑戰 (LCUS)")
+    @app_commands.describe(date="查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天")
+    async def daily_command(self, interaction: discord.Interaction, date: str = None):
+        """Get LeetCode daily challenge (LCUS)"""
         schedule_cog = self.bot.get_cog("ScheduleManagerCog")
         if not schedule_cog:
             await interaction.response.send_message("排程模組目前無法使用，請稍後再試。", ephemeral=True)
@@ -25,11 +27,40 @@ class SlashCommandsCog(commands.Cog):
             return
         
         await interaction.response.defer(ephemeral=True) # Defer as it involves API calls
-        await schedule_cog.send_daily_challenge(interaction=interaction, domain="com")
+        
+        if date:
+            # Validate date format
+            import re
+            if not re.match(r'^\d{4}-\d{2}-\d{2}$', date):
+                await interaction.followup.send("日期格式錯誤，請使用 YYYY-MM-DD 格式（例如：2025-07-01）", ephemeral=True)
+                return
+            
+            try:
+                current_client = self.bot.lcus  # Use LCUS for historical daily challenges
+                challenge_info = await current_client.get_daily_challenge(date_str=date)
+                
+                if not challenge_info:
+                    await interaction.followup.send(f"找不到 {date} 的每日挑戰資料。", ephemeral=True)
+                    return
+                
+                embed = await schedule_cog.create_problem_embed(challenge_info, "com", is_daily=True)
+                view = await schedule_cog.create_problem_view(challenge_info, "com")
+                
+                await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+                self.logger.info(f"Sent daily challenge for {date} to user {interaction.user.name}")
+                
+            except ValueError as e:
+                await interaction.followup.send(f"日期錯誤：{e}", ephemeral=True)
+            except Exception as e:
+                self.logger.error(f"Error in daily_command with date {date}: {e}", exc_info=True)
+                await interaction.followup.send(f"查詢每日挑戰時發生錯誤：{e}", ephemeral=True)
+        else:
+            await schedule_cog.send_daily_challenge(interaction=interaction, domain="com")
 
-    @app_commands.command(name="daily_cn", description="取得今天的 LeetCode 每日挑戰 (LCCN)")
-    async def daily_cn_command(self, interaction: discord.Interaction):
-        """Get today's LeetCode daily challenge (LCCN)"""
+    @app_commands.command(name="daily_cn", description="取得 LeetCode 每日挑戰 (LCCN)")
+    @app_commands.describe(date="查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天")
+    async def daily_cn_command(self, interaction: discord.Interaction, date: str = None):
+        """Get LeetCode daily challenge (LCCN)"""
         schedule_cog = self.bot.get_cog("ScheduleManagerCog")
         if not schedule_cog:
             await interaction.response.send_message("排程模組目前無法使用，請稍後再試。", ephemeral=True)
@@ -37,7 +68,77 @@ class SlashCommandsCog(commands.Cog):
             return
 
         await interaction.response.defer(ephemeral=True) # Defer as it involves API calls
-        await schedule_cog.send_daily_challenge(interaction=interaction, domain="cn")
+        
+        if date:
+            # Validate date format
+            if not re.match(r'^\d{4}-\d{2}-\d{2}$', date):
+                await interaction.followup.send("日期格式錯誤，請使用 YYYY-MM-DD 格式（例如：2024-01-15）", ephemeral=True)
+                return
+            
+            try:
+                current_client = self.bot.lccn  # Use LCCN for historical daily challenges
+                challenge_info = await current_client.get_daily_challenge(date_str=date)
+                
+                if not challenge_info:
+                    await interaction.followup.send(f"找不到 {date} 的每日挑戰資料。", ephemeral=True)
+                    return
+                
+                embed = await schedule_cog.create_problem_embed(challenge_info, "cn", is_daily=True)
+                view = await schedule_cog.create_problem_view(challenge_info, "cn")
+                
+                await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+                self.logger.info(f"Sent daily challenge for {date} (CN) to user {interaction.user.name}")
+                
+            except ValueError as e:
+                await interaction.followup.send(f"日期錯誤：{e}", ephemeral=True)
+            except Exception as e:
+                self.logger.error(f"Error in daily_cn_command with date {date}: {e}", exc_info=True)
+                await interaction.followup.send(f"查詢每日挑戰時發生錯誤：{e}", ephemeral=True)
+        else:
+            await schedule_cog.send_daily_challenge(interaction=interaction, domain="cn")
+
+    @app_commands.command(name="problem", description="根據題號查詢 LeetCode 題目資訊")
+    @app_commands.describe(problem_id="題目編號 (1-3500+)", domain="選擇 LeetCode 網域")
+    async def problem_command(self, interaction: discord.Interaction, problem_id: int, domain: str = "com"):
+        """Get LeetCode problem information by problem ID"""
+        if domain not in ["com", "cn"]:
+            await interaction.response.send_message("網域參數只能是 'com' 或 'cn'", ephemeral=True)
+            return
+            
+        if problem_id < 1 or not isinstance(problem_id, int):
+            await interaction.response.send_message("題目編號必須是正整數", ephemeral=True)
+            return
+        
+        schedule_cog = self.bot.get_cog("ScheduleManagerCog")
+        if not schedule_cog:
+            await interaction.response.send_message("排程模組目前無法使用，請稍後再試。", ephemeral=True)
+            self.logger.error("ScheduleManagerCog not found when trying to execute /problem command.")
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            current_client = self.bot.lcus if domain == "com" else self.bot.lccn
+            problem_info = await current_client.get_problem(problem_id=str(problem_id))
+            
+            if not problem_info:
+                await interaction.followup.send(f"找不到題目 {problem_id}，請確認題目編號是否正確或是否為公開題目。", ephemeral=True)
+                return
+            
+            embed = await schedule_cog.create_problem_embed(problem_info, domain, is_daily=False)
+            view = await schedule_cog.create_problem_view(problem_info, domain)
+            
+            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+            self.logger.info(f"Sent problem {problem_id} info to user {interaction.user.name}")
+            
+        except Exception as e:
+            self.logger.error(f"Error in problem_command: {e}", exc_info=True)
+            await interaction.followup.send(f"查詢題目時發生錯誤：{e}", ephemeral=True)
+
+    @problem_command.autocomplete('domain')
+    async def problem_domain_autocomplete(self, interaction: discord.Interaction, current: str):
+        domains = ["com", "cn"]
+        return [app_commands.Choice(name=domain, value=domain) for domain in domains if current.lower() in domain.lower()]
 
     @app_commands.command(name="set_channel", description="設定 LeetCode 每日挑戰的發送頻道")
     @app_commands.guild_only()
