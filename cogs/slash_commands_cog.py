@@ -438,7 +438,7 @@ class SlashCommandsCog(commands.Cog):
             embed.add_field(name="📈 AC Rate", value=f"**{round(submission['ac_rate'], 2)}%**", inline=True)
             
         if submission.get('tags'):
-            tags_str = ", ".join([f"`{tag}`" for tag in submission['tags'][:5]])  # Limit tags to avoid too long
+            tags_str = ", ".join([f"||`{tag}`||" for tag in submission['tags'][:5]])  # Limit tags to avoid too long
             embed.add_field(name="🏷️ Tags", value=tags_str, inline=False)
         
         embed.set_author(name=f"{username}'s Recent Submissions", icon_url="https://leetcode.com/static/images/LeetCode_logo.png")
