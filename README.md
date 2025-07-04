@@ -19,6 +19,11 @@
 - 🌐 **Multi-server Support**: Independent settings for each Discord server
 - 🔔 **Custom Notifications**: Configurable role mentions and channels
 - 🌍 **Timezone Support**: Server-specific timezone settings
+- 📅 **Historical Challenges**: View past daily challenges by date
+- 🔍 **Problem Lookup**: Query any LeetCode problem by ID
+- 📈 **Submission Tracking**: View recent accepted submissions for any user
+- 🤖 **AI-Powered Features**: Optional problem translation and inspiration (requires Gemini API key)
+- 💾 **Smart Caching**: Efficient caching system for better performance
 
 ## 🚀 Quick Start
 
@@ -96,14 +101,47 @@ TIMEZONE=UTC     # Optional
 
 | Command | Description | Required Permissions |
 |---------|-------------|---------------------|
-| `/daily` | Display today's LeetCode.com (LCUS) daily challenge | None |
-| `/daily_cn` | Display today's LeetCode.cn (LCCN) daily challenge | None |
-| `/set_channel` | Set notification channel | Manage Channels |
-| `/set_role` | Set role to mention | Manage Roles |
-| `/set_post_time` | Set posting time (HH:MM) | Manage Guild |
-| `/set_timezone` | Set server timezone | Manage Guild |
-| `/show_settings` | Display current settings | None |
+| `/daily [date]` | Display LeetCode.com (LCUS) daily challenge<br>• Optional: YYYY-MM-DD for historical challenges | None |
+| `/daily_cn [date]` | Display LeetCode.cn (LCCN) daily challenge<br>• Optional: YYYY-MM-DD for historical challenges | None |
+| `/problem <id> [domain]` | Query any LeetCode problem by ID<br>• `id`: Problem number (1-4000)<br>• `domain`: com or cn (default: com) | None |
+| `/recent <username> [limit]` | View recent accepted submissions for a user<br>• `username`: LeetCode username (LCUS only)<br>• `limit`: Number of submissions (1-50, default: 20) | None |
+| `/set_channel` | Set notification channel for daily challenges | Manage Channels |
+| `/set_role` | Set role to mention with daily challenges | Manage Roles |
+| `/set_post_time` | Set posting time (HH:MM format) | Manage Guild |
+| `/set_timezone` | Set server timezone for scheduling | Manage Guild |
+| `/show_settings` | Display current server settings | None |
 | `/remove_channel` | Remove channel settings | Manage Channels |
+
+### Command Examples
+
+#### Daily Challenge Commands
+```
+/daily                    # Get today's LeetCode.com challenge
+/daily date:2024-01-15    # Get historical challenge from Jan 15, 2024
+/daily_cn                 # Get today's LeetCode.cn challenge
+/daily_cn date:2024-01-15 # Get historical CN challenge
+```
+
+#### Problem Lookup
+```
+/problem problem_id:1     # Get Two Sum problem from LeetCode.com
+/problem problem_id:1 domain:cn  # Get Two Sum from LeetCode.cn
+```
+
+#### Recent Submissions
+```
+/recent username:alice              # View 20 recent submissions
+/recent username:alice limit:50     # View 50 recent submissions
+```
+
+#### Server Configuration
+```
+/set_channel              # Set current channel for daily notifications
+/set_role                 # Configure role to ping
+/set_post_time time:08:00 # Set daily post time to 8:00 AM
+/set_timezone timezone:America/New_York  # Set timezone
+/show_settings            # View current configuration
+```
 
 ### Server Configuration Steps
 
@@ -117,6 +155,9 @@ TIMEZONE=UTC     # Optional
 - [x] 🎮 **Enhanced Command Interface**
   - [x] Add slash command prompts
   - [x] Reply in the same channel where slash commands are used
+  - [x] Add `/problem` command for querying problems by ID
+  - [x] Add `/recent` command for viewing user submissions
+  - [x] Support historical daily challenges with date parameter
 - [x] ⚙️ **Advanced Configuration System**
   - [x] Allow admin users to set the configuration
     - [x] Set the channel to post the daily challenge
@@ -140,8 +181,10 @@ TIMEZONE=UTC     # Optional
 - [x] 🔍 **Large Language Model Integration**
   - [x] Integrate LLM to generate problem translation and inspiration
   - [x] Cache LLM results to improve performance
-- [ ] 📊 **User Engagement Features**
+- [x] 📊 **User Engagement Features**
   - [x] Track submission records of specific users
+  - [x] Interactive navigation for viewing multiple submissions
+  - [x] Paginated display with clean UI
   - [ ] Allow users to configure tracked LeetCode accounts
   - [ ] Implement server-wide submission leaderboards
 - [ ] 🐳 **Containerization Support**
