@@ -1,0 +1,86 @@
+# LeetCode Daily Discord Bot Configuration
+
+[discord]
+# Discord bot token (required)
+# You can get this from https://discord.com/developers/applications
+token = "your_discord_bot_token_here"
+
+[bot]
+# Default command prefix for the bot
+command_prefix = "!"
+
+[schedule]
+# Default post time for daily challenges (24-hour format, HH:MM)
+post_time = "00:00"
+
+# Default timezone (e.g., UTC, Asia/Taipei, America/New_York)
+# List of timezones: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+timezone = "UTC"
+
+[llm]
+# Google Gemini API configuration
+[llm.gemini]
+# API key for Google Gemini (optional - features will be disabled if not provided)
+api_key = "your_google_gemini_api_key_here"
+
+# Model configurations
+[llm.gemini.models]
+# Standard model for translations
+[llm.gemini.models.standard]
+name = "gemini-2.5-flash"
+temperature = 0.0
+# max_tokens = 4096  # Optional: uncomment to limit token output
+timeout = 30
+max_retries = 2
+
+# Pro model for problem inspiration
+[llm.gemini.models.pro]
+name = "gemini-2.5-pro"
+temperature = 0.0
+# max_tokens = 8192  # Optional: uncomment to limit token output
+timeout = 60
+max_retries = 2
+
+# Cache settings for LLM responses
+[llm.cache]
+# Translation cache expiration time in seconds (default: 1 hour)
+translation_expire_seconds = 3600
+
+# Inspiration cache expiration time in seconds (default: 1 day)
+inspiration_expire_seconds = 86400
+
+[database]
+# Database configuration
+path = "data/data.db"
+
+[logging]
+# Logging configuration
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+level = "INFO"
+
+# Directory to store log files
+directory = "./logs"
+
+# Module-specific log levels
+[logging.modules]
+bot = "DEBUG"
+"bot.discord" = "DEBUG"
+"bot.lcus" = "DEBUG"
+"bot.db" = "DEBUG"
+discord = "WARNING"
+"discord.gateway" = "WARNING"
+"discord.client" = "WARNING"
+requests = "WARNING"
+
+[leetcode]
+# LeetCode API endpoints (usually don't need to change)
+[leetcode.endpoints]
+us = "https://leetcode.com"
+cn = "https://leetcode.cn"
+
+# Request timeout in seconds
+timeout = 30
+
+# Retry settings
+max_retries = 3
+retry_delay = 1

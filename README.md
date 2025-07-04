@@ -28,10 +28,14 @@
    cd leetcode-daily-discord-bot
    ```
 
-2. Configure your environment:
+2. Configure your bot:
    ```bash
-   # Copy and edit the environment file
-   mv .env.example .env
+   # Copy and edit the configuration file
+   cp config.toml.example config.toml
+   # Edit config.toml with your settings
+   
+   # Alternative: Use environment variables (.env)
+   cp .env.example .env
    # Edit .env with your Discord bot token
    ```
 
@@ -42,6 +46,41 @@
 
 ## 🛠️ Configuration
 
+### Configuration Methods
+
+The bot supports two configuration methods:
+
+#### 1. TOML Configuration (Recommended)
+
+Create a `config.toml` file from the example:
+
+```toml
+[discord]
+token = "your_discord_bot_token_here"
+
+[llm.gemini]
+api_key = "your_google_gemini_api_key_here"  # Optional, for AI features
+
+[schedule]
+post_time = "00:00"  # Default posting time
+timezone = "UTC"     # Default timezone
+```
+
+See `config.toml.example` for all available options.
+
+#### 2. Environment Variables
+
+For backward compatibility, you can use a `.env` file:
+
+```bash
+DISCORD_TOKEN=your_bot_token_here
+GOOGLE_GEMINI_API_KEY=your_gemini_api_key_here  # Optional
+POST_TIME=00:00  # Optional
+TIMEZONE=UTC     # Optional
+```
+
+**Note**: Environment variables take precedence over `config.toml` settings.
+
 ### Required Bot Permissions
 - `Send Messages`
 - `Embed Links`
@@ -50,11 +89,6 @@
 ### Required Intents
 - `Message Content` - Receive message content
   - Note: When the bot joins more than 100 servers, this permission needs to be verified and approved by Discord
-
-### Environment Variables
-```bash
-DISCORD_TOKEN=your_bot_token_here
-```
 
 ## 📝 Usage
 
@@ -122,7 +156,7 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 ## 📦 Dependencies
 
 - [discord.py](https://pypi.org/project/discord.py/) - Discord bot framework
-- [python-dotenv](https://pypi.org/project/python-dotenv/) - Environment variable management
+- [tomli](https://pypi.org/project/tomli/) - TOML parsing for Python < 3.11
 - [requests](https://pypi.org/project/requests/) - HTTP library for API calls
 - [pytz](https://pypi.org/project/pytz/) - Timezone handling
 - [beautifulsoup4](https://pypi.org/project/beautifulsoup4/) - HTML parsing
