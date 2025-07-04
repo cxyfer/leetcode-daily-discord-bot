@@ -52,25 +52,65 @@ except FileNotFoundError:
     POST_TIME = os.getenv('POST_TIME', '00:00')
     TIMEZONE = os.getenv('TIMEZONE', 'UTC')
     
-    # Create a dummy config object for compatibility
+    # Create a dummy config object for .env compatibility
     class DummyConfig:
+        """Compatibility wrapper for .env configuration"""
+        
         def get(self, key, default=None):
+            """Get configuration value with .env fallback"""
             if key == "database.path":
                 return "data/data.db"
+            elif key == "schedule.post_time":
+                return POST_TIME
+            elif key == "schedule.timezone":
+                return TIMEZONE
             return default
         
+        def get_section(self, section):
+            """Get configuration section"""
+            if section == "logging":
+                return {
+                    "level": "INFO",
+                    "directory": "./logs",
+                    "modules": {
+                        "bot": "DEBUG",
+                        "bot.discord": "DEBUG",
+                        "bot.lcus": "DEBUG",
+                        "bot.db": "DEBUG",
+                        "discord": "WARNING",
+                        "discord.gateway": "WARNING",
+                        "discord.client": "WARNING",
+                        "requests": "WARNING"
+                    }
+                }
+            return {}
+        
         def get_llm_model_config(self, model_type):
+            """Get LLM model configuration"""
             if model_type == "standard":
                 return {"name": "gemini-2.5-flash", "temperature": 0.0}
             else:
                 return {"name": "gemini-2.5-pro", "temperature": 0.0}
         
         def get_cache_expire_seconds(self, cache_type):
+            """Get cache expiration time"""
             return 3600 if cache_type == "translation" else 86400
+        
+        @property
+        def discord_token(self):
+            return DISCORD_TOKEN
         
         @property
         def gemini_api_key(self):
             return os.getenv('GOOGLE_GEMINI_API_KEY')
+        
+        @property
+        def post_time(self):
+            return POST_TIME
+        
+        @property
+        def timezone(self):
+            return TIMEZONE
     
     config = DummyConfig()
 

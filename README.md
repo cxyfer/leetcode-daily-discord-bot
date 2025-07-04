@@ -157,6 +157,7 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 - [discord.py](https://pypi.org/project/discord.py/) - Discord bot framework
 - [tomli](https://pypi.org/project/tomli/) - TOML parsing for Python < 3.11
+- [python-dotenv](https://pypi.org/project/python-dotenv/) - Environment variable management
 - [requests](https://pypi.org/project/requests/) - HTTP library for API calls
 - [pytz](https://pypi.org/project/pytz/) - Timezone handling
 - [beautifulsoup4](https://pypi.org/project/beautifulsoup4/) - HTML parsing
