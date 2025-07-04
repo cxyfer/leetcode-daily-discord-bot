@@ -12,6 +12,9 @@ class InteractionHandlerCog(commands.Cog):
         # self.lcus = bot.lcus
         # self.llm = bot.llm
         # self.LEETCODE_DISCRIPTION_BUTTON_PREFIX = bot.LEETCODE_DISCRIPTION_BUTTON_PREFIX
+        
+        # Cache for user submissions (to avoid re-fetching)
+        self.submissions_cache = {}  # key: f"{username}_{user_id}", value: (submissions, timestamp)
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
@@ -239,6 +242,80 @@ class InteractionHandlerCog(commands.Cog):
                 try:
                     await interaction.followup.send(f"LLM 靈感啟發時發生錯誤：{str(e)}", ephemeral=True)
                 except: # noqa
+                    pass
+        
+        # Navigation buttons for user submissions
+        elif custom_id.startswith("user_sub_prev_") or custom_id.startswith("user_sub_next_"):
+            self.logger.debug(f"接收到使用者解題紀錄導航按鈕交互: custom_id={custom_id}")
+            
+            try:
+                # Parse custom_id: user_sub_[prev/next]_{username}_{current_page}
+                parts = custom_id.split("_")
+                direction = parts[2]  # "prev" or "next"
+                username = "_".join(parts[3:-1])  # Username might contain underscores
+                current_page = int(parts[-1])
+                
+                # Calculate new page
+                if direction == "prev":
+                    new_page = current_page - 1
+                else:  # "next"
+                    new_page = current_page + 1
+                
+                # Get cached submissions or fetch new ones
+                cache_key = f"{username}_{interaction.user.id}"
+                cached_data = self.submissions_cache.get(cache_key)
+                
+                # Check if cache is valid (5 minutes)
+                import time
+                if cached_data and (time.time() - cached_data[1]) < 300:
+                    submissions = cached_data[0]
+                else:
+                    # Fetch submissions again
+                    await interaction.response.defer(ephemeral=True)
+                    submissions = await self.bot.lcus.fetch_recent_ac_submissions(username, 50)
+                    if not submissions:
+                        await interaction.followup.send(f"找不到使用者 **{username}** 的解題紀錄。", ephemeral=True)
+                        return
+                    # Update cache
+                    self.submissions_cache[cache_key] = (submissions, time.time())
+                
+                # Validate page number
+                if new_page < 0 or new_page >= len(submissions):
+                    await interaction.response.send_message("無效的頁面", ephemeral=True)
+                    return
+                
+                # Create new embed and view
+                slash_cog = self.bot.get_cog("SlashCommandsCog")
+                if not slash_cog:
+                    await interaction.response.send_message("無法載入指令模組", ephemeral=True)
+                    return
+                
+                # Defer if not already done
+                if not interaction.response.is_done():
+                    await interaction.response.defer(ephemeral=True)
+                
+                # Get detailed info for the new page
+                detailed_submission = await slash_cog._get_submission_details(submissions[new_page])
+                if not detailed_submission:
+                    await interaction.followup.send("無法載入題目詳細資訊", ephemeral=True)
+                    return
+                
+                embed = slash_cog._create_submission_embed(detailed_submission, new_page, len(submissions), username)
+                view = slash_cog._create_submission_view(detailed_submission, new_page, username, len(submissions))
+                
+                # Update the message
+                await interaction.edit_original_response(embed=embed, view=view)
+                
+                self.logger.info(f"使用者 {interaction.user.name} 瀏覽 {username} 的解題紀錄，第 {new_page + 1}/{len(submissions)} 頁")
+                
+            except Exception as e:
+                self.logger.error(f"處理導航按鈕時發生錯誤: {e}", exc_info=True)
+                try:
+                    if not interaction.response.is_done():
+                        await interaction.response.send_message(f"導航時發生錯誤：{str(e)}", ephemeral=True)
+                    else:
+                        await interaction.followup.send(f"導航時發生錯誤：{str(e)}", ephemeral=True)
+                except:
                     pass
 
 async def setup(bot: commands.Bot):

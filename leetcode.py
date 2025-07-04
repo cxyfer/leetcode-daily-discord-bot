@@ -607,7 +607,7 @@ class LeetCodeClient:
         
         return None
     
-    def fetch_recent_ac_submissions(self, username, limit=15):
+    async def fetch_recent_ac_submissions(self, username, limit=15):
         """
         Fetch recent AC (Accepted) submissions for a given username
         
@@ -616,8 +616,12 @@ class LeetCodeClient:
             limit (int): Number of submissions to fetch (default: 15)
         
         Returns:
-            list: List of recent AC submissions
+            list: List of recent AC submissions with enhanced problem details
         """
+        if self.domain != "com":
+            logger.warning("User submissions are only available on leetcode.com")
+            return []
+            
         # GraphQL query for recent AC submissions
         query = """
         query recentAcSubmissions($username: String!, $limit: Int!) {
@@ -651,23 +655,39 @@ class LeetCodeClient:
         
         try:
             logger.info(f"Fetching recent AC submissions for user: {username}")
-            resonse = requests.post(self.graphql_url, headers=headers, json=payload)
             
-            if resonse.status_code != 200:
-                logger.error(f"API request failed: {resonse.status_code} - {resonse.text}")
-                return []
-            
-            data = resonse.json()
-            if 'errors' in data:
-                logger.error(f"GraphQL errors: {data['errors']}")
-                return []
-            
-            submissions = data.get('data', {}).get('recentAcSubmissionList', [])
-            logger.info(f"Successfully fetched {len(submissions)} submissions")
-            return submissions
+            async with aiohttp.ClientSession() as session:
+                async with session.post(self.graphql_url, headers=headers, json=payload) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        logger.error(f"API request failed: {response.status} - {error_text}")
+                        return []
+                    
+                    data = await response.json()
+                    if 'errors' in data:
+                        logger.error(f"GraphQL errors: {data['errors']}")
+                        return []
+                    
+                    submissions = data.get('data', {}).get('recentAcSubmissionList', [])
+                    logger.info(f"Successfully fetched {len(submissions)} submissions")
+                    
+                    # Return basic submission info without fetching problem details
+                    # This improves performance by deferring detailed lookups
+                    basic_submissions = []
+                    for submission in submissions:
+                        basic_submission = {
+                            'submission_id': submission['id'],
+                            'title': submission['title'],
+                            'slug': submission['titleSlug'],
+                            'timestamp': submission['timestamp'],
+                            'submission_time': datetime.fromtimestamp(int(submission['timestamp'])).strftime('%Y-%m-%d %H:%M:%S')
+                        }
+                        basic_submissions.append(basic_submission)
+                    
+                    return basic_submissions
             
         except Exception as e:
-            logger.error(f"Error fetching submissions: {str(e)}")
+            logger.error(f"Error fetching submissions: {str(e)}", exc_info=True)
             return []
 
 def html_to_text(html):
@@ -747,6 +767,12 @@ async def test():
     problem = await client.get_problem(slug="two-sum")
     print(json.dumps(problem, indent=4))
 
+async def test_recent():
+    client = LeetCodeClient(data_dir="data")
+    submissions = await client.fetch_recent_ac_submissions(username="Yawn_Sean", limit=10)
+    print(json.dumps(submissions, indent=4))
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    # asyncio.run(main())
     # asyncio.run(test())
+    asyncio.run(test_recent())
