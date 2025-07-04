@@ -160,7 +160,7 @@ class ScheduleManagerCog(commands.Cog):
             await self.initialize_schedules()
             self.logger.info("All server daily challenges have been rescheduled")
 
-    async def create_problem_embed(self, problem_info: dict, domain: str = "com", is_daily: bool = False):
+    async def create_problem_embed(self, problem_info: dict, domain: str = "com", is_daily: bool = False, date_str: str = None):
         """Create an embed for a LeetCode problem"""
         color_map = {'Easy': 0x00FF00, 'Medium': 0xFFA500, 'Hard': 0xFF0000}
         emoji_map = {'Easy': '🟢', 'Medium': '🟡', 'Hard': '🔴'}
@@ -204,7 +204,9 @@ class ScheduleManagerCog(commands.Cog):
                 embed.add_field(name="🔍 Similar Questions", value="\n".join(similar_q_list), inline=False)
 
         if is_daily:
-            embed.set_footer(text=f"LeetCode Daily Challenge | {problem_info.get('date', 'Today')}", icon_url="https://leetcode.com/static/images/LeetCode_logo.png")
+            # Use passed date_str or fallback to problem_info date or 'Today'
+            display_date = date_str or problem_info.get('date', 'Today')
+            embed.set_footer(text=f"LeetCode Daily Challenge | {display_date}", icon_url="https://leetcode.com/static/images/LeetCode_logo.png")
         else:
             embed.set_footer(text="LeetCode Problem", icon_url="https://leetcode.com/static/images/LeetCode_logo.png")
 

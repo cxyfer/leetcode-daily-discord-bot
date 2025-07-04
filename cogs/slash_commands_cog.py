@@ -19,7 +19,13 @@ class SlashCommandsCog(commands.Cog):
     @app_commands.command(name="daily", description="取得 LeetCode 每日挑戰 (LCUS)")
     @app_commands.describe(date="查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天")
     async def daily_command(self, interaction: discord.Interaction, date: str = None):
-        """Get LeetCode daily challenge (LCUS)"""
+        """
+        Get LeetCode daily challenge (LCUS)
+        
+        Args:
+            interaction: Discord interaction object
+            date: Optional date string in YYYY-MM-DD format. If None, returns today's challenge.
+        """
         schedule_cog = self.bot.get_cog("ScheduleManagerCog")
         if not schedule_cog:
             await interaction.response.send_message("排程模組目前無法使用，請稍後再試。", ephemeral=True)
@@ -30,7 +36,6 @@ class SlashCommandsCog(commands.Cog):
         
         if date:
             # Validate date format
-            import re
             if not re.match(r'^\d{4}-\d{2}-\d{2}$', date):
                 await interaction.followup.send("日期格式錯誤，請使用 YYYY-MM-DD 格式（例如：2025-07-01）", ephemeral=True)
                 return
@@ -43,7 +48,7 @@ class SlashCommandsCog(commands.Cog):
                     await interaction.followup.send(f"找不到 {date} 的每日挑戰資料。", ephemeral=True)
                     return
                 
-                embed = await schedule_cog.create_problem_embed(challenge_info, "com", is_daily=True)
+                embed = await schedule_cog.create_problem_embed(challenge_info, "com", is_daily=True, date_str=date)
                 view = await schedule_cog.create_problem_view(challenge_info, "com")
                 
                 await interaction.followup.send(embed=embed, view=view, ephemeral=True)
@@ -83,7 +88,7 @@ class SlashCommandsCog(commands.Cog):
                     await interaction.followup.send(f"找不到 {date} 的每日挑戰資料。", ephemeral=True)
                     return
                 
-                embed = await schedule_cog.create_problem_embed(challenge_info, "cn", is_daily=True)
+                embed = await schedule_cog.create_problem_embed(challenge_info, "cn", is_daily=True, date_str=date)
                 view = await schedule_cog.create_problem_view(challenge_info, "cn")
                 
                 await interaction.followup.send(embed=embed, view=view, ephemeral=True)
@@ -100,13 +105,24 @@ class SlashCommandsCog(commands.Cog):
     @app_commands.command(name="problem", description="根據題號查詢 LeetCode 題目資訊")
     @app_commands.describe(problem_id="題目編號 (1-3500+)", domain="選擇 LeetCode 網域")
     async def problem_command(self, interaction: discord.Interaction, problem_id: int, domain: str = "com"):
-        """Get LeetCode problem information by problem ID"""
+        """
+        Get LeetCode problem information by problem ID
+        
+        Args:
+            interaction: Discord interaction object
+            problem_id: LeetCode problem ID (positive integer)
+            domain: LeetCode domain ('com' or 'cn'), defaults to 'com'
+        """
         if domain not in ["com", "cn"]:
             await interaction.response.send_message("網域參數只能是 'com' 或 'cn'", ephemeral=True)
             return
             
-        if problem_id < 1 or not isinstance(problem_id, int):
+        if problem_id < 1:
             await interaction.response.send_message("題目編號必須是正整數", ephemeral=True)
+            return
+            
+        if problem_id > 4000:  # Add upper bound validation
+            await interaction.response.send_message("題目編號超出範圍，請輸入 1-4000 之間的數字", ephemeral=True)
             return
         
         schedule_cog = self.bot.get_cog("ScheduleManagerCog")
