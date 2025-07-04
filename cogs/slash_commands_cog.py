@@ -63,7 +63,7 @@ class SlashCommandsCog(commands.Cog):
         else:
             await schedule_cog.send_daily_challenge(interaction=interaction, domain="com")
 
-    @app_commands.command(name="daily_cn", description="取得 LeetCode 每日挑戰 (LCCN) 1")
+    @app_commands.command(name="daily_cn", description="取得 LeetCode 每日挑戰 (LCCN)")
     @app_commands.describe(date="查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天")
     async def daily_cn_command(self, interaction: discord.Interaction, date: str = None):
         """Get LeetCode daily challenge (LCCN)"""
@@ -386,7 +386,7 @@ class SlashCommandsCog(commands.Cog):
             interaction_cog = self.bot.get_cog("InteractionHandlerCog")
             if interaction_cog:
                 cache_key = f"{username}_{interaction.user.id}"
-                interaction_cog.submissions_cache[cache_key] = (submissions, time.time())
+                interaction_cog.submissions_cache[cache_key] = (submissions, time.time(), limit)
             
             await interaction.followup.send(embed=embed, view=view, ephemeral=True)
             self.logger.info(f"Sent user submissions for {username} to {interaction.user.name}")

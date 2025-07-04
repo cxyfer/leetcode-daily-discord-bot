@@ -1,6 +1,7 @@
 # cogs/interaction_handler_cog.py
 import discord
 from discord.ext import commands
+import time
 from leetcode import html_to_text # 確保這個 import 存在
 # from utils.logger import get_logger # 使用 bot.logger
 
@@ -14,7 +15,7 @@ class InteractionHandlerCog(commands.Cog):
         # self.LEETCODE_DISCRIPTION_BUTTON_PREFIX = bot.LEETCODE_DISCRIPTION_BUTTON_PREFIX
         
         # Cache for user submissions (to avoid re-fetching)
-        self.submissions_cache = {}  # key: f"{username}_{user_id}", value: (submissions, timestamp)
+        self.submissions_cache = {}  # key: f"{username}_{user_id}", value: (submissions, timestamp, limit)
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
@@ -266,18 +267,19 @@ class InteractionHandlerCog(commands.Cog):
                 cached_data = self.submissions_cache.get(cache_key)
                 
                 # Check if cache is valid (5 minutes)
-                import time
                 if cached_data and (time.time() - cached_data[1]) < 300:
                     submissions = cached_data[0]
                 else:
                     # Fetch submissions again
                     await interaction.response.defer(ephemeral=True)
-                    submissions = await self.bot.lcus.fetch_recent_ac_submissions(username, 50)
+                    # Use the original limit if available, otherwise default to 50
+                    original_limit = cached_data[2] if cached_data and len(cached_data) > 2 else 50
+                    submissions = await self.bot.lcus.fetch_recent_ac_submissions(username, original_limit)
                     if not submissions:
                         await interaction.followup.send(f"找不到使用者 **{username}** 的解題紀錄。", ephemeral=True)
                         return
-                    # Update cache
-                    self.submissions_cache[cache_key] = (submissions, time.time())
+                    # Update cache with limit
+                    self.submissions_cache[cache_key] = (submissions, time.time(), original_limit)
                 
                 # Validate page number
                 if new_page < 0 or new_page >= len(submissions):

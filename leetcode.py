@@ -616,7 +616,7 @@ class LeetCodeClient:
             limit (int): Number of submissions to fetch (default: 15)
         
         Returns:
-            list: List of recent AC submissions with enhanced problem details
+            list: List of recent AC submissions with basic info (id, title, slug, timestamp)
         """
         if self.domain != "com":
             logger.warning("User submissions are only available on leetcode.com")
@@ -767,12 +767,6 @@ async def test():
     problem = await client.get_problem(slug="two-sum")
     print(json.dumps(problem, indent=4))
 
-async def test_recent():
-    client = LeetCodeClient(data_dir="data")
-    submissions = await client.fetch_recent_ac_submissions(username="Yawn_Sean", limit=10)
-    print(json.dumps(submissions, indent=4))
-
 if __name__ == "__main__":
-    # asyncio.run(main())
+    asyncio.run(main())
     # asyncio.run(test())
-    asyncio.run(test_recent())
