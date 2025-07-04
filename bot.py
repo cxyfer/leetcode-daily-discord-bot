@@ -65,12 +65,12 @@ async def on_ready():
     except Exception as e:
         bot.logger.error(f"Failed to sync commands: {e}", exc_info=True)
 
-    # 初始化每日挑戰排程
-    schedule_cog = bot.get_cog("ScheduleManagerCog") # Cog 的類別名稱
+    # 初始化每日挑戰排程（使用新的 APScheduler 系統）
+    schedule_cog = bot.get_cog("ScheduleManagerCog")
     if schedule_cog:
-        bot.logger.info(f'Starting daily challenge scheduling...')
-        await schedule_cog.initialize_schedules() # 假設 ScheduleManagerCog 中有此方法
-        bot.logger.info(f'Daily challenge scheduling initiated.')
+        bot.logger.info(f'Starting APScheduler-based daily challenge scheduling...')
+        await schedule_cog.initialize_schedules()
+        bot.logger.info(f'APScheduler daily challenge scheduling initiated.')
     else:
         bot.logger.warning("ScheduleManagerCog not found. Daily challenges will not be scheduled automatically.")
 
@@ -138,7 +138,7 @@ async def main():
         bot.llm = llm
         bot.llm_pro = llm_pro
         bot.logger = logger # logger 已在全域初始化
-        bot.schedule_tasks = {} # 初始化空的排程任務字典
+        # 移除舊的排程任務字典，現在使用 APScheduler
         bot.LEETCODE_DISCRIPTION_BUTTON_PREFIX = LEETCODE_DISCRIPTION_BUTTON_PREFIX
         bot.LEETCODE_TRANSLATE_BUTTON_PREFIX = LEETCODE_TRANSLATE_BUTTON_PREFIX
         bot.LEETCODE_INSPIRE_BUTTON_PREFIX = LEETCODE_INSPIRE_BUTTON_PREFIX
@@ -147,7 +147,15 @@ async def main():
         if not DISCORD_TOKEN:
             bot.logger.critical("DISCORD_TOKEN is not set. Bot cannot start.")
             return
-        await bot.start(DISCORD_TOKEN)
+        
+        try:
+            await bot.start(DISCORD_TOKEN)
+        finally:
+            # 確保 APScheduler 優雅關閉
+            schedule_cog = bot.get_cog("ScheduleManagerCog")
+            if schedule_cog and hasattr(schedule_cog, 'shutdown'):
+                await schedule_cog.shutdown()
+                bot.logger.info("Scheduler shutdown completed.")
 
 if __name__ == "__main__":
     asyncio.run(main())
