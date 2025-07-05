@@ -44,7 +44,13 @@
    # Edit .env with your Discord bot token
    ```
 
-3. Run the bot:
+3. Run database migration (if upgrading from older version):
+   ```bash
+   # Migrate server settings from settings.db to data.db
+   sqlite3 data/data.db < data/migrate_settings.sql
+   ```
+
+4. Run the bot:
    ```bash
    uv run bot.py
    ```
