@@ -3,9 +3,13 @@
 ## Running Tests
 
 ### Prerequisites
-Make sure pytest and required dependencies are installed:
+This project uses `uv` as the package manager. Make sure pytest and required dependencies are installed:
 ```bash
+# Using uv (recommended)
 uv pip install pytest pytest-asyncio pytest-cov
+
+# Or using regular pip
+pip install pytest pytest-asyncio pytest-cov
 ```
 
 ### Test Commands

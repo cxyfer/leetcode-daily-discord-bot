@@ -5,7 +5,7 @@ import pytest
 import pytest_asyncio
 import asyncio
 import aiohttp
-from unittest.mock import Mock, patch, AsyncMock, MagicMock
+from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
 
 # Import the module to test
@@ -282,6 +282,76 @@ class TestMonthlyFetch:
         # Verify semaphore limited concurrent calls to 5
         assert max_concurrent <= 5
         assert client.daily_db.update_daily.call_count == 10
+    
+    @pytest.mark.asyncio
+    async def test_fetch_monthly_with_weekly_challenges(self, client):
+        """Test fetching monthly challenges including weekly challenges"""
+        # Mock response data with weekly challenges
+        mock_response = {
+            "data": {
+                "dailyCodingChallengeV2": {
+                    "challenges": [
+                        {
+                            "date": "2025-01-01",
+                            "userStatus": "NotStart",
+                            "link": "/problems/two-sum/",
+                            "question": {
+                                "questionFrontendId": "1",
+                                "title": "Two Sum",
+                                "titleSlug": "two-sum"
+                            }
+                        }
+                    ],
+                    "weeklyChallenges": [
+                        {
+                            "date": "2025-01-07",
+                            "userStatus": "NotStart",
+                            "link": "/problems/weekly-challenge-1/",
+                            "question": {
+                                "questionFrontendId": "W1",
+                                "title": "Weekly Challenge 1",
+                                "titleSlug": "weekly-challenge-1",
+                                "isPaidOnly": False
+                            }
+                        },
+                        {
+                            "date": "2025-01-14",
+                            "userStatus": "NotStart",
+                            "link": "/problems/weekly-challenge-2/",
+                            "question": {
+                                "questionFrontendId": "W2",
+                                "title": "Weekly Challenge 2",
+                                "titleSlug": "weekly-challenge-2",
+                                "isPaidOnly": True
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+        
+        # Mock the HTTP request
+        with patch('aiohttp.ClientSession.post') as mock_post:
+            mock_post.return_value.__aenter__.return_value.status = 200
+            mock_post.return_value.__aenter__.return_value.json = AsyncMock(return_value=mock_response)
+            
+            result = await client.fetch_monthly_daily_challenges(2025, 1)
+            
+            assert result['year'] == 2025
+            assert result['month'] == 1
+            assert len(result['challenges']) == 1
+            assert len(result['weekly_challenges']) == 2
+            
+            # Verify weekly challenges are correctly formatted
+            weekly1 = result['weekly_challenges'][0]
+            assert weekly1['question_id'] == 'W1'
+            assert weekly1['title'] == 'Weekly Challenge 1'
+            assert weekly1['slug'] == 'weekly-challenge-1'
+            assert weekly1['paid_only'] is False
+            
+            weekly2 = result['weekly_challenges'][1]
+            assert weekly2['question_id'] == 'W2'
+            assert weekly2['paid_only'] is True
 
 
 if __name__ == "__main__":

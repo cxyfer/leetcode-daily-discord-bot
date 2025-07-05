@@ -978,6 +978,8 @@ class LeetCodeClient:
             
             logger.info(f"Background task completed: Processed {processed_count}/{len(challenges)} challenges for {year}-{month}")
             
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
             logger.error(f"Error in background monthly challenge processing: {str(e)}", exc_info=True)
 
