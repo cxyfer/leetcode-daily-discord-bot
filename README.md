@@ -123,25 +123,19 @@ TIMEZONE=UTC     # Optional
 #### Daily Challenge Commands
 ```
 /daily                    # Get today's LeetCode.com challenge (private)
-/daily public:true        # Get today's challenge publicly
+/daily public:true        # Get today's challenge and show response publicly
 /daily date:2024-01-15    # Get historical challenge from Jan 15, 2024
-/daily date:2024-01-15 public:true  # Get historical challenge publicly
-/daily_cn                 # Get today's LeetCode.cn challenge (private)
-/daily_cn date:2024-01-15 public:true # Get historical CN challenge publicly
 ```
 
 #### Problem Lookup
 ```
 /problem problem_id:1     # Get Two Sum problem from LeetCode.com (private)
 /problem problem_id:1 public:true     # Get Two Sum problem publicly
-/problem problem_id:1 domain:cn       # Get Two Sum from LeetCode.cn
-/problem problem_id:1 domain:cn public:true  # Get problem publicly
 ```
 
 #### Recent Submissions
 ```
 /recent username:alice              # View 20 recent submissions (private)
-/recent username:alice public:true  # View 20 recent submissions publicly
 /recent username:alice limit:50     # View 50 recent submissions
 /recent username:alice limit:50 public:true  # View 50 submissions publicly
 ```
