@@ -783,6 +783,8 @@ class LeetCodeClient:
         """
         Fetch all daily coding challenges for a specific month and year
         
+        Note: LeetCode API only provides data from April 2020 onwards.
+        
         Args:
             year (int): Year (e.g., 2025)
             month (int): Month (1-12)
@@ -792,6 +794,11 @@ class LeetCodeClient:
         """
         if self.domain != "com":
             logger.warning("Monthly daily challenges are only available on leetcode.com")
+            return {}
+            
+        # Check if the requested date is before April 2020
+        if year < 2020 or (year == 2020 and month < 4):
+            logger.warning(f"Monthly daily challenges are only available from April 2020 onwards. Requested: {year}-{month:02d}")
             return {}
             
         # GraphQL query for monthly daily challenges
@@ -1059,6 +1066,11 @@ async def main():
     if args.monthly:
         year, month = args.monthly
         logger.info(f"Fetching monthly daily challenges for {year}-{month:02d}...")
+        # Validate date range
+        if year < 2020 or (year == 2020 and month < 4):
+            logger.error("Monthly daily challenges are only available from April 2020 onwards.")
+            print("Error: Monthly daily challenges are only available from April 2020 onwards.")
+            return
         monthly_data = await client.fetch_monthly_daily_challenges(year, month)
         print(json.dumps(monthly_data, indent=4, ensure_ascii=False))
 

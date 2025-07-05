@@ -284,6 +284,28 @@ class TestMonthlyFetch:
         assert client.daily_db.update_daily.call_count == 10
     
     @pytest.mark.asyncio
+    async def test_fetch_monthly_before_april_2020(self, client):
+        """Test that fetching data before April 2020 returns empty result"""
+        # Test March 2020 (should fail)
+        result = await client.fetch_monthly_daily_challenges(2020, 3)
+        assert result == {}
+        
+        # Test year 2019 (should fail)
+        result = await client.fetch_monthly_daily_challenges(2019, 12)
+        assert result == {}
+        
+        # Test April 2020 (should work, but we'll mock empty response)
+        with patch('aiohttp.ClientSession.post') as mock_post:
+            mock_post.return_value.__aenter__.return_value.status = 200
+            mock_post.return_value.__aenter__.return_value.json = AsyncMock(return_value={
+                "data": {"dailyCodingChallengeV2": {"challenges": [], "weeklyChallenges": []}}
+            })
+            
+            result = await client.fetch_monthly_daily_challenges(2020, 4)
+            assert result['year'] == 2020
+            assert result['month'] == 4
+    
+    @pytest.mark.asyncio
     async def test_fetch_monthly_with_weekly_challenges(self, client):
         """Test fetching monthly challenges including weekly challenges"""
         # Mock response data with weekly challenges

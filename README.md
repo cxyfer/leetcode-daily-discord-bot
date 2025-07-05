@@ -107,7 +107,7 @@ TIMEZONE=UTC     # Optional
 
 | Command | Description | Required Permissions |
 |---------|-------------|---------------------|
-| `/daily [date]` | Display LeetCode.com (LCUS) daily challenge<br>• Optional: YYYY-MM-DD for historical challenges | None |
+| `/daily [date]` | Display LeetCode.com (LCUS) daily challenge<br>• Optional: YYYY-MM-DD for historical challenges<br>• Note: Historical data available from April 2020 onwards | None |
 | `/daily_cn [date]` | Display LeetCode.cn (LCCN) daily challenge<br>• Optional: YYYY-MM-DD for historical challenges | None |
 | `/problem <id> [domain]` | Query any LeetCode problem by ID<br>• `id`: Problem number (1-4000)<br>• `domain`: com or cn (default: com) | None |
 | `/recent <username> [limit]` | View recent accepted submissions for a user<br>• `username`: LeetCode username (LCUS only)<br>• `limit`: Number of submissions (1-50, default: 20) | None |
