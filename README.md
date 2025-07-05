@@ -107,10 +107,10 @@ TIMEZONE=UTC     # Optional
 
 | Command | Description | Required Permissions |
 |---------|-------------|---------------------|
-| `/daily [date]` | Display LeetCode.com (LCUS) daily challenge<br>• Optional: YYYY-MM-DD for historical challenges<br>• Note: Historical data available from April 2020 onwards | None |
-| `/daily_cn [date]` | Display LeetCode.cn (LCCN) daily challenge<br>• Optional: YYYY-MM-DD for historical challenges | None |
-| `/problem <id> [domain]` | Query any LeetCode problem by ID<br>• `id`: Problem number (1-4000)<br>• `domain`: com or cn (default: com) | None |
-| `/recent <username> [limit]` | View recent accepted submissions for a user<br>• `username`: LeetCode username (LCUS only)<br>• `limit`: Number of submissions (1-50, default: 20) | None |
+| `/daily [date] [public]` | Display LeetCode.com (LCUS) daily challenge<br>• Optional: YYYY-MM-DD for historical challenges<br>• Optional: `public` - Show response publicly (default: private)<br>• Note: Historical data available from April 2020 onwards | None |
+| `/daily_cn [date] [public]` | Display LeetCode.cn (LCCN) daily challenge<br>• Optional: YYYY-MM-DD for historical challenges<br>• Optional: `public` - Show response publicly (default: private) | None |
+| `/problem <id> [domain] [public]` | Query any LeetCode problem by ID<br>• `id`: Problem number (1-4000)<br>• `domain`: com or cn (default: com)<br>• `public`: Show response publicly (default: private) | None |
+| `/recent <username> [limit] [public]` | View recent accepted submissions for a user<br>• `username`: LeetCode username (LCUS only)<br>• `limit`: Number of submissions (1-50, default: 20)<br>• `public`: Show response publicly (default: private) | None |
 | `/set_channel` | Set notification channel for daily challenges | Manage Channels |
 | `/set_role` | Set role to mention with daily challenges | Manage Roles |
 | `/set_post_time` | Set posting time (HH:MM format) | Manage Guild |
@@ -122,22 +122,28 @@ TIMEZONE=UTC     # Optional
 
 #### Daily Challenge Commands
 ```
-/daily                    # Get today's LeetCode.com challenge
+/daily                    # Get today's LeetCode.com challenge (private)
+/daily public:true        # Get today's challenge publicly
 /daily date:2024-01-15    # Get historical challenge from Jan 15, 2024
-/daily_cn                 # Get today's LeetCode.cn challenge
-/daily_cn date:2024-01-15 # Get historical CN challenge
+/daily date:2024-01-15 public:true  # Get historical challenge publicly
+/daily_cn                 # Get today's LeetCode.cn challenge (private)
+/daily_cn date:2024-01-15 public:true # Get historical CN challenge publicly
 ```
 
 #### Problem Lookup
 ```
-/problem problem_id:1     # Get Two Sum problem from LeetCode.com
-/problem problem_id:1 domain:cn  # Get Two Sum from LeetCode.cn
+/problem problem_id:1     # Get Two Sum problem from LeetCode.com (private)
+/problem problem_id:1 public:true     # Get Two Sum problem publicly
+/problem problem_id:1 domain:cn       # Get Two Sum from LeetCode.cn
+/problem problem_id:1 domain:cn public:true  # Get problem publicly
 ```
 
 #### Recent Submissions
 ```
-/recent username:alice              # View 20 recent submissions
+/recent username:alice              # View 20 recent submissions (private)
+/recent username:alice public:true  # View 20 recent submissions publicly
 /recent username:alice limit:50     # View 50 recent submissions
+/recent username:alice limit:50 public:true  # View 50 submissions publicly
 ```
 
 #### Server Configuration
