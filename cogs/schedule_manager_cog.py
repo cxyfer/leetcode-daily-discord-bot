@@ -237,7 +237,7 @@ class ScheduleManagerCog(commands.Cog):
             ))
         return view
 
-    async def send_daily_challenge(self, channel_id: int = None, role_id: int = None, interaction: discord.Interaction = None, domain: str = "com"):
+    async def send_daily_challenge(self, channel_id: int = None, role_id: int = None, interaction: discord.Interaction = None, domain: str = "com", ephemeral: bool = True):
         """Fetches and sends the LeetCode daily challenge."""
         try:
             self.logger.info(f"Attempting to send daily challenge. Domain: {domain}, Channel: {channel_id}, Interaction: {'Yes' if interaction else 'No'}")
@@ -254,7 +254,7 @@ class ScheduleManagerCog(commands.Cog):
             if not challenge_info:
                 self.logger.error(f"Failed to get daily challenge info for domain {domain}.")
                 if interaction: 
-                    await interaction.followup.send("Could not fetch daily challenge.", ephemeral=True)
+                    await interaction.followup.send("Could not fetch daily challenge.", ephemeral=ephemeral)
                 return None
 
             self.logger.info(f"Got daily challenge: {challenge_info['id']}. {challenge_info['title']} for domain {domain}")
@@ -265,7 +265,7 @@ class ScheduleManagerCog(commands.Cog):
 
             if interaction:
                 # If called from a slash command
-                await interaction.followup.send(embed=embed, view=view)
+                await interaction.followup.send(embed=embed, view=view, ephemeral=ephemeral)
                 self.logger.info(f"Sent daily challenge via interaction {interaction.id}")
             elif channel_id:
                 target_channel = self.bot.get_channel(channel_id)
@@ -292,7 +292,7 @@ class ScheduleManagerCog(commands.Cog):
             self.logger.error(f"Error in send_daily_challenge: {e}", exc_info=True)
             if interaction:
                 try:
-                    await interaction.followup.send(f"An error occurred while sending the daily challenge: {e}", ephemeral=True)
+                    await interaction.followup.send(f"An error occurred while sending the daily challenge: {e}", ephemeral=ephemeral)
                 except:
                     pass
             return None

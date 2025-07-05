@@ -18,8 +18,11 @@ class SlashCommandsCog(commands.Cog):
         self.logger = bot.logger
 
     @app_commands.command(name="daily", description="取得 LeetCode 每日挑戰 (LCUS)")
-    @app_commands.describe(date="查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天，最早為 2020-04-01")
-    async def daily_command(self, interaction: discord.Interaction, date: str = None):
+    @app_commands.describe(
+        date="查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天，最早為 2020-04-01",
+        public="是否公開顯示回覆 (預設為私密回覆)"
+    )
+    async def daily_command(self, interaction: discord.Interaction, date: str = None, public: bool = False):
         """
         Get LeetCode daily challenge (LCUS)
         
@@ -33,12 +36,12 @@ class SlashCommandsCog(commands.Cog):
             self.logger.error("ScheduleManagerCog not found when trying to execute /daily command.")
             return
         
-        await interaction.response.defer(ephemeral=True) # Defer as it involves API calls
+        await interaction.response.defer(ephemeral=not public) # Defer as it involves API calls
         
         if date:
             # Validate date format
             if not re.match(r'^\d{4}-\d{2}-\d{2}$', date):
-                await interaction.followup.send("日期格式錯誤，請使用 YYYY-MM-DD 格式（例如：2025-07-01）", ephemeral=True)
+                await interaction.followup.send("日期格式錯誤，請使用 YYYY-MM-DD 格式（例如：2025-07-01）", ephemeral=not public)
                 return
             
             try:
@@ -46,26 +49,29 @@ class SlashCommandsCog(commands.Cog):
                 challenge_info = await current_client.get_daily_challenge(date_str=date)
                 
                 if not challenge_info:
-                    await interaction.followup.send(f"找不到 {date} 的每日挑戰資料。", ephemeral=True)
+                    await interaction.followup.send(f"找不到 {date} 的每日挑戰資料。", ephemeral=not public)
                     return
                 
                 embed = await schedule_cog.create_problem_embed(challenge_info, "com", is_daily=True, date_str=date)
                 view = await schedule_cog.create_problem_view(challenge_info, "com")
                 
-                await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+                await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
                 self.logger.info(f"Sent daily challenge for {date} to user {interaction.user.name}")
                 
             except ValueError as e:
-                await interaction.followup.send(f"日期錯誤：{e}", ephemeral=True)
+                await interaction.followup.send(f"日期錯誤：{e}", ephemeral=not public)
             except Exception as e:
                 self.logger.error(f"Error in daily_command with date {date}: {e}", exc_info=True)
-                await interaction.followup.send(f"查詢每日挑戰時發生錯誤：{e}", ephemeral=True)
+                await interaction.followup.send(f"查詢每日挑戰時發生錯誤：{e}", ephemeral=not public)
         else:
-            await schedule_cog.send_daily_challenge(interaction=interaction, domain="com")
+            await schedule_cog.send_daily_challenge(interaction=interaction, domain="com", ephemeral=not public)
 
     @app_commands.command(name="daily_cn", description="取得 LeetCode 每日挑戰 (LCCN)")
-    @app_commands.describe(date="查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天，不填則為今天，最早為 2020-04-01")
-    async def daily_cn_command(self, interaction: discord.Interaction, date: str = None):
+    @app_commands.describe(
+        date="查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天，不填則為今天，最早為 2020-04-01",
+        public="是否公開顯示回覆 (預設為私密回覆)"
+    )
+    async def daily_cn_command(self, interaction: discord.Interaction, date: str = None, public: bool = False):
         """Get LeetCode daily challenge (LCCN)"""
         schedule_cog = self.bot.get_cog("ScheduleManagerCog")
         if not schedule_cog:
@@ -73,12 +79,12 @@ class SlashCommandsCog(commands.Cog):
             self.logger.error("ScheduleManagerCog not found when trying to execute /daily_cn command.")
             return
 
-        await interaction.response.defer(ephemeral=True) # Defer as it involves API calls
+        await interaction.response.defer(ephemeral=not public) # Defer as it involves API calls
         
         if date:
             # Validate date format
             if not re.match(r'^\d{4}-\d{2}-\d{2}$', date):
-                await interaction.followup.send("日期格式錯誤，請使用 YYYY-MM-DD 格式（例如：2024-01-15）", ephemeral=True)
+                await interaction.followup.send("日期格式錯誤，請使用 YYYY-MM-DD 格式（例如：2024-01-15）", ephemeral=not public)
                 return
             
             try:
@@ -86,26 +92,30 @@ class SlashCommandsCog(commands.Cog):
                 challenge_info = await current_client.get_daily_challenge(date_str=date)
                 
                 if not challenge_info:
-                    await interaction.followup.send(f"找不到 {date} 的每日挑戰資料。", ephemeral=True)
+                    await interaction.followup.send(f"找不到 {date} 的每日挑戰資料。", ephemeral=not public)
                     return
                 
                 embed = await schedule_cog.create_problem_embed(challenge_info, "cn", is_daily=True, date_str=date)
                 view = await schedule_cog.create_problem_view(challenge_info, "cn")
                 
-                await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+                await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
                 self.logger.info(f"Sent daily challenge for {date} (CN) to user {interaction.user.name}")
                 
             except ValueError as e:
-                await interaction.followup.send(f"日期錯誤：{e}", ephemeral=True)
+                await interaction.followup.send(f"日期錯誤：{e}", ephemeral=not public)
             except Exception as e:
                 self.logger.error(f"Error in daily_cn_command with date {date}: {e}", exc_info=True)
-                await interaction.followup.send(f"查詢每日挑戰時發生錯誤：{e}", ephemeral=True)
+                await interaction.followup.send(f"查詢每日挑戰時發生錯誤：{e}", ephemeral=not public)
         else:
-            await schedule_cog.send_daily_challenge(interaction=interaction, domain="cn")
+            await schedule_cog.send_daily_challenge(interaction=interaction, domain="cn", ephemeral=not public)
 
     @app_commands.command(name="problem", description="根據題號查詢 LeetCode 題目資訊")
-    @app_commands.describe(problem_id="題目編號 (1-3500+)", domain="選擇 LeetCode 網域")
-    async def problem_command(self, interaction: discord.Interaction, problem_id: int, domain: str = "com"):
+    @app_commands.describe(
+        problem_id="題目編號 (1-3500+)",
+        domain="選擇 LeetCode 網域",
+        public="是否公開顯示回覆 (預設為私密回覆)"
+    )
+    async def problem_command(self, interaction: discord.Interaction, problem_id: int, domain: str = "com", public: bool = False):
         """
         Get LeetCode problem information by problem ID
         
@@ -115,42 +125,42 @@ class SlashCommandsCog(commands.Cog):
             domain: LeetCode domain ('com' or 'cn'), defaults to 'com'
         """
         if domain not in ["com", "cn"]:
-            await interaction.response.send_message("網域參數只能是 'com' 或 'cn'", ephemeral=True)
+            await interaction.response.send_message("網域參數只能是 'com' 或 'cn'", ephemeral=not public)
             return
             
         if problem_id < 1:
-            await interaction.response.send_message("題目編號必須是正整數", ephemeral=True)
+            await interaction.response.send_message("題目編號必須是正整數", ephemeral=not public)
             return
             
         if problem_id > 4000:  # Add upper bound validation
-            await interaction.response.send_message("題目編號超出範圍，請輸入 1-4000 之間的數字", ephemeral=True)
+            await interaction.response.send_message("題目編號超出範圍，請輸入 1-4000 之間的數字", ephemeral=not public)
             return
         
         schedule_cog = self.bot.get_cog("ScheduleManagerCog")
         if not schedule_cog:
-            await interaction.response.send_message("排程模組目前無法使用，請稍後再試。", ephemeral=True)
+            await interaction.response.send_message("排程模組目前無法使用，請稍後再試。", ephemeral=not public)
             self.logger.error("ScheduleManagerCog not found when trying to execute /problem command.")
             return
 
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer(ephemeral=not public)
         
         try:
             current_client = self.bot.lcus if domain == "com" else self.bot.lccn
             problem_info = await current_client.get_problem(problem_id=str(problem_id))
             
             if not problem_info:
-                await interaction.followup.send(f"找不到題目 {problem_id}，請確認題目編號是否正確或是否為公開題目。", ephemeral=True)
+                await interaction.followup.send(f"找不到題目 {problem_id}，請確認題目編號是否正確或是否為公開題目。", ephemeral=not public)
                 return
             
             embed = await schedule_cog.create_problem_embed(problem_info, domain, is_daily=False)
             view = await schedule_cog.create_problem_view(problem_info, domain)
             
-            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+            await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
             self.logger.info(f"Sent problem {problem_id} info to user {interaction.user.name}")
             
         except Exception as e:
             self.logger.error(f"Error in problem_command: {e}", exc_info=True)
-            await interaction.followup.send(f"查詢題目時發生錯誤：{e}", ephemeral=True)
+            await interaction.followup.send(f"查詢題目時發生錯誤：{e}", ephemeral=not public)
 
     @problem_command.autocomplete('domain')
     async def problem_domain_autocomplete(self, interaction: discord.Interaction, current: str):
@@ -343,8 +353,12 @@ class SlashCommandsCog(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="recent", description="查看 LeetCode 使用者的近期解題紀錄 (僅限 LCUS)")
-    @app_commands.describe(username="LeetCode 使用者名稱", limit="顯示的題目數量 (預設 20，最多 50)")
-    async def recent_command(self, interaction: discord.Interaction, username: str, limit: int = 20):
+    @app_commands.describe(
+        username="LeetCode 使用者名稱",
+        limit="顯示的題目數量 (預設 20，最多 50)",
+        public="是否公開顯示回覆 (預設為私密回覆)"
+    )
+    async def recent_command(self, interaction: discord.Interaction, username: str, limit: int = 20, public: bool = False):
         """
         View recent accepted submissions for a LeetCode user (LCUS only)
         
@@ -355,19 +369,19 @@ class SlashCommandsCog(commands.Cog):
         """
         # Validate limit
         if limit < 1:
-            await interaction.response.send_message("顯示數量必須至少為 1", ephemeral=True)
+            await interaction.response.send_message("顯示數量必須至少為 1", ephemeral=not public)
             return
         if limit > 50:
             limit = 50
             
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer(ephemeral=not public)
         
         try:
             # Fetch user submissions
             submissions = await self.bot.lcus.fetch_recent_ac_submissions(username, limit)
             
             if not submissions:
-                await interaction.followup.send(f"找不到使用者 **{username}** 的解題紀錄，請確認使用者名稱是否正確。", ephemeral=True)
+                await interaction.followup.send(f"找不到使用者 **{username}** 的解題紀錄，請確認使用者名稱是否正確。", ephemeral=not public)
                 return
             
             # Create initial embed for the first submission
@@ -376,7 +390,7 @@ class SlashCommandsCog(commands.Cog):
             # Get detailed info for the first submission
             first_submission = await self._get_submission_details(submissions[current_page])
             if not first_submission:
-                await interaction.followup.send("無法載入題目詳細資訊", ephemeral=True)
+                await interaction.followup.send("無法載入題目詳細資訊", ephemeral=not public)
                 return
                 
             embed = self._create_submission_embed(first_submission, current_page, len(submissions), username)
@@ -388,12 +402,12 @@ class SlashCommandsCog(commands.Cog):
                 cache_key = f"{username}_{interaction.user.id}"
                 interaction_cog.submissions_cache[cache_key] = (submissions, time.time(), limit)
             
-            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+            await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
             self.logger.info(f"Sent user submissions for {username} to {interaction.user.name}")
             
         except Exception as e:
             self.logger.error(f"Error in recent_command: {e}", exc_info=True)
-            await interaction.followup.send(f"查詢解題紀錄時發生錯誤：{e}", ephemeral=True)
+            await interaction.followup.send(f"查詢解題紀錄時發生錯誤：{e}", ephemeral=not public)
     
     async def _get_submission_details(self, basic_submission: dict) -> dict:
         """Get detailed problem information for a submission"""
