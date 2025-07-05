@@ -605,6 +605,74 @@ class LeetCodeClient:
             info = await self.fetch_daily_challenge(self.domain)
             return info
         
+        # If still no data found and domain is 'com', try fetching monthly data
+        if info is None and domain == "com":
+            logger.info(f"No data found for {date_str}, attempting to fetch monthly data...")
+            year, month, _ = date_str.split('-')
+            year_int = int(year)
+            month_int = int(month)
+            
+            monthly_data = await self.fetch_monthly_daily_challenges(year_int, month_int)
+            
+            if monthly_data and 'challenges' in monthly_data:
+                logger.info(f"Fetched {len(monthly_data['challenges'])} daily challenges for {year}-{month}")
+                
+                # First, find and process the requested date
+                requested_challenge = None
+                other_challenges = []
+                
+                for challenge in monthly_data['challenges']:
+                    if challenge.get('date') == date_str:
+                        requested_challenge = challenge
+                    else:
+                        other_challenges.append(challenge)
+                
+                # Process the requested challenge first
+                if requested_challenge:
+                    challenge_date = requested_challenge.get('date')
+                    question_id = requested_challenge.get('question_id')
+                    slug = requested_challenge.get('slug')
+                    
+                    if question_id and slug:
+                        problem = await self.get_problem(problem_id=question_id, slug=slug)
+                        if problem:
+                            # Prepare daily challenge data
+                            info = {
+                                'date': challenge_date,
+                                'domain': domain,
+                                'id': problem.get('id'),
+                                'slug': problem.get('slug'),
+                                'title': problem.get('title'),
+                                'title_cn': problem.get('title_cn'),
+                                'difficulty': problem.get('difficulty'),
+                                'ac_rate': problem.get('ac_rate'),
+                                'rating': problem.get('rating'),
+                                'contest': problem.get('contest'),
+                                'problem_index': problem.get('problem_index'),
+                                'tags': problem.get('tags', []),
+                                'link': problem.get('link'),
+                                'category': problem.get('category'),
+                                'paid_only': problem.get('paid_only'),
+                                'content': problem.get('content'),
+                                'content_cn': problem.get('content_cn'),
+                                'similar_questions': problem.get('similar_questions', [])
+                            }
+                            
+                            # Store in database immediately
+                            self.daily_db.update_daily(info)
+                            logger.info(f"Processed requested challenge for {date_str}")
+                
+                # Create a background task to process other challenges
+                if other_challenges and info:
+                    asyncio.create_task(
+                        self._process_remaining_monthly_challenges(other_challenges, domain, year, month)
+                    )
+                    logger.info(f"Started background task to process {len(other_challenges)} remaining challenges")
+                
+                # Return the requested date's challenge if found
+                if info:
+                    return info
+        
         return None
     
     async def fetch_recent_ac_submissions(self, username, limit=15):
@@ -816,6 +884,71 @@ class LeetCodeClient:
         except Exception as e:
             logger.error(f"Error fetching monthly challenges: {str(e)}", exc_info=True)
             return {}
+    
+    async def _process_remaining_monthly_challenges(self, challenges, domain, year, month):
+        """
+        Process remaining monthly challenges in the background
+        
+        Args:
+            challenges (list): List of challenge data to process
+            domain (str): Domain (com or cn)
+            year (str): Year
+            month (str): Month
+        """
+        try:
+            logger.info(f"Background task: Processing {len(challenges)} remaining challenges for {year}-{month}")
+            processed_count = 0
+            
+            for challenge in challenges:
+                try:
+                    challenge_date = challenge.get('date')
+                    if not challenge_date:
+                        continue
+                    
+                    # Get detailed problem information
+                    question_id = challenge.get('question_id')
+                    slug = challenge.get('slug')
+                    
+                    if question_id and slug:
+                        problem = await self.get_problem(problem_id=question_id, slug=slug)
+                        if problem:
+                            # Prepare daily challenge data
+                            daily_data = {
+                                'date': challenge_date,
+                                'domain': domain,
+                                'id': problem.get('id'),
+                                'slug': problem.get('slug'),
+                                'title': problem.get('title'),
+                                'title_cn': problem.get('title_cn'),
+                                'difficulty': problem.get('difficulty'),
+                                'ac_rate': problem.get('ac_rate'),
+                                'rating': problem.get('rating'),
+                                'contest': problem.get('contest'),
+                                'problem_index': problem.get('problem_index'),
+                                'tags': problem.get('tags', []),
+                                'link': problem.get('link'),
+                                'category': problem.get('category'),
+                                'paid_only': problem.get('paid_only'),
+                                'content': problem.get('content'),
+                                'content_cn': problem.get('content_cn'),
+                                'similar_questions': problem.get('similar_questions', [])
+                            }
+                            
+                            # Store in database
+                            self.daily_db.update_daily(daily_data)
+                            processed_count += 1
+                            
+                            # Add a small delay to avoid overwhelming the API
+                            await asyncio.sleep(0.5)
+                            
+                except Exception as e:
+                    logger.error(f"Error processing challenge for date {challenge.get('date', 'unknown')}: {str(e)}")
+                    continue
+            
+            logger.info(f"Background task completed: Processed {processed_count}/{len(challenges)} challenges for {year}-{month}")
+            
+        except Exception as e:
+            logger.error(f"Error in background monthly challenge processing: {str(e)}", exc_info=True)
 
 def html_to_text(html):
     """
