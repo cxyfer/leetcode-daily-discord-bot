@@ -185,5 +185,6 @@ CLAUDE.md
 logs/
 
 # Data
-data/
+data/*.db
+data/**/*.json
 
