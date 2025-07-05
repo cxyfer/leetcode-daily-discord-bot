@@ -691,6 +691,8 @@ class LeetCodeClient:
                 # Return the requested date's challenge if found
                 if info:
                     return info
+                else:
+                    logger.warning(f"Requested date {date_str} not found in monthly data for domain {domain}.")
         
         return None
     
