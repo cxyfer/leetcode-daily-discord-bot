@@ -12,6 +12,7 @@ from collections import defaultdict
 
 from utils.database import ProblemsDatabaseManager, DailyChallengeDatabaseManager
 from utils.logger import setup_logging, get_logger
+from utils.config import get_config
 
 # Set up logging
 setup_logging()
@@ -57,7 +58,22 @@ class LeetCodeClient:
         self.ratings_ttl = cache_ttl
         self.ratings_last_update = 0
         
+        # Background task tracking
+        self._background_tasks = set()
+        # Semaphore for concurrent API requests
+        self._fetch_semaphore = asyncio.Semaphore(5)
+        
         logger.info(f"Initialized LeetCode client with domain: leetcode.{self.domain}")
+    
+    async def shutdown(self):
+        """Cancel all background tasks gracefully"""
+        if self._background_tasks:
+            logger.info(f"Cancelling {len(self._background_tasks)} background tasks...")
+            for task in self._background_tasks:
+                task.cancel()
+            # Wait for all tasks to complete cancellation
+            await asyncio.gather(*self._background_tasks, return_exceptions=True)
+            logger.info("All background tasks cancelled")
 
     async def init_all_problems(self, init_ratings=False):
         """
@@ -664,9 +680,12 @@ class LeetCodeClient:
                 
                 # Create a background task to process other challenges
                 if other_challenges and info:
-                    asyncio.create_task(
+                    task = asyncio.create_task(
                         self._process_remaining_monthly_challenges(other_challenges, domain, year, month)
                     )
+                    # Track the background task
+                    self._background_tasks.add(task)
+                    task.add_done_callback(self._background_tasks.discard)
                     logger.info(f"Started background task to process {len(other_challenges)} remaining challenges")
                 
                 # Return the requested date's challenge if found
@@ -910,7 +929,9 @@ class LeetCodeClient:
                     slug = challenge.get('slug')
                     
                     if question_id and slug:
-                        problem = await self.get_problem(problem_id=question_id, slug=slug)
+                        # Use semaphore to limit concurrent API requests
+                        async with self._fetch_semaphore:
+                            problem = await self.get_problem(problem_id=question_id, slug=slug)
                         if problem:
                             # Prepare daily challenge data
                             daily_data = {
@@ -938,11 +959,19 @@ class LeetCodeClient:
                             self.daily_db.update_daily(daily_data)
                             processed_count += 1
                             
-                            # Add a small delay to avoid overwhelming the API
-                            await asyncio.sleep(0.5)
+                            # Add a configurable delay to avoid overwhelming the API
+                            config = get_config()
+                            delay = config.get("leetcode.monthly_fetch_delay", 0.5)
+                            await asyncio.sleep(delay)
                             
+                except aiohttp.ClientError as e:
+                    logger.error(f"Network error processing challenge for date {challenge.get('date', 'unknown')}: {str(e)}")
+                    continue
+                except asyncio.CancelledError:
+                    logger.info("Background task cancelled")
+                    raise
                 except Exception as e:
-                    logger.error(f"Error processing challenge for date {challenge.get('date', 'unknown')}: {str(e)}")
+                    logger.error(f"Unexpected error processing challenge for date {challenge.get('date', 'unknown')}: {str(e)}", exc_info=True)
                     continue
             
             logger.info(f"Background task completed: Processed {processed_count}/{len(challenges)} challenges for {year}-{month}")
