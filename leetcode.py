@@ -690,6 +690,133 @@ class LeetCodeClient:
             logger.error(f"Error fetching submissions: {str(e)}", exc_info=True)
             return []
 
+    async def fetch_monthly_daily_challenges(self, year, month):
+        """
+        Fetch all daily coding challenges for a specific month and year
+        
+        Args:
+            year (int): Year (e.g., 2025)
+            month (int): Month (1-12)
+            
+        Returns:
+            dict: Monthly challenge data with challenges and weekly challenges
+        """
+        if self.domain != "com":
+            logger.warning("Monthly daily challenges are only available on leetcode.com")
+            return {}
+            
+        # GraphQL query for monthly daily challenges
+        query = """
+        query dailyCodingQuestionRecords($year: Int!, $month: Int!) {
+            dailyCodingChallengeV2(year: $year, month: $month) {
+                challenges {
+                    date
+                    userStatus
+                    link
+                    question {
+                        questionFrontendId
+                        title
+                        titleSlug
+                    }
+                }
+                weeklyChallenges {
+                    date
+                    userStatus
+                    link
+                    question {
+                        questionFrontendId
+                        title
+                        titleSlug
+                        isPaidOnly
+                    }
+                }
+            }
+        }
+        """
+        
+        # Variables for the query
+        variables = {
+            "year": year,
+            "month": month
+        }
+        
+        # Request headers
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0',
+            'Referer': 'https://leetcode.com/problemset/',
+            'Origin': 'https://leetcode.com'
+        }
+        
+        # Request payload
+        payload = {
+            "query": query,
+            "variables": variables,
+            "operationName": "dailyCodingQuestionRecords"
+        }
+        
+        try:
+            logger.info(f"Fetching monthly daily challenges for {year}-{month}")
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(self.graphql_url, headers=headers, json=payload) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        logger.error(f"API request failed: {response.status} - {error_text}")
+                        return {}
+                    
+                    data = await response.json()
+                    if 'errors' in data:
+                        logger.error(f"GraphQL errors: {data['errors']}")
+                        return {}
+                    
+                    monthly_data = data.get('data', {}).get('dailyCodingChallengeV2', {})
+                    challenges = monthly_data.get('challenges', [])
+                    weekly_challenges = monthly_data.get('weeklyChallenges', [])
+                    
+                    logger.info(f"Successfully fetched {len(challenges)} daily challenges and {len(weekly_challenges)} weekly challenges")
+                    
+                    # Format the response data
+                    formatted_data = {
+                        'year': year,
+                        'month': month,
+                        'challenges': [],
+                        'weekly_challenges': []
+                    }
+                    
+                    # Process daily challenges
+                    for challenge in challenges:
+                        question = challenge.get('question', {})
+                        formatted_challenge = {
+                            'date': challenge.get('date'),
+                            'user_status': challenge.get('userStatus'),
+                            'link': challenge.get('link'),
+                            'question_id': question.get('questionFrontendId'),
+                            'title': question.get('title'),
+                            'slug': question.get('titleSlug')
+                        }
+                        formatted_data['challenges'].append(formatted_challenge)
+                    
+                    # Process weekly challenges
+                    for weekly_challenge in weekly_challenges:
+                        question = weekly_challenge.get('question', {})
+                        formatted_weekly = {
+                            'date': weekly_challenge.get('date'),
+                            'user_status': weekly_challenge.get('userStatus'),
+                            'link': weekly_challenge.get('link'),
+                            'question_id': question.get('questionFrontendId'),
+                            'title': question.get('title'),
+                            'slug': question.get('titleSlug'),
+                            'paid_only': question.get('isPaidOnly', False)
+                        }
+                        formatted_data['weekly_challenges'].append(formatted_weekly)
+                    
+                    return formatted_data
+            
+        except Exception as e:
+            logger.error(f"Error fetching monthly challenges: {str(e)}", exc_info=True)
+            return {}
+
 def html_to_text(html):
     """
     Convert HTML to formatted text.
@@ -738,6 +865,7 @@ async def main():
     parser.add_argument("--full", action="store_true", help="Fetch all problems")
     parser.add_argument("--daily", action="store_true", help="Fetch daily challenge")
     parser.add_argument("--date", type=str, help="Fetch daily challenge for a specific date")
+    parser.add_argument("--monthly", nargs=2, type=int, metavar=('YEAR', 'MONTH'), help="Fetch monthly daily challenges (e.g., --monthly 2025 1)")
     args = parser.parse_args()
     
     client = LeetCodeClient(data_dir="data")
@@ -761,6 +889,12 @@ async def main():
         logger.info(f"Fetching daily challenge for {args.date}...")
         daily = await client.get_daily_challenge(date_str=args.date)
         print(json.dumps(daily, indent=4))
+
+    if args.monthly:
+        year, month = args.monthly
+        logger.info(f"Fetching monthly daily challenges for {year}-{month:02d}...")
+        monthly_data = await client.fetch_monthly_daily_challenges(year, month)
+        print(json.dumps(monthly_data, indent=4, ensure_ascii=False))
 
 async def test():
     client = LeetCodeClient(data_dir="data")
