@@ -18,7 +18,7 @@ class SlashCommandsCog(commands.Cog):
         self.logger = bot.logger
 
     @app_commands.command(name="daily", description="取得 LeetCode 每日挑戰 (LCUS)")
-    @app_commands.describe(date="查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天")
+    @app_commands.describe(date="查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天，最早為 2020-04-01")
     async def daily_command(self, interaction: discord.Interaction, date: str = None):
         """
         Get LeetCode daily challenge (LCUS)
@@ -64,7 +64,7 @@ class SlashCommandsCog(commands.Cog):
             await schedule_cog.send_daily_challenge(interaction=interaction, domain="com")
 
     @app_commands.command(name="daily_cn", description="取得 LeetCode 每日挑戰 (LCCN)")
-    @app_commands.describe(date="查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天")
+    @app_commands.describe(date="查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天，不填則為今天，最早為 2020-04-01")
     async def daily_cn_command(self, interaction: discord.Interaction, date: str = None):
         """Get LeetCode daily challenge (LCCN)"""
         schedule_cog = self.bot.get_cog("ScheduleManagerCog")
