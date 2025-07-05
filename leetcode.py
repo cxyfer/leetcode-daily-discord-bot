@@ -12,6 +12,7 @@ from collections import defaultdict
 
 from utils.database import ProblemsDatabaseManager, DailyChallengeDatabaseManager
 from utils.logger import setup_logging, get_logger
+from utils.config import get_config
 
 # Set up logging
 setup_logging()
@@ -57,7 +58,22 @@ class LeetCodeClient:
         self.ratings_ttl = cache_ttl
         self.ratings_last_update = 0
         
+        # Background task tracking
+        self._background_tasks = set()
+        # Semaphore for concurrent API requests
+        self._fetch_semaphore = asyncio.Semaphore(5)
+        
         logger.info(f"Initialized LeetCode client with domain: leetcode.{self.domain}")
+    
+    async def shutdown(self):
+        """Cancel all background tasks gracefully"""
+        if self._background_tasks:
+            logger.info(f"Cancelling {len(self._background_tasks)} background tasks...")
+            for task in self._background_tasks:
+                task.cancel()
+            # Wait for all tasks to complete cancellation
+            await asyncio.gather(*self._background_tasks, return_exceptions=True)
+            logger.info("All background tasks cancelled")
 
     async def init_all_problems(self, init_ratings=False):
         """
@@ -605,6 +621,79 @@ class LeetCodeClient:
             info = await self.fetch_daily_challenge(self.domain)
             return info
         
+        # If still no data found and domain is 'com', try fetching monthly data
+        if info is None and domain == "com":
+            logger.info(f"No data found for {date_str}, attempting to fetch monthly data...")
+            year, month, _ = date_str.split('-')
+            year_int = int(year)
+            month_int = int(month)
+            
+            monthly_data = await self.fetch_monthly_daily_challenges(year_int, month_int)
+            
+            if monthly_data and 'challenges' in monthly_data:
+                logger.info(f"Fetched {len(monthly_data['challenges'])} daily challenges for {year}-{month}")
+                
+                # First, find and process the requested date
+                requested_challenge = None
+                other_challenges = []
+                
+                for challenge in monthly_data['challenges']:
+                    if challenge.get('date') == date_str:
+                        requested_challenge = challenge
+                    else:
+                        other_challenges.append(challenge)
+                
+                # Process the requested challenge first
+                if requested_challenge:
+                    challenge_date = requested_challenge.get('date')
+                    question_id = requested_challenge.get('question_id')
+                    slug = requested_challenge.get('slug')
+                    
+                    if question_id and slug:
+                        problem = await self.get_problem(problem_id=question_id, slug=slug)
+                        if problem:
+                            # Prepare daily challenge data
+                            info = {
+                                'date': challenge_date,
+                                'domain': domain,
+                                'id': problem.get('id'),
+                                'slug': problem.get('slug'),
+                                'title': problem.get('title'),
+                                'title_cn': problem.get('title_cn'),
+                                'difficulty': problem.get('difficulty'),
+                                'ac_rate': problem.get('ac_rate'),
+                                'rating': problem.get('rating'),
+                                'contest': problem.get('contest'),
+                                'problem_index': problem.get('problem_index'),
+                                'tags': problem.get('tags', []),
+                                'link': problem.get('link'),
+                                'category': problem.get('category'),
+                                'paid_only': problem.get('paid_only'),
+                                'content': problem.get('content'),
+                                'content_cn': problem.get('content_cn'),
+                                'similar_questions': problem.get('similar_questions', [])
+                            }
+                            
+                            # Store in database immediately
+                            self.daily_db.update_daily(info)
+                            logger.info(f"Processed requested challenge for {date_str}")
+                
+                # Create a background task to process other challenges
+                if other_challenges and info:
+                    task = asyncio.create_task(
+                        self._process_remaining_monthly_challenges(other_challenges, domain, year, month)
+                    )
+                    # Track the background task
+                    self._background_tasks.add(task)
+                    task.add_done_callback(self._background_tasks.discard)
+                    logger.info(f"Started background task to process {len(other_challenges)} remaining challenges")
+                
+                # Return the requested date's challenge if found
+                if info:
+                    return info
+                else:
+                    logger.warning(f"Requested date {date_str} not found in monthly data for domain {domain}.")
+        
         return None
     
     async def fetch_recent_ac_submissions(self, username, limit=15):
@@ -690,6 +779,217 @@ class LeetCodeClient:
             logger.error(f"Error fetching submissions: {str(e)}", exc_info=True)
             return []
 
+    async def fetch_monthly_daily_challenges(self, year, month):
+        """
+        Fetch all daily coding challenges for a specific month and year
+        
+        Note: LeetCode API only provides data from April 2020 onwards.
+        
+        Args:
+            year (int): Year (e.g., 2025)
+            month (int): Month (1-12)
+            
+        Returns:
+            dict: Monthly challenge data with challenges and weekly challenges
+        """
+        if self.domain != "com":
+            logger.warning("Monthly daily challenges are only available on leetcode.com")
+            return {}
+            
+        # Check if the requested date is before April 2020
+        if year < 2020 or (year == 2020 and month < 4):
+            logger.warning(f"Monthly daily challenges are only available from April 2020 onwards. Requested: {year}-{month:02d}")
+            return {}
+            
+        # GraphQL query for monthly daily challenges
+        query = """
+        query dailyCodingQuestionRecords($year: Int!, $month: Int!) {
+            dailyCodingChallengeV2(year: $year, month: $month) {
+                challenges {
+                    date
+                    userStatus
+                    link
+                    question {
+                        questionFrontendId
+                        title
+                        titleSlug
+                    }
+                }
+                weeklyChallenges {
+                    date
+                    userStatus
+                    link
+                    question {
+                        questionFrontendId
+                        title
+                        titleSlug
+                        isPaidOnly
+                    }
+                }
+            }
+        }
+        """
+        
+        # Variables for the query
+        variables = {
+            "year": year,
+            "month": month
+        }
+        
+        # Request headers
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0',
+            'Referer': 'https://leetcode.com/problemset/',
+            'Origin': 'https://leetcode.com'
+        }
+        
+        # Request payload
+        payload = {
+            "query": query,
+            "variables": variables,
+            "operationName": "dailyCodingQuestionRecords"
+        }
+        
+        try:
+            logger.info(f"Fetching monthly daily challenges for {year}-{month}")
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(self.graphql_url, headers=headers, json=payload) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        logger.error(f"API request failed: {response.status} - {error_text}")
+                        return {}
+                    
+                    data = await response.json()
+                    if 'errors' in data:
+                        logger.error(f"GraphQL errors: {data['errors']}")
+                        return {}
+                    
+                    monthly_data = data.get('data', {}).get('dailyCodingChallengeV2', {})
+                    challenges = monthly_data.get('challenges', [])
+                    weekly_challenges = monthly_data.get('weeklyChallenges', [])
+                    
+                    logger.info(f"Successfully fetched {len(challenges)} daily challenges and {len(weekly_challenges)} weekly challenges")
+                    
+                    # Format the response data
+                    formatted_data = {
+                        'year': year,
+                        'month': month,
+                        'challenges': [],
+                        'weekly_challenges': []
+                    }
+                    
+                    # Process daily challenges
+                    for challenge in challenges:
+                        question = challenge.get('question', {})
+                        formatted_challenge = {
+                            'date': challenge.get('date'),
+                            'user_status': challenge.get('userStatus'),
+                            'link': challenge.get('link'),
+                            'question_id': question.get('questionFrontendId'),
+                            'title': question.get('title'),
+                            'slug': question.get('titleSlug')
+                        }
+                        formatted_data['challenges'].append(formatted_challenge)
+                    
+                    # Process weekly challenges
+                    for weekly_challenge in weekly_challenges:
+                        question = weekly_challenge.get('question', {})
+                        formatted_weekly = {
+                            'date': weekly_challenge.get('date'),
+                            'user_status': weekly_challenge.get('userStatus'),
+                            'link': weekly_challenge.get('link'),
+                            'question_id': question.get('questionFrontendId'),
+                            'title': question.get('title'),
+                            'slug': question.get('titleSlug'),
+                            'paid_only': question.get('isPaidOnly', False)
+                        }
+                        formatted_data['weekly_challenges'].append(formatted_weekly)
+                    
+                    return formatted_data
+            
+        except Exception as e:
+            logger.error(f"Error fetching monthly challenges: {str(e)}", exc_info=True)
+            return {}
+    
+    async def _process_remaining_monthly_challenges(self, challenges, domain, year, month):
+        """
+        Process remaining monthly challenges in the background
+        
+        Args:
+            challenges (list): List of challenge data to process
+            domain (str): Domain (com or cn)
+            year (str): Year
+            month (str): Month
+        """
+        try:
+            logger.info(f"Background task: Processing {len(challenges)} remaining challenges for {year}-{month}")
+            processed_count = 0
+            
+            for challenge in challenges:
+                try:
+                    challenge_date = challenge.get('date')
+                    if not challenge_date:
+                        continue
+                    
+                    # Get detailed problem information
+                    question_id = challenge.get('question_id')
+                    slug = challenge.get('slug')
+                    
+                    if question_id and slug:
+                        # Use semaphore to limit concurrent API requests
+                        async with self._fetch_semaphore:
+                            problem = await self.get_problem(problem_id=question_id, slug=slug)
+                        if problem:
+                            # Prepare daily challenge data
+                            daily_data = {
+                                'date': challenge_date,
+                                'domain': domain,
+                                'id': problem.get('id'),
+                                'slug': problem.get('slug'),
+                                'title': problem.get('title'),
+                                'title_cn': problem.get('title_cn'),
+                                'difficulty': problem.get('difficulty'),
+                                'ac_rate': problem.get('ac_rate'),
+                                'rating': problem.get('rating'),
+                                'contest': problem.get('contest'),
+                                'problem_index': problem.get('problem_index'),
+                                'tags': problem.get('tags', []),
+                                'link': problem.get('link'),
+                                'category': problem.get('category'),
+                                'paid_only': problem.get('paid_only'),
+                                'content': problem.get('content'),
+                                'content_cn': problem.get('content_cn'),
+                                'similar_questions': problem.get('similar_questions', [])
+                            }
+                            
+                            # Store in database
+                            self.daily_db.update_daily(daily_data)
+                            processed_count += 1
+                            
+                            # Add a configurable delay to avoid overwhelming the API
+                            config = get_config()
+                            delay = config.get("leetcode.monthly_fetch_delay", 0.5)
+                            await asyncio.sleep(delay)
+                            
+                except aiohttp.ClientError as e:
+                    logger.error(f"Network error processing challenge for date {challenge.get('date', 'unknown')}: {str(e)}")
+                    continue
+                except asyncio.CancelledError:
+                    logger.info("Background task cancelled")
+                    raise
+                except Exception as e:
+                    logger.error(f"Unexpected error processing challenge for date {challenge.get('date', 'unknown')}: {str(e)}", exc_info=True)
+                    continue
+            
+            logger.info(f"Background task completed: Processed {processed_count}/{len(challenges)} challenges for {year}-{month}")
+            
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.error(f"Error in background monthly challenge processing: {str(e)}", exc_info=True)
+
 def html_to_text(html):
     """
     Convert HTML to formatted text.
@@ -738,6 +1038,7 @@ async def main():
     parser.add_argument("--full", action="store_true", help="Fetch all problems")
     parser.add_argument("--daily", action="store_true", help="Fetch daily challenge")
     parser.add_argument("--date", type=str, help="Fetch daily challenge for a specific date")
+    parser.add_argument("--monthly", nargs=2, type=int, metavar=('YEAR', 'MONTH'), help="Fetch monthly daily challenges (e.g., --monthly 2025 1)")
     args = parser.parse_args()
     
     client = LeetCodeClient(data_dir="data")
@@ -761,6 +1062,17 @@ async def main():
         logger.info(f"Fetching daily challenge for {args.date}...")
         daily = await client.get_daily_challenge(date_str=args.date)
         print(json.dumps(daily, indent=4))
+
+    if args.monthly:
+        year, month = args.monthly
+        logger.info(f"Fetching monthly daily challenges for {year}-{month:02d}...")
+        # Validate date range
+        if year < 2020 or (year == 2020 and month < 4):
+            logger.error("Monthly daily challenges are only available from April 2020 onwards.")
+            print("Error: Monthly daily challenges are only available from April 2020 onwards.")
+            return
+        monthly_data = await client.fetch_monthly_daily_challenges(year, month)
+        print(json.dumps(monthly_data, indent=4, ensure_ascii=False))
 
 async def test():
     client = LeetCodeClient(data_dir="data")

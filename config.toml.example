@@ -73,14 +73,15 @@ discord = "WARNING"
 requests = "WARNING"
 
 [leetcode]
+# Request timeout in seconds
+timeout = 30
+# Retry settings
+max_retries = 3
+retry_delay = 1
+# Monthly fetch delay in seconds between each challenge (to avoid overwhelming the API)
+monthly_fetch_delay = 0.5
+
 # LeetCode API endpoints (usually don't need to change)
 [leetcode.endpoints]
 us = "https://leetcode.com"
 cn = "https://leetcode.cn"
-
-# Request timeout in seconds
-timeout = 30
-
-# Retry settings
-max_retries = 3
-retry_delay = 1
