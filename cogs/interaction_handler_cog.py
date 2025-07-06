@@ -2,6 +2,7 @@
 import discord
 from discord.ext import commands
 import time
+import asyncio
 from leetcode import html_to_text # 確保這個 import 存在
 # from utils.logger import get_logger # 使用 bot.logger
 
@@ -19,6 +20,44 @@ class InteractionHandlerCog(commands.Cog):
         
         # Track ongoing LLM requests to prevent duplicates
         self.ongoing_llm_requests = set()  # elements: (user_id, problem_id, request_type)
+        self.ongoing_llm_requests_lock = asyncio.Lock()  # Lock for atomic operations
+
+    async def _handle_duplicate_request(self, interaction: discord.Interaction, request_key: tuple, request_type: str) -> bool:
+        """
+        Check if a request is already in progress and handle the duplicate case.
+        
+        Args:
+            interaction: Discord interaction object
+            request_key: Tuple of (user_id, problem_id, request_type)
+            request_type: Type of request ("translate" or "inspire")
+            
+        Returns:
+            True if this is a duplicate request (already handled), False otherwise
+        """
+        async with self.ongoing_llm_requests_lock:
+            if request_key in self.ongoing_llm_requests:
+                if request_type == "translate":
+                    message = "正在處理您的翻譯請求，請稍候..."
+                else:
+                    message = "正在處理您的靈感啟發請求，請稍候..."
+                    
+                await interaction.response.send_message(message, ephemeral=True)
+                self.logger.info(f"防止重複{request_type}請求: user={interaction.user.name}, problem_id={request_key[1]}")
+                return True
+                
+            # Add to ongoing requests
+            self.ongoing_llm_requests.add(request_key)
+            return False
+    
+    async def _cleanup_request(self, request_key: tuple) -> None:
+        """
+        Remove a request from the ongoing requests set.
+        
+        Args:
+            request_key: Tuple of (user_id, problem_id, request_type)
+        """
+        async with self.ongoing_llm_requests_lock:
+            self.ongoing_llm_requests.discard(request_key)
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
@@ -84,14 +123,10 @@ class InteractionHandlerCog(commands.Cog):
                 problem_id = parts[2]
                 domain = parts[3] if len(parts) > 3 else "com"
                 
-                # Check if request is already in progress
+                # Handle duplicate request prevention
                 request_key = (interaction.user.id, problem_id, "translate")
-                if request_key in self.ongoing_llm_requests:
-                    await interaction.response.send_message("正在處理您的請求，請稍候...", ephemeral=True)
-                    self.logger.debug(f"防止重複翻譯請求: user={interaction.user.name}, problem_id={problem_id}")
+                if await self._handle_duplicate_request(interaction, request_key, "translate"):
                     return
-                # Add to ongoing requests
-                self.ongoing_llm_requests.add(request_key)
                 
                 await interaction.response.defer(ephemeral=True)
 
@@ -114,7 +149,7 @@ class InteractionHandlerCog(commands.Cog):
                             
                         await interaction.followup.send(translation, ephemeral=True)
                         # Remove from ongoing requests when returning cached result
-                        self.ongoing_llm_requests.discard(request_key)
+                        await self._cleanup_request(request_key)
                         return
 
                     problem_info = await client.get_problem(problem_id=problem_id)
@@ -153,8 +188,7 @@ class InteractionHandlerCog(commands.Cog):
                     pass
             finally:
                 # Remove from ongoing requests
-                if request_key in self.ongoing_llm_requests:
-                    self.ongoing_llm_requests.remove(request_key)
+                await self._cleanup_request(request_key)
         
         # Button for LLM inspire
         elif custom_id.startswith(self.bot.LEETCODE_INSPIRE_BUTTON_PREFIX):
@@ -177,15 +211,10 @@ class InteractionHandlerCog(commands.Cog):
                 problem_id = parts[2]
                 domain = parts[3] if len(parts) > 3 else "com"
                 
-                # Check if request is already in progress
+                # Handle duplicate request prevention
                 request_key = (interaction.user.id, problem_id, "inspire")
-                if request_key in self.ongoing_llm_requests:
-                    await interaction.response.send_message("正在處理您的請求，請稍候...", ephemeral=True)
-                    self.logger.debug(f"防止重複靈感啟發請求: user={interaction.user.name}, problem_id={problem_id}")
+                if await self._handle_duplicate_request(interaction, request_key, "inspire"):
                     return
-                
-                # Add to ongoing requests
-                self.ongoing_llm_requests.add(request_key)
                 
                 await interaction.response.defer(ephemeral=True)
 
@@ -195,7 +224,7 @@ class InteractionHandlerCog(commands.Cog):
                     self.logger.warning(f"無效的題目ID: {problem_id}")
                     await interaction.followup.send("無效的題目ID，無法顯示靈感啟發。", ephemeral=True)
                     # Remove from ongoing requests
-                    self.ongoing_llm_requests.discard(request_key)
+                    await self._cleanup_request(request_key)
                     return
 
                 inspire_result_data = self.bot.llm_inspire_db.get_inspire(int(problem_id), domain)
@@ -284,8 +313,7 @@ class InteractionHandlerCog(commands.Cog):
                     pass
             finally:
                 # Remove from ongoing requests
-                if request_key in self.ongoing_llm_requests:
-                    self.ongoing_llm_requests.remove(request_key)
+                await self._cleanup_request(request_key)
         
         # Navigation buttons for user submissions
         elif custom_id.startswith("user_sub_prev_") or custom_id.startswith("user_sub_next_"):
