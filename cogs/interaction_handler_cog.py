@@ -242,7 +242,7 @@ class InteractionHandlerCog(commands.Cog):
                         self.logger.warning(f"題目沒有內容: problem_id={problem_id}")
                         await interaction.followup.send("無法獲取題目資訊。", ephemeral=True)
                         # Remove from ongoing requests
-                        self.ongoing_llm_requests.discard(request_key)
+                        await self._cleanup_request(request_key)
                         return
                     
                     problem_content_raw = html_to_text(problem_info["content"])
@@ -260,7 +260,7 @@ class InteractionHandlerCog(commands.Cog):
                             await interaction.followup.send(raw_response, ephemeral=True)
                             self.logger.debug(f"發送原始 LLM 靈感回覆: problem_id={problem_id}")
                             # Remove from ongoing requests
-                            self.ongoing_llm_requests.discard(request_key)
+                            await self._cleanup_request(request_key)
                             return
                         
                         # llm_output 是符合預期格式的字典
@@ -281,7 +281,7 @@ class InteractionHandlerCog(commands.Cog):
                         self.logger.error(f"LLM 靈感啟發失敗: {llm_e}", exc_info=True)
                         await interaction.followup.send(f"LLM 靈感啟發失敗：{str(llm_e)}", ephemeral=True)
                         # Remove from ongoing requests
-                        self.ongoing_llm_requests.discard(request_key)
+                        await self._cleanup_request(request_key)
                         return
                 
                 embed = discord.Embed(title="💡 靈感啟發", color=0x8e44ad)
