@@ -148,8 +148,7 @@ class InteractionHandlerCog(commands.Cog):
                             translation += footer_text
                             
                         await interaction.followup.send(translation, ephemeral=True)
-                        # Remove from ongoing requests when returning cached result
-                        await self._cleanup_request(request_key)
+                        # Cleanup will be handled by finally block
                         return
 
                     problem_info = await client.get_problem(problem_id=problem_id)
@@ -223,8 +222,7 @@ class InteractionHandlerCog(commands.Cog):
                 if not problem_id or not problem_id.isdigit():
                     self.logger.warning(f"無效的題目ID: {problem_id}")
                     await interaction.followup.send("無效的題目ID，無法顯示靈感啟發。", ephemeral=True)
-                    # Remove from ongoing requests
-                    await self._cleanup_request(request_key)
+                    # Cleanup will be handled by finally block
                     return
 
                 inspire_result_data = self.bot.llm_inspire_db.get_inspire(int(problem_id), domain)
@@ -241,8 +239,7 @@ class InteractionHandlerCog(commands.Cog):
                     if not (problem_info and problem_info.get("content")):
                         self.logger.warning(f"題目沒有內容: problem_id={problem_id}")
                         await interaction.followup.send("無法獲取題目資訊。", ephemeral=True)
-                        # Remove from ongoing requests
-                        await self._cleanup_request(request_key)
+                        # Cleanup will be handled by finally block
                         return
                     
                     problem_content_raw = html_to_text(problem_info["content"])
@@ -259,8 +256,7 @@ class InteractionHandlerCog(commands.Cog):
                                 raw_response = raw_response[:1900] + "...\n(內容已截斷)"
                             await interaction.followup.send(raw_response, ephemeral=True)
                             self.logger.debug(f"發送原始 LLM 靈感回覆: problem_id={problem_id}")
-                            # Remove from ongoing requests
-                            await self._cleanup_request(request_key)
+                            # Cleanup will be handled by finally block
                             return
                         
                         # llm_output 是符合預期格式的字典
@@ -280,8 +276,7 @@ class InteractionHandlerCog(commands.Cog):
                     except Exception as llm_e:
                         self.logger.error(f"LLM 靈感啟發失敗: {llm_e}", exc_info=True)
                         await interaction.followup.send(f"LLM 靈感啟發失敗：{str(llm_e)}", ephemeral=True)
-                        # Remove from ongoing requests
-                        await self._cleanup_request(request_key)
+                        # Cleanup will be handled by finally block
                         return
                 
                 embed = discord.Embed(title="💡 靈感啟發", color=0x8e44ad)
