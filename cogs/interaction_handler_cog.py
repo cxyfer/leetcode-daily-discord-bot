@@ -2,6 +2,7 @@
 import discord
 from discord.ext import commands
 import time
+import asyncio
 from leetcode import html_to_text # 確保這個 import 存在
 # from utils.logger import get_logger # 使用 bot.logger
 
@@ -16,6 +17,47 @@ class InteractionHandlerCog(commands.Cog):
         
         # Cache for user submissions (to avoid re-fetching)
         self.submissions_cache = {}  # key: f"{username}_{user_id}", value: (submissions, timestamp, limit)
+        
+        # Track ongoing LLM requests to prevent duplicates
+        self.ongoing_llm_requests = set()  # elements: (user_id, problem_id, request_type)
+        self.ongoing_llm_requests_lock = asyncio.Lock()  # Lock for atomic operations
+
+    async def _handle_duplicate_request(self, interaction: discord.Interaction, request_key: tuple, request_type: str) -> bool:
+        """
+        Check if a request is already in progress and handle the duplicate case.
+        
+        Args:
+            interaction: Discord interaction object
+            request_key: Tuple of (user_id, problem_id, request_type)
+            request_type: Type of request ("translate" or "inspire")
+            
+        Returns:
+            True if this is a duplicate request (already handled), False otherwise
+        """
+        async with self.ongoing_llm_requests_lock:
+            if request_key in self.ongoing_llm_requests:
+                if request_type == "translate":
+                    message = "正在處理您的翻譯請求，請稍候..."
+                else:
+                    message = "正在處理您的靈感啟發請求，請稍候..."
+                    
+                await interaction.response.send_message(message, ephemeral=True)
+                self.logger.info(f"防止重複{request_type}請求: user={interaction.user.name}, problem_id={request_key[1]}")
+                return True
+                
+            # Add to ongoing requests
+            self.ongoing_llm_requests.add(request_key)
+            return False
+    
+    async def _cleanup_request(self, request_key: tuple) -> None:
+        """
+        Remove a request from the ongoing requests set.
+        
+        Args:
+            request_key: Tuple of (user_id, problem_id, request_type)
+        """
+        async with self.ongoing_llm_requests_lock:
+            self.ongoing_llm_requests.discard(request_key)
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
@@ -77,10 +119,16 @@ class InteractionHandlerCog(commands.Cog):
         elif custom_id.startswith(self.bot.LEETCODE_TRANSLATE_BUTTON_PREFIX):
             self.logger.debug(f"接收到LeetCode LLM翻譯按鈕交互: custom_id={custom_id}")
             try:
-                await interaction.response.defer(ephemeral=True)
                 parts = custom_id.split("_")
                 problem_id = parts[2]
                 domain = parts[3] if len(parts) > 3 else "com"
+                
+                # Handle duplicate request prevention
+                request_key = (interaction.user.id, problem_id, "translate")
+                if await self._handle_duplicate_request(interaction, request_key, "translate"):
+                    return
+                
+                await interaction.response.defer(ephemeral=True)
 
                 self.logger.debug(f"嘗試獲取題目並進行LLM翻譯: problem_id={problem_id}, domain={domain}")
 
@@ -100,6 +148,7 @@ class InteractionHandlerCog(commands.Cog):
                             translation += footer_text
                             
                         await interaction.followup.send(translation, ephemeral=True)
+                        # Cleanup will be handled by finally block
                         return
 
                     problem_info = await client.get_problem(problem_id=problem_id)
@@ -136,6 +185,9 @@ class InteractionHandlerCog(commands.Cog):
                     await interaction.followup.send(f"LLM 翻譯時發生錯誤：{str(e)}", ephemeral=True)
                 except: # noqa
                     pass
+            finally:
+                # Remove from ongoing requests
+                await self._cleanup_request(request_key)
         
         # Button for LLM inspire
         elif custom_id.startswith(self.bot.LEETCODE_INSPIRE_BUTTON_PREFIX):
@@ -154,16 +206,23 @@ class InteractionHandlerCog(commands.Cog):
                 return str(val)
 
             try:
-                await interaction.response.defer(ephemeral=True)
                 parts = custom_id.split("_")
                 problem_id = parts[2]
                 domain = parts[3] if len(parts) > 3 else "com"
+                
+                # Handle duplicate request prevention
+                request_key = (interaction.user.id, problem_id, "inspire")
+                if await self._handle_duplicate_request(interaction, request_key, "inspire"):
+                    return
+                
+                await interaction.response.defer(ephemeral=True)
 
                 self.logger.debug(f"嘗試獲取題目並進行LLM靈感啟發: problem_id={problem_id}, domain={domain}")
 
                 if not problem_id or not problem_id.isdigit():
                     self.logger.warning(f"無效的題目ID: {problem_id}")
                     await interaction.followup.send("無效的題目ID，無法顯示靈感啟發。", ephemeral=True)
+                    # Cleanup will be handled by finally block
                     return
 
                 inspire_result_data = self.bot.llm_inspire_db.get_inspire(int(problem_id), domain)
@@ -180,6 +239,7 @@ class InteractionHandlerCog(commands.Cog):
                     if not (problem_info and problem_info.get("content")):
                         self.logger.warning(f"題目沒有內容: problem_id={problem_id}")
                         await interaction.followup.send("無法獲取題目資訊。", ephemeral=True)
+                        # Cleanup will be handled by finally block
                         return
                     
                     problem_content_raw = html_to_text(problem_info["content"])
@@ -196,6 +256,7 @@ class InteractionHandlerCog(commands.Cog):
                                 raw_response = raw_response[:1900] + "...\n(內容已截斷)"
                             await interaction.followup.send(raw_response, ephemeral=True)
                             self.logger.debug(f"發送原始 LLM 靈感回覆: problem_id={problem_id}")
+                            # Cleanup will be handled by finally block
                             return
                         
                         # llm_output 是符合預期格式的字典
@@ -215,6 +276,7 @@ class InteractionHandlerCog(commands.Cog):
                     except Exception as llm_e:
                         self.logger.error(f"LLM 靈感啟發失敗: {llm_e}", exc_info=True)
                         await interaction.followup.send(f"LLM 靈感啟發失敗：{str(llm_e)}", ephemeral=True)
+                        # Cleanup will be handled by finally block
                         return
                 
                 embed = discord.Embed(title="💡 靈感啟發", color=0x8e44ad)
@@ -244,6 +306,9 @@ class InteractionHandlerCog(commands.Cog):
                     await interaction.followup.send(f"LLM 靈感啟發時發生錯誤：{str(e)}", ephemeral=True)
                 except: # noqa
                     pass
+            finally:
+                # Remove from ongoing requests
+                await self._cleanup_request(request_key)
         
         # Navigation buttons for user submissions
         elif custom_id.startswith("user_sub_prev_") or custom_id.startswith("user_sub_next_"):
