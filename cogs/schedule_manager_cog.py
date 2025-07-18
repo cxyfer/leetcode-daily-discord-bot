@@ -160,7 +160,7 @@ class ScheduleManagerCog(commands.Cog):
             await self.initialize_schedules()
             self.logger.info("All server daily challenges have been rescheduled")
 
-    async def create_problem_embed(self, problem_info: dict, domain: str = "com", is_daily: bool = False, date_str: str = None):
+    async def create_problem_embed(self, problem_info: dict, domain: str = "com", is_daily: bool = False, date_str: str = None, user: discord.User = None, title: str = None, message: str = None):
         """Create an embed for a LeetCode problem"""
         color_map = {'Easy': 0x00FF00, 'Medium': 0xFFA500, 'Hard': 0xFF0000}
         emoji_map = {'Easy': '🟢', 'Medium': '🟡', 'Hard': '🔴'}
@@ -171,13 +171,23 @@ class ScheduleManagerCog(commands.Cog):
             color=embed_color,
             url=problem_info['link']
         )
+        
+        # Only set author if title or message is provided
+        if (title or message) and user:
+            embed.set_author(
+                name=f"{user.display_name}",
+                icon_url=user.display_avatar.url
+            )
 
         if domain == "com":
             alt_link = problem_info['link'].replace("leetcode.com", "leetcode.cn")
-            embed.description = f"Solve on [LCCN (leetcode.cn)]({alt_link})."
+            embed.description = f"> Solve on [LCCN (leetcode.cn)]({alt_link})."
         else:
             alt_link = problem_info['link'].replace("leetcode.cn", "leetcode.com")
-            embed.description = f"Solve on [LCUS (leetcode.com)]({alt_link})."
+            embed.description = f"> Solve on [LCUS (leetcode.com)]({alt_link})."
+
+        if message:
+            embed.description += f"\n{message}"
 
         embed.add_field(name="🔥 Difficulty", value=f"**{problem_info['difficulty']}**", inline=True)
         if problem_info.get('rating') and round(problem_info['rating']) > 0:

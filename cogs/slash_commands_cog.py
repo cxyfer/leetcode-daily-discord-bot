@@ -6,6 +6,7 @@ import pytz # For timezone validation in set_timezone
 import os   # For os.getenv to get default POST_TIME and TIMEZONE
 import re   # For date format validation
 import time  # For caching submissions with timestamp
+import hashlib
 
 # Default values, similar to how they are defined in bot.py or schedule_manager_cog.py
 # These are used for display in show_settings if a server doesn't have specific settings.
@@ -114,8 +115,8 @@ class SlashCommandsCog(commands.Cog):
         problem_ids="題目編號 (1-3500+)，可用逗號分隔多個 (例如: 1,2,3)",
         domain="選擇 LeetCode 網域",
         public="是否公開顯示回覆 (預設為私密回覆)",
-        message="可選的個人訊息或備註 (最多 500 字符)",
-        title="自定義標題 (多題模式下替換預設標題，最多 100 字符)"
+        title="自定義標題 (多題模式下替換預設標題，最多 100 個字元)",
+        message="可選的個人訊息或備註 (最多 500 個字元)"
     )
     async def problem_command(self, interaction: discord.Interaction, problem_ids: str, domain: str = "com", public: bool = False, message: str = None, title: str = None):
         """
@@ -133,16 +134,16 @@ class SlashCommandsCog(commands.Cog):
             await interaction.response.send_message("網域參數只能是 'com' 或 'cn'", ephemeral=not public)
             return
 
-        # Validate message length if provided
-        if message and len(message) > 500:
-            await interaction.response.send_message("個人訊息不能超過 500 字符", ephemeral=not public)
-            return
-            
         # Validate title length if provided
         if title and len(title) > 100:
-            await interaction.response.send_message("自定義標題不能超過 100 字符", ephemeral=not public)
+            await interaction.response.send_message("自定義標題不能超過 100 個字元", ephemeral=not public)
             return
 
+        # Validate message length if provided
+        if message and len(message) > 500:
+            await interaction.response.send_message("個人訊息不能超過 500 個字元", ephemeral=not public)
+            return
+        
         # Parse and validate problem IDs
         try:
             id_strings = [id_str.strip() for id_str in problem_ids.split(',')]
@@ -161,8 +162,8 @@ class SlashCommandsCog(commands.Cog):
                 problem_id_list.append(problem_id)
                 
             # Limit number of problems to prevent abuse
-            if len(problem_id_list) > 10:
-                await interaction.response.send_message("一次最多只能查詢 10 個題目", ephemeral=not public)
+            if len(problem_id_list) > 20:
+                await interaction.response.send_message("一次最多只能查詢 20 個題目", ephemeral=not public)
                 return
                 
         except ValueError:
@@ -195,7 +196,7 @@ class SlashCommandsCog(commands.Cog):
             
             # If only one problem, display normally without overview
             if len(problems) == 1:
-                embed = await schedule_cog.create_problem_embed(problems[0], domain, is_daily=False)
+                embed = await schedule_cog.create_problem_embed(problems[0], domain, is_daily=False, user=interaction.user, title=title, message=message)
                 view = await schedule_cog.create_problem_view(problems[0], domain)
                 await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
                 self.logger.info(f"Sent single problem {problems[0]['id']} info to user {interaction.user.name}")
@@ -573,14 +574,14 @@ class SlashCommandsCog(commands.Cog):
         
         embed = discord.Embed(
             title=embed_title,
-            color=0x0099FF,
+            color=self._get_user_color(user) if user else 0x0099FF,
             description=message
         )
         
         # Only set author if title or message is provided
         if (title or message) and user:
             embed.set_author(
-                name=f"Requested by {user.display_name}",
+                name=f"{user.display_name}",
                 icon_url=user.display_avatar.url
             )
         
@@ -592,7 +593,7 @@ class SlashCommandsCog(commands.Cog):
             field_number = (i // 5) + 1
             
             problem_lines = []
-            for problem in chunk:
+            for j, problem in enumerate(chunk):
                 emoji = emoji_map.get(problem.get('difficulty', ''), '⚫')
                 
                 # Create line with hyperlink
@@ -606,7 +607,7 @@ class SlashCommandsCog(commands.Cog):
             if len(problems) <= 5:
                 field_name = "📋 Problems"
             else:
-                field_name = f"📋 Problems ({field_number})"
+                field_name = f"📋 Part {field_number}"
             
             embed.add_field(
                 name=field_name,
@@ -647,6 +648,23 @@ class SlashCommandsCog(commands.Cog):
             view.add_item(button)
         
         return view
+
+    def _get_user_color(self, user: discord.User) -> int:
+        """根據使用者頭像URL產生顏色"""
+        # 取得使用者頭像URL的hash值
+        self.logger.debug(f"{user.name=}, {user.id=}, {user.display_avatar.url=}")
+        avatar_id = re.match(r"https://cdn\.discordapp\.com/avatars/\d+/(.*)\.png\?size=\d+", str(user.display_avatar.url))
+        if avatar_id:
+            avatar_id = avatar_id.group(1)
+            self.logger.debug(f"User {user.display_name} avatar_id: {avatar_id}")
+        else:
+            avatar_id = str(user.id)
+
+        hash_value = hashlib.md5(avatar_id.encode()).hexdigest()
+        # 取前6位作為顏色代碼
+        color_hex = hash_value[:6]
+        self.logger.debug(f"User {user.display_name} color: {color_hex}")
+        return int(color_hex, 16)
 
     @app_commands.command(name="remove_channel", description="移除頻道設定，停止在此伺服器發送 LeetCode 每日挑戰")
     @app_commands.guild_only()
