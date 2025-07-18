@@ -1,4 +1,3 @@
-
 import os
 import sys
 
@@ -11,7 +10,7 @@ except ImportError:
     from llms.base import LLMBase  # When executed directly
 
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.output_parsers import SimpleJsonOutputParser
+
 
 class GeminiLLM(LLMBase):
     """
@@ -22,9 +21,15 @@ class GeminiLLM(LLMBase):
     When initialized, it automatically reads the API key from the environment variable GOOGLE_GEMINI_API_KEY.
     """
 
-    def __init__(self, api_key: str = None, model: str = "gemini-2.0-flash",
-                 temperature: float = 0.7, max_tokens: int = None,
-                 timeout: int = None, max_retries: int = 2):
+    def __init__(
+        self,
+        api_key: str = None,
+        model: str = "gemini-2.0-flash",
+        temperature: float = 0.7,
+        max_tokens: int = None,
+        timeout: int = None,
+        max_retries: int = 2,
+    ):
         """
         Initialize the GeminiLLM instance.
 
@@ -37,10 +42,10 @@ class GeminiLLM(LLMBase):
             max_retries (int, optional): The maximum number of retries for the request, default is 2
         """
         self.api_key = api_key or os.getenv("GOOGLE_GEMINI_API_KEY")
-        
+
         if not self.api_key:
             raise ValueError("請設定 GOOGLE_GEMINI_API_KEY 環境變數或傳入 api_key 參數")
-        
+
         self.llm = ChatGoogleGenerativeAI(
             google_api_key=self.api_key,
             model=model,
@@ -65,11 +70,10 @@ class GeminiLLM(LLMBase):
         if hasattr(result, "content"):
             return result.content
         return str(result)
-    
-if __name__ == "__main__":
 
+
+if __name__ == "__main__":
     llm = GeminiLLM()
 
     res = llm.translate("今天天氣很好。", "en")
     print(res)
- 

@@ -1,7 +1,11 @@
 from abc import ABC, abstractmethod
 from langchain_core.output_parsers import SimpleJsonOutputParser
 
-from llms.templates import *
+from llms.templates import (
+    TRANSLATION_JSON_PROMPT_TEMPLATE,
+    INSPIRE_JSON_PROMPT_TEMPLATE,
+)
+
 
 class LLMBase(ABC):
     """
@@ -12,6 +16,7 @@ class LLMBase(ABC):
         generate(prompt: str) -> str
             Generate a response from the LLM based on the input prompt.
     """
+
     def __init__(self):
         self.llm = None
         self.model_name = None
@@ -29,7 +34,9 @@ class LLMBase(ABC):
         """
         pass
 
-    async def translate(self, content: str, target_language: str, from_lang: str = "auto") -> str:
+    async def translate(
+        self, content: str, target_language: str, from_lang: str = "auto"
+    ) -> str:
         """
         Translate the input content to the target language using the LLM.
 
@@ -68,9 +75,7 @@ class LLMBase(ABC):
                   若解析失敗則回傳 {"raw": response}
         """
         prompt = INSPIRE_JSON_PROMPT_TEMPLATE.format(
-            text=content,
-            tags=", ".join(tags) if tags else "",
-            difficulty=difficulty
+            text=content, tags=", ".join(tags) if tags else "", difficulty=difficulty
         )
         response = await self.generate(prompt)
         parser = SimpleJsonOutputParser()
@@ -79,4 +84,3 @@ class LLMBase(ABC):
             return parsed
         except Exception:
             return {"raw": response}
-
