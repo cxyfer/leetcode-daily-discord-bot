@@ -4,6 +4,7 @@ import time
 
 import discord
 from discord.ext import commands
+from utils.logger import get_commands_logger
 
 from leetcode import html_to_text  # 確保這個 import 存在
 
@@ -22,7 +23,7 @@ from utils.ui_helpers import (
 class InteractionHandlerCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.logger = bot.logger
+        self.logger = get_commands_logger()
         # 共享資源將透過 self.bot 存取, 例如:
         # self.lcus = bot.lcus
         # self.llm = bot.llm

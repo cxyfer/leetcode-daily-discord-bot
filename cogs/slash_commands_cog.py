@@ -7,6 +7,7 @@ import discord
 import pytz  # For timezone validation in set_timezone
 from discord import app_commands
 from discord.ext import commands
+from utils.logger import get_commands_logger
 
 # Import UI helpers
 from utils.ui_helpers import (
@@ -29,7 +30,7 @@ DEFAULT_TIMEZONE = os.getenv("TIMEZONE", "UTC")
 class SlashCommandsCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.logger = bot.logger
+        self.logger = get_commands_logger()
 
     @property
     def schedule_cog(self):
@@ -114,9 +115,8 @@ class SlashCommandsCog(commands.Cog):
                     f"查詢每日挑戰時發生錯誤：{e}", ephemeral=not public
                 )
         else:
-            await send_daily_challenge(
+                        await send_daily_challenge(
                 bot=self.bot,
-                logger=self.logger,
                 interaction=interaction,
                 domain="com",
                 ephemeral=not public,
@@ -186,7 +186,6 @@ class SlashCommandsCog(commands.Cog):
         else:
             await send_daily_challenge(
                 bot=self.bot,
-                logger=self.logger,
                 interaction=interaction,
                 domain="cn",
                 ephemeral=not public,

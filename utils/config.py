@@ -19,9 +19,10 @@ else:
             "Please install it with: pip install tomli"
         )
 
-from utils.logger import get_logger
+from utils.logger import get_config_logger
 
-logger = get_logger("bot.config")
+# Module-level logger
+logger = get_config_logger()
 
 
 class ConfigManager:

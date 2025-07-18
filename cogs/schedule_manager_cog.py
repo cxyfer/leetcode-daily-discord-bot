@@ -3,6 +3,7 @@ import os
 
 import pytz
 from discord.ext import commands
+from utils.logger import get_scheduler_logger
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -18,7 +19,7 @@ DEFAULT_TIMEZONE = os.getenv("TIMEZONE", "UTC")
 class ScheduleManagerCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.logger = bot.logger
+        self.logger = get_scheduler_logger()
 
         # Setup APScheduler (uses MemoryJobStore by default, avoiding Discord object serialization issues)
         job_defaults = {
@@ -134,7 +135,6 @@ class ScheduleManagerCog(commands.Cog):
             # Send the daily challenge
             challenge_info = await send_daily_challenge(
                 bot=self.bot,
-                logger=self.logger,
                 channel_id=channel_id,
                 role_id=role_id,
             )

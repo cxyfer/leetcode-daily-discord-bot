@@ -1,12 +1,13 @@
 # cogs/core_cog.py
 import discord
 from discord.ext import commands
+from utils.logger import get_commands_logger
 
 
 class CoreCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.logger = bot.logger
+        self.logger = get_commands_logger()
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):

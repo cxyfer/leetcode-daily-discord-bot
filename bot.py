@@ -4,7 +4,7 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 import logging
-from utils.logger import setup_logging, get_logger
+from utils.logger import get_core_logger
 from utils.config import get_config
 
 from leetcode import LeetCodeClient  # html_to_text 會在 cog 中使用
@@ -16,18 +16,7 @@ from utils.database import LLMTranslateDatabaseManager, LLMInspireDatabaseManage
 # Load configuration
 try:
     config = get_config()
-    logger_config = config.get_section("logging")
-
-    # Set up logging with configuration
-    setup_logging(
-        level=getattr(logging, logger_config.get("level", "INFO")),
-        log_dir=logger_config.get("directory", "./logs"),
-        module_levels={
-            module: getattr(logging, level)
-            for module, level in logger_config.get("modules", {}).items()
-        },
-    )
-    logger = get_logger("bot")
+    logger = get_core_logger()
     logger.info("Configuration loaded from config.toml")
 
     # Get configuration values
@@ -37,8 +26,7 @@ try:
 
 except FileNotFoundError:
     # Fallback to .env if config.toml doesn't exist
-    setup_logging()
-    logger = get_logger("bot")
+    logger = get_core_logger()
     logger.warning("config.toml not found, falling back to .env file")
 
     # Load environment variables

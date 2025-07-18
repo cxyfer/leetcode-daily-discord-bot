@@ -3,11 +3,10 @@ import os
 import json
 import time
 from pathlib import Path
-from .logger import setup_logging, get_logger
+from .logger import get_database_logger
 
-# Set up logging
-setup_logging()
-logger = get_logger("bot.db")
+# Module-level logger
+logger = get_database_logger()
 
 
 class SettingsDatabaseManager:

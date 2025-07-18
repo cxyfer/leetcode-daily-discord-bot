@@ -9,12 +9,11 @@ from pathlib import Path
 from datetime import datetime
 
 from utils.database import ProblemsDatabaseManager, DailyChallengeDatabaseManager
-from utils.logger import setup_logging, get_logger
+from utils.logger import get_leetcode_logger
 from utils.config import get_config
 
 # Set up logging
-setup_logging()
-logger = get_logger("leetcode")
+logger = get_leetcode_logger()
 
 
 class LeetCodeClient:

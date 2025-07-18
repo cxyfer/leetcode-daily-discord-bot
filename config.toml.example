@@ -63,10 +63,14 @@ directory = "./logs"
 
 # Module-specific log levels
 [logging.modules]
-bot = "DEBUG"
-"bot.discord" = "DEBUG"
-"bot.lcus" = "DEBUG"
-"bot.db" = "DEBUG"
+core = "DEBUG"
+commands = "DEBUG"
+leetcode = "DEBUG"
+database = "DEBUG"
+scheduler = "DEBUG"
+llm = "DEBUG"
+config = "DEBUG"
+ui = "DEBUG"
 discord = "WARNING"
 "discord.gateway" = "WARNING"
 "discord.client" = "WARNING"

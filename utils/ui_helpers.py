@@ -10,6 +10,10 @@ from typing import Any, Dict, List, Optional
 
 import discord
 import pytz
+from .logger import get_ui_logger
+
+# Module-level logger
+logger = get_ui_logger()
 
 from .ui_constants import (
     BUTTON_EMOJIS,
@@ -453,7 +457,6 @@ def create_inspiration_embed(
 
 async def send_daily_challenge(
     bot: Any,
-    logger: Any,
     channel_id: int = None,
     role_id: int = None,
     interaction: discord.Interaction = None,
