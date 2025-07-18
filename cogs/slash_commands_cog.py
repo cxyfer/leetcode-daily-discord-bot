@@ -111,29 +111,62 @@ class SlashCommandsCog(commands.Cog):
 
     @app_commands.command(name="problem", description="根據題號查詢 LeetCode 題目資訊")
     @app_commands.describe(
-        problem_id="題目編號 (1-3500+)",
+        problem_ids="題目編號 (1-3500+)，可用逗號分隔多個 (例如: 1,2,3)",
         domain="選擇 LeetCode 網域",
-        public="是否公開顯示回覆 (預設為私密回覆)"
+        public="是否公開顯示回覆 (預設為私密回覆)",
+        message="可選的個人訊息或備註 (最多 500 字符)",
+        title="自定義標題 (多題模式下替換預設標題，最多 100 字符)"
     )
-    async def problem_command(self, interaction: discord.Interaction, problem_id: int, domain: str = "com", public: bool = False):
+    async def problem_command(self, interaction: discord.Interaction, problem_ids: str, domain: str = "com", public: bool = False, message: str = None, title: str = None):
         """
-        Get LeetCode problem information by problem ID
+        Get LeetCode problem information by problem IDs
         
         Args:
             interaction: Discord interaction object
-            problem_id: LeetCode problem ID (positive integer)
+            problem_ids: LeetCode problem IDs (comma-separated string)
             domain: LeetCode domain ('com' or 'cn'), defaults to 'com'
+            public: Whether to show reply publicly (defaults to private)
+            message: Optional user message or note (max 500 characters)
+            title: Custom title for multi-problem mode (max 100 characters)
         """
         if domain not in ["com", "cn"]:
             await interaction.response.send_message("網域參數只能是 'com' 或 'cn'", ephemeral=not public)
             return
-            
-        if problem_id < 1:
-            await interaction.response.send_message("題目編號必須是正整數", ephemeral=not public)
+
+        # Validate message length if provided
+        if message and len(message) > 500:
+            await interaction.response.send_message("個人訊息不能超過 500 字符", ephemeral=not public)
             return
             
-        if problem_id > 4000:  # Add upper bound validation
-            await interaction.response.send_message("題目編號超出範圍，請輸入 1-4000 之間的數字", ephemeral=not public)
+        # Validate title length if provided
+        if title and len(title) > 100:
+            await interaction.response.send_message("自定義標題不能超過 100 字符", ephemeral=not public)
+            return
+
+        # Parse and validate problem IDs
+        try:
+            id_strings = [id_str.strip() for id_str in problem_ids.split(',')]
+            problem_id_list = []
+            
+            for id_str in id_strings:
+                if not id_str.isdigit():
+                    await interaction.response.send_message(f"題目編號 '{id_str}' 不是有效的數字", ephemeral=not public)
+                    return
+                
+                problem_id = int(id_str)
+                if problem_id < 1:
+                    await interaction.response.send_message(f"題目編號 {problem_id} 必須是正整數", ephemeral=not public)
+                    return
+                
+                problem_id_list.append(problem_id)
+                
+            # Limit number of problems to prevent abuse
+            if len(problem_id_list) > 10:
+                await interaction.response.send_message("一次最多只能查詢 10 個題目", ephemeral=not public)
+                return
+                
+        except ValueError:
+            await interaction.response.send_message("題目編號格式錯誤，請輸入有效的數字（例如：1,2,3）", ephemeral=not public)
             return
         
         schedule_cog = self.bot.get_cog("ScheduleManagerCog")
@@ -146,17 +179,34 @@ class SlashCommandsCog(commands.Cog):
         
         try:
             current_client = self.bot.lcus if domain == "com" else self.bot.lccn
-            problem_info = await current_client.get_problem(problem_id=str(problem_id))
             
-            if not problem_info:
-                await interaction.followup.send(f"找不到題目 {problem_id}，請確認題目編號是否正確或是否為公開題目。", ephemeral=not public)
+            # Fetch all problems
+            problems = []
+            for problem_id in problem_id_list:
+                problem_info = await current_client.get_problem(problem_id=str(problem_id))
+                if problem_info:
+                    problems.append(problem_info)
+                else:
+                    self.logger.warning(f"Problem {problem_id} not found")
+            
+            if not problems:
+                await interaction.followup.send("找不到任何有效的題目，請確認題目編號是否正確或是否為公開題目。", ephemeral=not public)
                 return
             
-            embed = await schedule_cog.create_problem_embed(problem_info, domain, is_daily=False)
-            view = await schedule_cog.create_problem_view(problem_info, domain)
+            # If only one problem, display normally without overview
+            if len(problems) == 1:
+                embed = await schedule_cog.create_problem_embed(problems[0], domain, is_daily=False)
+                view = await schedule_cog.create_problem_view(problems[0], domain)
+                await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
+                self.logger.info(f"Sent single problem {problems[0]['id']} info to user {interaction.user.name}")
+                return
+            
+            # Multiple problems - show overview with detail buttons
+            embed = self._create_problems_overview_embed(problems, domain, interaction.user, message, title)
+            view = self._create_problems_overview_view(problems, domain)
             
             await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
-            self.logger.info(f"Sent problem {problem_id} info to user {interaction.user.name}")
+            self.logger.info(f"Sent {len(problems)} problems overview to user {interaction.user.name}")
             
         except Exception as e:
             self.logger.error(f"Error in problem_command: {e}", exc_info=True)
@@ -513,6 +563,88 @@ class SlashCommandsCog(commands.Cog):
                 row=0
             )
             view.add_item(next_button)
+        
+        return view
+
+    def _create_problems_overview_embed(self, problems: list, domain: str, user: discord.User = None, message: str = None, title: str = None) -> discord.Embed:
+        """Create an overview embed showing all problems with basic info in user-provided order"""
+        # Use custom title if provided, otherwise use default
+        embed_title = title if title else f"🔍 LeetCode Problems ({len(problems)} found)"
+        
+        embed = discord.Embed(
+            title=embed_title,
+            color=0x0099FF,
+            description=message
+        )
+        
+        # Only set author if title or message is provided
+        if (title or message) and user:
+            embed.set_author(
+                name=f"Requested by {user.display_name}",
+                icon_url=user.display_avatar.url
+            )
+        
+        emoji_map = {'Easy': '🟢', 'Medium': '🟡', 'Hard': '🔴'}
+        
+        # Split problems into chunks of 5
+        for i in range(0, len(problems), 5):
+            chunk = problems[i:i+5]
+            field_number = (i // 5) + 1
+            
+            problem_lines = []
+            for problem in chunk:
+                emoji = emoji_map.get(problem.get('difficulty', ''), '⚫')
+                
+                # Create line with hyperlink
+                line = f"- {emoji} **[{problem['id']}. {problem['title']}]({problem['link']})**"
+                if problem.get('rating') and problem['rating'] > 0:
+                    line += f" ⭐{round(problem['rating'])}"
+                
+                problem_lines.append(line)
+            
+            # Determine field name
+            if len(problems) <= 5:
+                field_name = "📋 Problems"
+            else:
+                field_name = f"📋 Problems ({field_number})"
+            
+            embed.add_field(
+                name=field_name,
+                value="\n".join(problem_lines),
+                inline=False
+            )
+            self.logger.debug(f"Added field {field_name} with {len(problem_lines)} problems, {len(''.join(problem_lines))} characters")
+
+        embed.add_field(
+            name="💡 Instructions",
+            value="Click the buttons below to view detailed information for each problem.",
+            inline=False
+        )
+        
+        embed.set_footer(
+            text="LeetCode Problems Overview",
+            icon_url="https://leetcode.com/static/images/LeetCode_logo.png"
+        )
+        
+        return embed
+
+    def _create_problems_overview_view(self, problems: list, domain: str) -> discord.ui.View:
+        """Create a view with buttons for each problem"""
+        view = discord.ui.View(timeout=None)
+        
+        # Create buttons for each problem (max 25 buttons per view)
+        for i, problem in enumerate(problems[:25]):  # Discord limit
+            emoji_map = {'Easy': '🟢', 'Medium': '🟡', 'Hard': '🔴'}
+            emoji = emoji_map.get(problem.get('difficulty', ''), '⚫')
+            
+            button = discord.ui.Button(
+                style=discord.ButtonStyle.secondary,
+                label=f"{problem['id']}",
+                emoji=emoji,
+                custom_id=f"problem_detail_{problem['id']}_{domain}",
+                row=i // 5  # 5 buttons per row
+            )
+            view.add_item(button)
         
         return view
 

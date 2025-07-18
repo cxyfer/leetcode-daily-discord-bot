@@ -385,5 +385,48 @@ class InteractionHandlerCog(commands.Cog):
                 except:
                     pass
 
+        # Handle individual problem detail buttons
+        elif custom_id.startswith("problem_detail_"):
+            self.logger.debug(f"接收到題目詳細資訊按鈕交互: custom_id={custom_id}")
+            
+            try:
+                # Parse custom_id: problem_detail_{problem_id}_{domain}
+                parts = custom_id.split("_")
+                problem_id = parts[2]
+                domain = parts[3] if len(parts) > 3 else "com"
+                
+                # Defer the response as this might take some time
+                await interaction.response.defer(ephemeral=True)
+                
+                # Get the problem information
+                current_client = self.bot.lcus if domain == "com" else self.bot.lccn
+                problem_info = await current_client.get_problem(problem_id=problem_id)
+                
+                if not problem_info:
+                    await interaction.followup.send(f"找不到題目 {problem_id}，請確認題目編號是否正確。", ephemeral=True)
+                    return
+                
+                # Create detailed embed and view
+                schedule_cog = self.bot.get_cog("ScheduleManagerCog")
+                if not schedule_cog:
+                    await interaction.followup.send("無法載入排程模組", ephemeral=True)
+                    return
+                
+                embed = await schedule_cog.create_problem_embed(problem_info, domain, is_daily=False)
+                view = await schedule_cog.create_problem_view(problem_info, domain)
+                
+                await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+                self.logger.info(f"使用者 {interaction.user.name} 查看題目 {problem_id} 詳細資訊")
+                
+            except Exception as e:
+                self.logger.error(f"處理題目詳細資訊按鈕時發生錯誤: {e}", exc_info=True)
+                try:
+                    if not interaction.response.is_done():
+                        await interaction.response.send_message(f"載入題目詳細資訊時發生錯誤：{str(e)}", ephemeral=True)
+                    else:
+                        await interaction.followup.send(f"載入題目詳細資訊時發生錯誤：{str(e)}", ephemeral=True)
+                except:
+                    pass
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(InteractionHandlerCog(bot))
