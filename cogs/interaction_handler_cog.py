@@ -6,6 +6,14 @@ import asyncio
 from leetcode import html_to_text # 確保這個 import 存在
 # from utils.logger import get_logger # 使用 bot.logger
 
+# Import UI helpers
+from utils.ui_helpers import (
+    create_problem_description_embed,
+    create_inspiration_embed,
+    create_submission_embed,
+    create_submission_view
+)
+
 class InteractionHandlerCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -96,15 +104,10 @@ class InteractionHandlerCog(commands.Cog):
                             if len(problem_content) > 4000:
                                 problem_content = problem_content[:4000] + "...\n(內容已截斷，請前往 LeetCode 網站查看完整題目)"
 
-                            emoji = {'Easy': '🟢', 'Medium': '🟡', 'Hard': '🔴'}.get(problem_info['difficulty'], '')
-                            embed_color = {'Easy': 0x00FF00, 'Medium': 0xFFA500, 'Hard': 0xFF0000}.get(problem_info['difficulty'], 0x0099FF)
-                            embed = discord.Embed(
-                                title=f"{emoji} {problem_info['id']}. {problem_info['title']}",
-                                color=embed_color,
-                                description=problem_content,
-                                url=problem_info['link'],
-                            )
-                            embed.set_author(name="LeetCode Problem", icon_url="https://leetcode.com/static/images/LeetCode_logo.png")
+                            # Create problem description using a temporary problem_info with description
+                            problem_info_with_desc = problem_info.copy()
+                            problem_info_with_desc['description'] = problem_content
+                            embed = create_problem_description_embed(problem_info_with_desc, domain)
                             response_data = {"content": "由於題目內容過長，使用嵌入式訊息的方式顯示。", "embed": embed}
                     else:
                         response_data = {"content": "無法獲取題目描述，請前往 LeetCode 網站查看。"}
@@ -293,24 +296,13 @@ class InteractionHandlerCog(commands.Cog):
                         # Cleanup will be handled by finally block
                         return
                 
-                embed = discord.Embed(title="💡 靈感啟發", color=0x8e44ad)
-                total_len = 0
-                for key, field_name in INSPIRE_FIELDS:
-                    # 從 inspire_result_content (可能是從DB來或LLM來) 取值並格式化
-                    val_raw = inspire_result_content.get(key, "")
-                    val_formatted = format_inspire_field(val_raw)
-                    if len(val_formatted) > 1024:
-                        val_formatted = val_formatted[:1020] + "..."
-                    embed.add_field(name=field_name, value=val_formatted, inline=False)
-                    total_len += len(val_formatted)
+                # Prepare inspiration data with footer
+                inspiration_data = inspire_result_content.copy()
+                inspiration_data['footer'] = f"由 {model_name} 提供靈感"
                 
-                footer_text = f"由 {model_name} 提供靈感"
-                if total_len > 1800: # Discord embed total character limit is around 6000, field value 1024, title 256, desc 4096
-                    footer_text = "內容已截斷。 " + footer_text # Simplified message
-                
-                embed.set_footer(text=footer_text, icon_url="https://brandlogos.net/wp-content/uploads/2025/03/gemini_icon-logo_brandlogos.net_bqzeu.png")
+                embed = create_inspiration_embed(inspiration_data, problem_info)
                 await interaction.followup.send(embed=embed, ephemeral=True)
-                self.logger.info(f"成功發送LLM靈感啟發給 @{interaction.user.name}: channel_id={interaction.channel.id}, problem_id={problem_id}, domain={domain}, content_length={total_len}")
+                self.logger.info(f"成功發送LLM靈感啟發給 @{interaction.user.name}: channel_id={interaction.channel.id}, problem_id={problem_id}, domain={domain}")
                
             except discord.errors.InteractionResponded:
                 await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
@@ -381,8 +373,8 @@ class InteractionHandlerCog(commands.Cog):
                     await interaction.followup.send("無法載入題目詳細資訊", ephemeral=True)
                     return
                 
-                embed = slash_cog._create_submission_embed(detailed_submission, new_page, len(submissions), username)
-                view = slash_cog._create_submission_view(detailed_submission, new_page, username, len(submissions))
+                embed = create_submission_embed(detailed_submission, new_page, len(submissions), username)
+                view = create_submission_view(detailed_submission, self.bot, new_page, username, len(submissions))
                 
                 # Update the message
                 await interaction.edit_original_response(embed=embed, view=view)

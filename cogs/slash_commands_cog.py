@@ -6,8 +6,16 @@ import pytz # For timezone validation in set_timezone
 import os   # For os.getenv to get default POST_TIME and TIMEZONE
 import re   # For date format validation
 import time  # For caching submissions with timestamp
-import hashlib
 from datetime import datetime, timezone
+
+# Import UI helpers
+from utils.ui_helpers import (
+    create_problems_overview_embed,
+    create_problems_overview_view,
+    create_submission_embed,
+    create_submission_view,
+    create_settings_embed
+)
 
 # Default values, similar to how they are defined in bot.py or schedule_manager_cog.py
 # These are used for display in show_settings if a server doesn't have specific settings.
@@ -204,8 +212,8 @@ class SlashCommandsCog(commands.Cog):
                 return
             
             # Multiple problems - show overview with detail buttons
-            embed = self._create_problems_overview_embed(problems, domain, interaction.user, message, title)
-            view = self._create_problems_overview_view(problems, domain)
+            embed = create_problems_overview_embed(problems, domain, interaction.user, message, title)
+            view = create_problems_overview_view(problems, domain)
             
             await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
             self.logger.info(f"Sent {len(problems)} problems overview to user {interaction.user.name}")
@@ -397,10 +405,7 @@ class SlashCommandsCog(commands.Cog):
         post_time = settings.get("post_time", DEFAULT_POST_TIME)
         timezone = settings.get("timezone", DEFAULT_TIMEZONE)
         
-        embed = discord.Embed(title=f"{interaction.guild.name} 的 LeetCode 挑戰設定", color=0x0099FF)
-        embed.add_field(name="發送頻道", value=channel_mention, inline=False)
-        embed.add_field(name="標記身分組", value=role_mention, inline=False)
-        embed.add_field(name="發送時間", value=f"{post_time} ({timezone})", inline=False)
+        embed = create_settings_embed(interaction.guild.name, channel_mention, role_mention, post_time, timezone)
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -445,8 +450,8 @@ class SlashCommandsCog(commands.Cog):
                 await interaction.followup.send("無法載入題目詳細資訊", ephemeral=not public)
                 return
                 
-            embed = self._create_submission_embed(first_submission, current_page, len(submissions), username)
-            view = self._create_submission_view(first_submission, current_page, username, len(submissions))
+            embed = create_submission_embed(first_submission, current_page, len(submissions), username)
+            view = create_submission_view(first_submission, self.bot, current_page, username, len(submissions))
             
             # Cache submissions in interaction handler for navigation
             interaction_cog = self.bot.get_cog("InteractionHandlerCog")
@@ -482,191 +487,15 @@ class SlashCommandsCog(commands.Cog):
             self.logger.error(f"Error getting submission details: {e}", exc_info=True)
         return None
     
-    def _create_submission_embed(self, submission: dict, page: int, total: int, username: str) -> discord.Embed:
-        """Create an embed for a single submission"""
-        color_map = {'Easy': 0x00FF00, 'Medium': 0xFFA500, 'Hard': 0xFF0000}
-        emoji_map = {'Easy': '🟢', 'Medium': '🟡', 'Hard': '🔴'}
-        
-        embed_color = color_map.get(submission['difficulty'], 0x0099FF)
-        difficulty_emoji = emoji_map.get(submission['difficulty'], '')
-        
-        embed = discord.Embed(
-            title=f"{difficulty_emoji} {submission['id']}. {submission['title']}",
-            url=submission['link'],
-            color=embed_color,
-            description=f"**Submission Time:** {submission['submission_time']}"
-        )
-        
-        embed.add_field(name="🔥 Difficulty", value=f"**{submission['difficulty']}**", inline=True)
-        if submission.get('rating') and submission['rating'] > 0:
-            embed.add_field(name="⭐ Rating", value=f"**{round(submission['rating'])}**", inline=True)
-        if submission.get('ac_rate'):
-            embed.add_field(name="📈 AC Rate", value=f"**{round(submission['ac_rate'], 2)}%**", inline=True)
-            
-        if submission.get('tags'):
-            tags_str = ", ".join([f"||`{tag}`||" for tag in submission['tags'][:5]])  # Limit tags to avoid too long
-            embed.add_field(name="🏷️ Tags", value=tags_str, inline=False)
-        
-        embed.set_author(name=f"{username}'s Recent Submissions", icon_url="https://leetcode.com/static/images/LeetCode_logo.png")
-        embed.set_footer(text=f"Problem {page + 1} of {total}")
-        
-        return embed
+    # Function removed - now using utils.ui_helpers.create_submission_embed
     
-    def _create_submission_view(self, submission: dict, current_page: int, username: str, total_submissions: int = None) -> discord.ui.View:
-        """Create a view with navigation buttons for a single submission"""
-        view = discord.ui.View(timeout=None)
-        
-        # Determine if we should show navigation buttons
-        show_nav = total_submissions is None or total_submissions > 1
-        
-        # Add navigation buttons
-        if show_nav:
-            # Previous button (leftmost)
-            prev_button = discord.ui.Button(
-                style=discord.ButtonStyle.secondary,
-                emoji="◀️",
-                custom_id=f"user_sub_prev_{username}_{current_page}",
-                disabled=(current_page == 0),
-                row=0
-            )
-            view.add_item(prev_button)
-        
-        # Add problem description button (no label)
-        view.add_item(discord.ui.Button(
-            style=discord.ButtonStyle.primary,
-            emoji="📖",
-            custom_id=f"{self.bot.LEETCODE_DISCRIPTION_BUTTON_PREFIX}{submission['id']}_com",
-            row=0
-        ))
-        
-        # Add optional LLM buttons if available (no labels)
-        if self.bot.llm:
-            view.add_item(discord.ui.Button(
-                style=discord.ButtonStyle.success,
-                emoji="🤖",
-                custom_id=f"{self.bot.LEETCODE_TRANSLATE_BUTTON_PREFIX}{submission['id']}_com",
-                row=0
-            ))
-        if self.bot.llm_pro:
-            view.add_item(discord.ui.Button(
-                style=discord.ButtonStyle.danger,
-                emoji="💡",
-                custom_id=f"{self.bot.LEETCODE_INSPIRE_BUTTON_PREFIX}{submission['id']}_com",
-                row=0
-            ))
-        
-        # Add next button (rightmost)
-        if show_nav and total_submissions:
-            next_button = discord.ui.Button(
-                style=discord.ButtonStyle.secondary,
-                emoji="▶️",
-                custom_id=f"user_sub_next_{username}_{current_page}",
-                disabled=(current_page >= total_submissions - 1),
-                row=0
-            )
-            view.add_item(next_button)
-        
-        return view
+    # Function removed - now using utils.ui_helpers.create_submission_view
 
-    def _create_problems_overview_embed(self, problems: list, domain: str, user: discord.User = None, message: str = None, title: str = None) -> discord.Embed:
-        """Create an overview embed showing all problems with basic info in user-provided order"""
-        # Use custom title if provided, otherwise use default
-        embed_title = title if title else f"🔍 LeetCode Problems ({len(problems)} found)"
-        
-        embed = discord.Embed(
-            title=embed_title,
-            color=self._get_user_color(user) if user else 0x0099FF,
-            description=message
-        )
-        
-        # Only set author if title or message is provided
-        if (title or message) and user:
-            embed.set_author(
-                name=f"{user.display_name}",
-                icon_url=user.display_avatar.url
-            )
-        
-        emoji_map = {'Easy': '🟢', 'Medium': '🟡', 'Hard': '🔴'}
-        
-        # Split problems into chunks of 5
-        for i in range(0, len(problems), 5):
-            chunk = problems[i:i+5]
-            field_number = (i // 5) + 1
-            
-            problem_lines = []
-            for j, problem in enumerate(chunk):
-                emoji = emoji_map.get(problem.get('difficulty', ''), '⚫')
-                
-                # Create line with hyperlink
-                line = f"- {emoji} **[{problem['id']}. {problem['title']}]({problem['link']})**"
-                if problem.get('rating') and problem['rating'] > 0:
-                    line += f" ⭐{round(problem['rating'])}"
-                
-                problem_lines.append(line)
-            
-            # Determine field name
-            if len(problems) <= 5:
-                field_name = "📋 Problems"
-            else:
-                field_name = f"📋 Part {field_number}"
-            
-            embed.add_field(
-                name=field_name,
-                value="\n".join(problem_lines),
-                inline=False
-            )
-            self.logger.debug(f"Added field {field_name} with {len(problem_lines)} problems, {len(''.join(problem_lines))} characters")
+    # Function removed - now using utils.ui_helpers.create_problems_overview_embed
 
-        embed.add_field(
-            name="💡 Instructions",
-            value="Click the buttons below to view detailed information for each problem.",
-            inline=False
-        )
-        
-        embed.set_footer(
-            text="LeetCode Problems Overview",
-            icon_url="https://leetcode.com/static/images/LeetCode_logo.png",
-        )
-        embed.timestamp = datetime.now(timezone.utc)
-        
-        return embed
+    # Function removed - now using utils.ui_helpers.create_problems_overview_view
 
-    def _create_problems_overview_view(self, problems: list, domain: str) -> discord.ui.View:
-        """Create a view with buttons for each problem"""
-        view = discord.ui.View(timeout=None)
-        
-        # Create buttons for each problem (max 25 buttons per view)
-        for i, problem in enumerate(problems[:25]):  # Discord limit
-            emoji_map = {'Easy': '🟢', 'Medium': '🟡', 'Hard': '🔴'}
-            emoji = emoji_map.get(problem.get('difficulty', ''), '⚫')
-            
-            button = discord.ui.Button(
-                style=discord.ButtonStyle.secondary,
-                label=f"{problem['id']}",
-                emoji=emoji,
-                custom_id=f"problem_detail_{problem['id']}_{domain}",
-                row=i // 5  # 5 buttons per row
-            )
-            view.add_item(button)
-        
-        return view
-
-    def _get_user_color(self, user: discord.User) -> int:
-        """根據使用者頭像URL產生顏色"""
-        # 取得使用者頭像URL的hash值
-        self.logger.debug(f"{user.name=}, {user.id=}, {user.display_avatar.url=}")
-        avatar_id = re.match(r"https://cdn\.discordapp\.com/avatars/\d+/(.*)\.png\?size=\d+", str(user.display_avatar.url))
-        if avatar_id:
-            avatar_id = avatar_id.group(1)
-            self.logger.debug(f"User {user.display_name} avatar_id: {avatar_id}")
-        else:
-            avatar_id = str(user.id)
-
-        hash_value = hashlib.md5(avatar_id.encode()).hexdigest()
-        # 取前6位作為顏色代碼
-        color_hex = hash_value[:6]
-        self.logger.debug(f"User {user.display_name} color: {color_hex}")
-        return int(color_hex, 16)
+    # Function removed - now using utils.ui_helpers.get_user_color
 
     @app_commands.command(name="remove_channel", description="移除頻道設定，停止在此伺服器發送 LeetCode 每日挑戰")
     @app_commands.guild_only()

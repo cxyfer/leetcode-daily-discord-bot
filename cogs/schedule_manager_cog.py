@@ -9,6 +9,9 @@ import os
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+# Import UI helpers
+from utils.ui_helpers import create_problem_embed, create_problem_view
+
 # Default values, similar to how they are defined in bot.py
 DEFAULT_POST_TIME = os.getenv('POST_TIME', '00:00')
 DEFAULT_TIMEZONE = os.getenv('TIMEZONE', 'UTC')
@@ -162,90 +165,24 @@ class ScheduleManagerCog(commands.Cog):
 
     async def create_problem_embed(self, problem_info: dict, domain: str = "com", is_daily: bool = False, date_str: str = None, user: discord.User = None, title: str = None, message: str = None):
         """Create an embed for a LeetCode problem"""
-        color_map = {'Easy': 0x00FF00, 'Medium': 0xFFA500, 'Hard': 0xFF0000}
-        emoji_map = {'Easy': '🟢', 'Medium': '🟡', 'Hard': '🔴'}
-        embed_color = color_map.get(problem_info['difficulty'], 0x0099FF)
-
-        embed = discord.Embed(
-            title=f"🔗 {problem_info['id']}. {problem_info['title']}",
-            color=embed_color,
-            url=problem_info['link']
+        return await create_problem_embed(
+            problem_info=problem_info,
+            bot=self.bot,
+            domain=domain,
+            is_daily=is_daily,
+            date_str=date_str,
+            user=user,
+            title=title,
+            message=message
         )
-        
-        # Only set author if title or message is provided
-        if (title or message) and user:
-            embed.set_author(
-                name=f"{user.display_name}",
-                icon_url=user.display_avatar.url
-            )
-
-        if domain == "com":
-            alt_link = problem_info['link'].replace("leetcode.com", "leetcode.cn")
-            embed.description = f"> Solve on [LCCN (leetcode.cn)]({alt_link})."
-        else:
-            alt_link = problem_info['link'].replace("leetcode.cn", "leetcode.com")
-            embed.description = f"> Solve on [LCUS (leetcode.com)]({alt_link})."
-
-        if message:
-            embed.description += f"\n{message}"
-
-        embed.add_field(name="🔥 Difficulty", value=f"**{problem_info['difficulty']}**", inline=True)
-        if problem_info.get('rating') and round(problem_info['rating']) > 0:
-            embed.add_field(name="⭐ Rating", value=f"**{round(problem_info['rating'])}**", inline=True)
-        if problem_info.get('ac_rate'):
-            embed.add_field(name="📈 AC Rate", value=f"**{round(problem_info['ac_rate'], 2)}%**", inline=True)
-        
-        if problem_info.get('tags'):    
-            tags_str = ", ".join([f"||`{tag}`||" for tag in problem_info['tags']])
-            embed.add_field(name="🏷️ Tags", value=tags_str if tags_str else "N/A", inline=False)
-        
-        # Similar questions handling (limit to avoid too much processing)
-        if problem_info.get('similar_questions'):
-            current_client = self.bot.lcus if domain == "com" else self.bot.lccn
-            similar_q_list = []
-            for sq_slug_info in problem_info['similar_questions'][:3]:
-                sq_detail = await current_client.get_problem(slug=sq_slug_info['titleSlug'])
-                if sq_detail:
-                    sq_text = f"- {emoji_map.get(sq_detail['difficulty'], '')} [{sq_detail['id']}. {sq_detail['title']}]({sq_detail['link']})"
-                    if sq_detail.get('rating') and sq_detail['rating'] > 0: 
-                        sq_text += f" *{int(sq_detail['rating'])}*"
-                    similar_q_list.append(sq_text)
-            if similar_q_list:
-                embed.add_field(name="🔍 Similar Questions", value="\n".join(similar_q_list), inline=False)
-
-        if is_daily:
-            # Use passed date_str or fallback to problem_info date or 'Today'
-            display_date = date_str or problem_info.get('date', 'Today')
-            embed.set_footer(text=f"LeetCode Daily Challenge | {display_date}", icon_url="https://leetcode.com/static/images/LeetCode_logo.png")
-        else:
-            embed.set_footer(text="LeetCode Problem", icon_url="https://leetcode.com/static/images/LeetCode_logo.png")
-
-        return embed
 
     async def create_problem_view(self, problem_info: dict, domain: str = "com"):
         """Create a view with buttons for a LeetCode problem"""
-        view = discord.ui.View(timeout=None)
-        view.add_item(discord.ui.Button(
-            style=discord.ButtonStyle.primary,
-            label="題目描述",
-            emoji="📖",
-            custom_id=f"{self.bot.LEETCODE_DISCRIPTION_BUTTON_PREFIX}{problem_info['id']}_{domain}"
-        ))
-        if self.bot.llm:
-            view.add_item(discord.ui.Button(
-                style=discord.ButtonStyle.success,
-                label="LLM 翻譯",
-                emoji="🤖",
-                custom_id=f"{self.bot.LEETCODE_TRANSLATE_BUTTON_PREFIX}{problem_info['id']}_{domain}"
-            ))
-        if self.bot.llm_pro:
-            view.add_item(discord.ui.Button(
-                style=discord.ButtonStyle.danger,
-                label="靈感啟發",
-                emoji="💡",
-                custom_id=f"{self.bot.LEETCODE_INSPIRE_BUTTON_PREFIX}{problem_info['id']}_{domain}"
-            ))
-        return view
+        return await create_problem_view(
+            problem_info=problem_info,
+            bot=self.bot,
+            domain=domain
+        )
 
     async def send_daily_challenge(self, channel_id: int = None, role_id: int = None, interaction: discord.Interaction = None, domain: str = "com", ephemeral: bool = True):
         """Fetches and sends the LeetCode daily challenge."""
