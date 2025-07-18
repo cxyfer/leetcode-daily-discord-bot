@@ -15,6 +15,9 @@ from utils.ui_helpers import (
     create_submission_embed,
     create_submission_view,
     create_settings_embed,
+    create_problem_embed,
+    create_problem_view,
+    send_daily_challenge,
 )
 
 # Default values, similar to how they are defined in bot.py or schedule_manager_cog.py
@@ -27,6 +30,21 @@ class SlashCommandsCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.logger = bot.logger
+
+    @property
+    def schedule_cog(self):
+        """Get the ScheduleManagerCog instance"""
+        return self.bot.get_cog("ScheduleManagerCog")
+
+    async def _reschedule_if_available(self, server_id: int, context: str = ""):
+        """Helper method to reschedule daily challenge if schedule_cog is available"""
+        schedule_cog = self.schedule_cog
+        if schedule_cog:
+            await schedule_cog.reschedule_daily_challenge(server_id)
+        else:
+            self.logger.warning(
+                f"ScheduleManagerCog not found during {context} for server {server_id}. Scheduling may not update immediately."
+            )
 
     @app_commands.command(name="daily", description="取得 LeetCode 每日挑戰 (LCUS)")
     @app_commands.describe(
@@ -43,16 +61,6 @@ class SlashCommandsCog(commands.Cog):
             interaction: Discord interaction object
             date: Optional date string in YYYY-MM-DD format. If None, returns today's challenge.
         """
-        schedule_cog = self.bot.get_cog("ScheduleManagerCog")
-        if not schedule_cog:
-            await interaction.response.send_message(
-                "排程模組目前無法使用，請稍後再試。", ephemeral=True
-            )
-            self.logger.error(
-                "ScheduleManagerCog not found when trying to execute /daily command."
-            )
-            return
-
         await interaction.response.defer(
             ephemeral=not public
         )  # Defer as it involves API calls
@@ -78,10 +86,16 @@ class SlashCommandsCog(commands.Cog):
                     )
                     return
 
-                embed = await schedule_cog.create_problem_embed(
-                    challenge_info, "com", is_daily=True, date_str=date
+                embed = await create_problem_embed(
+                    problem_info=challenge_info,
+                    bot=self.bot,
+                    domain="com",
+                    is_daily=True,
+                    date_str=date,
                 )
-                view = await schedule_cog.create_problem_view(challenge_info, "com")
+                view = await create_problem_view(
+                    problem_info=challenge_info, bot=self.bot, domain="com"
+                )
 
                 await interaction.followup.send(
                     embed=embed, view=view, ephemeral=not public
@@ -100,8 +114,12 @@ class SlashCommandsCog(commands.Cog):
                     f"查詢每日挑戰時發生錯誤：{e}", ephemeral=not public
                 )
         else:
-            await schedule_cog.send_daily_challenge(
-                interaction=interaction, domain="com", ephemeral=not public
+            await send_daily_challenge(
+                bot=self.bot,
+                logger=self.logger,
+                interaction=interaction,
+                domain="com",
+                ephemeral=not public,
             )
 
     @app_commands.command(name="daily_cn", description="取得 LeetCode 每日挑戰 (LCCN)")
@@ -113,16 +131,6 @@ class SlashCommandsCog(commands.Cog):
         self, interaction: discord.Interaction, date: str = None, public: bool = False
     ):
         """Get LeetCode daily challenge (LCCN)"""
-        schedule_cog = self.bot.get_cog("ScheduleManagerCog")
-        if not schedule_cog:
-            await interaction.response.send_message(
-                "排程模組目前無法使用，請稍後再試。", ephemeral=True
-            )
-            self.logger.error(
-                "ScheduleManagerCog not found when trying to execute /daily_cn command."
-            )
-            return
-
         await interaction.response.defer(
             ephemeral=not public
         )  # Defer as it involves API calls
@@ -148,10 +156,16 @@ class SlashCommandsCog(commands.Cog):
                     )
                     return
 
-                embed = await schedule_cog.create_problem_embed(
-                    challenge_info, "cn", is_daily=True, date_str=date
+                embed = await create_problem_embed(
+                    problem_info=challenge_info,
+                    bot=self.bot,
+                    domain="cn",
+                    is_daily=True,
+                    date_str=date,
                 )
-                view = await schedule_cog.create_problem_view(challenge_info, "cn")
+                view = await create_problem_view(
+                    problem_info=challenge_info, bot=self.bot, domain="cn"
+                )
 
                 await interaction.followup.send(
                     embed=embed, view=view, ephemeral=not public
@@ -170,8 +184,12 @@ class SlashCommandsCog(commands.Cog):
                     f"查詢每日挑戰時發生錯誤：{e}", ephemeral=not public
                 )
         else:
-            await schedule_cog.send_daily_challenge(
-                interaction=interaction, domain="cn", ephemeral=not public
+            await send_daily_challenge(
+                bot=self.bot,
+                logger=self.logger,
+                interaction=interaction,
+                domain="cn",
+                ephemeral=not public,
             )
 
     @app_commands.command(name="problem", description="根據題號查詢 LeetCode 題目資訊")
@@ -257,16 +275,6 @@ class SlashCommandsCog(commands.Cog):
             )
             return
 
-        schedule_cog = self.bot.get_cog("ScheduleManagerCog")
-        if not schedule_cog:
-            await interaction.response.send_message(
-                "排程模組目前無法使用，請稍後再試。", ephemeral=not public
-            )
-            self.logger.error(
-                "ScheduleManagerCog not found when trying to execute /problem command."
-            )
-            return
-
         await interaction.response.defer(ephemeral=not public)
 
         try:
@@ -292,15 +300,18 @@ class SlashCommandsCog(commands.Cog):
 
             # If only one problem, display normally without overview
             if len(problems) == 1:
-                embed = await schedule_cog.create_problem_embed(
-                    problems[0],
-                    domain,
+                embed = await create_problem_embed(
+                    problem_info=problems[0],
+                    bot=self.bot,
+                    domain=domain,
                     is_daily=False,
                     user=interaction.user,
                     title=title,
                     message=message,
                 )
-                view = await schedule_cog.create_problem_view(problems[0], domain)
+                view = await create_problem_view(
+                    problem_info=problems[0], bot=self.bot, domain=domain
+                )
                 await interaction.followup.send(
                     embed=embed, view=view, ephemeral=not public
                 )
@@ -359,13 +370,7 @@ class SlashCommandsCog(commands.Cog):
                 f"Server {server_id} channel set to {channel.id} by {interaction.user.name}"
             )
             # Reschedule after successful update
-            schedule_cog = self.bot.get_cog("ScheduleManagerCog")
-            if schedule_cog:
-                await schedule_cog.reschedule_daily_challenge(server_id)
-            else:
-                self.logger.warning(
-                    f"ScheduleManagerCog not found during set_channel for server {server_id}. Scheduling may not update immediately."
-                )
+            await self._reschedule_if_available(server_id, "set_channel")
         else:
             # This case might happen if set_channel itself has internal logic that can fail,
             # or if the initial set_server_settings within set_channel (for a new server) fails.
@@ -422,13 +427,7 @@ class SlashCommandsCog(commands.Cog):
                 f"Server {server_id} role set to {role.id} by {interaction.user.name}"
             )
             # Reschedule, as role change might affect notifications if the bot logic uses it before sending.
-            schedule_cog = self.bot.get_cog("ScheduleManagerCog")
-            if schedule_cog:
-                await schedule_cog.reschedule_daily_challenge(server_id)
-            else:
-                self.logger.warning(
-                    f"ScheduleManagerCog not found during set_role for server {server_id}. Scheduling may not update immediately."
-                )
+            await self._reschedule_if_available(server_id, "set_role")
         else:
             # This typically means the channel wasn't set first, which is handled by the check at lines 77-79.
             # However, if set_role itself had an internal failure, this would catch it.
@@ -494,9 +493,7 @@ class SlashCommandsCog(commands.Cog):
                 f"Server {server_id} post time set to {time} by {interaction.user.name}"
             )
             # Reschedule after successful update
-            schedule_cog = self.bot.get_cog("ScheduleManagerCog")
-            if schedule_cog:
-                await schedule_cog.reschedule_daily_challenge(server_id)
+            await self._reschedule_if_available(server_id, "set_post_time")
         else:
             await interaction.response.send_message(
                 "設定發送時間時發生錯誤，請確認伺服器是否已設定發送頻道，或稍後再試。",
@@ -560,9 +557,7 @@ class SlashCommandsCog(commands.Cog):
                 f"Server {server_id} timezone set to {timezone} by {interaction.user.name}"
             )
             # Reschedule after successful update
-            schedule_cog = self.bot.get_cog("ScheduleManagerCog")
-            if schedule_cog:
-                await schedule_cog.reschedule_daily_challenge(server_id)
+            await self._reschedule_if_available(server_id, "set_timezone")
         else:
             await interaction.response.send_message(
                 "設定時區時發生錯誤，請確認伺服器是否已設定發送頻道，或稍後再試。",
@@ -771,16 +766,7 @@ class SlashCommandsCog(commands.Cog):
                 f"Server {server_id} settings removed by {interaction.user.name}"
             )
             # Attempt to cancel the scheduled task for this server
-            schedule_cog = self.bot.get_cog("ScheduleManagerCog")
-            if schedule_cog:
-                # Rescheduling with no channel_id in DB (because it's deleted)
-                # or explicitly cancelling the task if reschedule_daily_challenge handles it.
-                # For now, reschedule_daily_challenge should handle the case where settings are gone.
-                await schedule_cog.reschedule_daily_challenge(server_id)
-            else:
-                self.logger.warning(
-                    f"ScheduleManagerCog not found during remove_channel for server {server_id}. Scheduling may not stop immediately if it was running."
-                )
+            await self._reschedule_if_available(server_id, "remove_server_settings")
 
             await interaction.response.send_message(
                 "已成功移除此伺服器的每日挑戰所有設定，將不再發送。", ephemeral=True

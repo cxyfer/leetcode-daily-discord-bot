@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import discord
+import pytz
 
 from .ui_constants import (
     BUTTON_EMOJIS,
@@ -314,7 +315,7 @@ def create_problems_overview_embed(
     embed_title = (
         title
         if title
-        else f"{FIELD_EMOJIS['problems']} LeetCode Problems ({len(problems)} found)"
+        else f"{FIELD_EMOJIS['search']} LeetCode Problems ({len(problems)} found)"
     )
 
     embed = discord.Embed(
@@ -448,3 +449,105 @@ def create_inspiration_embed(
     embed.set_footer(text=footer_text, icon_url=GEMINI_LOGO_URL)
 
     return embed
+
+
+async def send_daily_challenge(
+    bot: Any,
+    logger: Any,
+    channel_id: int = None,
+    role_id: int = None,
+    interaction: discord.Interaction = None,
+    domain: str = "com",
+    ephemeral: bool = True,
+):
+    """Fetches and sends the LeetCode daily challenge."""
+    try:
+        logger.info(
+            f"Attempting to send daily challenge. Domain: {domain}, Channel: {channel_id}, Interaction: {'Yes' if interaction else 'No'}"
+        )
+
+        current_client = bot.lcus if domain == "com" else bot.lccn
+
+        # Determine date string based on LeetCode's server timezone for daily challenges
+        now_utc = datetime.now(pytz.UTC)
+        date_str = now_utc.strftime("%Y-%m-%d")
+
+        logger.debug(
+            f"Fetching daily challenge for date: {date_str} (UTC), domain: {domain}"
+        )
+        challenge_info = await current_client.get_daily_challenge()
+
+        if not challenge_info:
+            logger.error(
+                f"Failed to get daily challenge info for domain {domain}."
+            )
+            if interaction:
+                await interaction.followup.send(
+                    "Could not fetch daily challenge.", ephemeral=ephemeral
+                )
+            return None
+
+        logger.info(
+            f"Got daily challenge: {challenge_info['id']}. {challenge_info['title']} for domain {domain}"
+        )
+
+        embed = await create_problem_embed(
+            problem_info=challenge_info,
+            bot=bot,
+            domain=domain,
+            is_daily=True,
+        )
+        view = await create_problem_view(
+            problem_info=challenge_info, bot=bot, domain=domain
+        )
+
+        if interaction:
+            # If called from a slash command
+            await interaction.followup.send(
+                embed=embed, view=view, ephemeral=ephemeral
+            )
+            logger.info(
+                f"Sent daily challenge via interaction {interaction.id}"
+            )
+        elif channel_id:
+            target_channel = bot.get_channel(channel_id)
+            if target_channel:
+                content_msg = ""
+                if role_id:
+                    # Ensure role exists in guild before mentioning
+                    guild = target_channel.guild
+                    role = guild.get_role(role_id)
+                    if role:
+                        content_msg = f"{role.mention}"
+                    else:
+                        logger.warning(
+                            f"Role ID {role_id} not found in guild {guild.id} for channel {channel_id}."
+                        )
+                await target_channel.send(
+                    content=content_msg if content_msg else None,
+                    embed=embed,
+                    view=view,
+                )
+                logger.info(f"Sent daily challenge to channel {channel_id}")
+            else:
+                logger.error(
+                    f"Could not find channel {channel_id} to send daily challenge."
+                )
+        else:
+            logger.error(
+                "send_daily_challenge called without channel_id or interaction."
+            )
+
+        return challenge_info
+
+    except Exception as e:
+        logger.error(f"Error in send_daily_challenge: {e}", exc_info=True)
+        if interaction:
+            try:
+                await interaction.followup.send(
+                    f"An error occurred while sending the daily challenge: {e}",
+                    ephemeral=ephemeral,
+                )
+            except Exception:
+                pass
+        return None

@@ -35,6 +35,7 @@ FIELD_EMOJIS = {
     "ac_rate": "📈",
     "tags": "🏷️",
     "similar": "🔍",
+    "search": "🔍",
     "instructions": "💡",
     "problems": "📋",
     "link": "🔗",

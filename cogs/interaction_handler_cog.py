@@ -13,6 +13,8 @@ from utils.ui_helpers import (
     create_inspiration_embed,
     create_submission_embed,
     create_submission_view,
+    create_problem_embed,
+    create_problem_view,
 )
 # from utils.logger import get_logger # 使用 bot.logger
 
@@ -316,6 +318,17 @@ class InteractionHandlerCog(commands.Cog):
                 )
                 model_name = "Unknown Model"  # Default model name
 
+                # Always fetch problem_info as it's needed for the embed
+                client = self.bot.lcus if domain == "com" else self.bot.lccn
+                problem_info = await client.get_problem(problem_id=problem_id)
+                if not problem_info:
+                    self.logger.warning(f"題目沒有資訊: problem_id={problem_id}")
+                    await interaction.followup.send(
+                        "無法獲取題目資訊。", ephemeral=True
+                    )
+                    # Cleanup will be handled by finally block
+                    return
+
                 if inspire_result_data:
                     self.logger.debug(
                         f"Get inspire result from DB: problem_id={problem_id}"
@@ -324,9 +337,7 @@ class InteractionHandlerCog(commands.Cog):
                     # 從DB讀取時，inspire_result_data 已經是包含 "thinking", "traps" 等鍵的字典
                     inspire_result_content = inspire_result_data
                 else:
-                    client = self.bot.lcus if domain == "com" else self.bot.lccn
-                    problem_info = await client.get_problem(problem_id=problem_id)
-                    if not (problem_info and problem_info.get("content")):
+                    if not problem_info.get("content"):
                         self.logger.warning(f"題目沒有內容: problem_id={problem_id}")
                         await interaction.followup.send(
                             "無法獲取題目資訊。", ephemeral=True
@@ -556,15 +567,15 @@ class InteractionHandlerCog(commands.Cog):
                     return
 
                 # Create detailed embed and view
-                schedule_cog = self.bot.get_cog("ScheduleManagerCog")
-                if not schedule_cog:
-                    await interaction.followup.send("無法載入排程模組", ephemeral=True)
-                    return
-
-                embed = await schedule_cog.create_problem_embed(
-                    problem_info, domain, is_daily=False
+                embed = await create_problem_embed(
+                    problem_info=problem_info,
+                    bot=self.bot,
+                    domain=domain,
+                    is_daily=False,
                 )
-                view = await schedule_cog.create_problem_view(problem_info, domain)
+                view = await create_problem_view(
+                    problem_info=problem_info, bot=self.bot, domain=domain
+                )
 
                 await interaction.followup.send(embed=embed, view=view, ephemeral=True)
                 self.logger.info(

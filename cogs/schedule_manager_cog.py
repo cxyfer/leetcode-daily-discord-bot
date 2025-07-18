@@ -1,8 +1,6 @@
 # cogs/schedule_manager_cog.py
 import os
-from datetime import datetime
 
-import discord
 import pytz
 from discord.ext import commands
 
@@ -10,7 +8,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 # Import UI helpers
-from utils.ui_helpers import create_problem_embed, create_problem_view
+from utils.ui_helpers import send_daily_challenge
 
 # Default values, similar to how they are defined in bot.py
 DEFAULT_POST_TIME = os.getenv("POST_TIME", "00:00")
@@ -134,8 +132,11 @@ class ScheduleManagerCog(commands.Cog):
             )
 
             # Send the daily challenge
-            challenge_info = await self.send_daily_challenge(
-                channel_id=channel_id, role_id=role_id
+            challenge_info = await send_daily_challenge(
+                bot=self.bot,
+                logger=self.logger,
+                channel_id=channel_id,
+                role_id=role_id,
             )
 
             if challenge_info:
@@ -182,129 +183,6 @@ class ScheduleManagerCog(commands.Cog):
             # Re-initialize all schedules
             await self.initialize_schedules()
             self.logger.info("All server daily challenges have been rescheduled")
-
-    async def create_problem_embed(
-        self,
-        problem_info: dict,
-        domain: str = "com",
-        is_daily: bool = False,
-        date_str: str = None,
-        user: discord.User = None,
-        title: str = None,
-        message: str = None,
-    ):
-        """Create an embed for a LeetCode problem"""
-        return await create_problem_embed(
-            problem_info=problem_info,
-            bot=self.bot,
-            domain=domain,
-            is_daily=is_daily,
-            date_str=date_str,
-            user=user,
-            title=title,
-            message=message,
-        )
-
-    async def create_problem_view(self, problem_info: dict, domain: str = "com"):
-        """Create a view with buttons for a LeetCode problem"""
-        return await create_problem_view(
-            problem_info=problem_info, bot=self.bot, domain=domain
-        )
-
-    async def send_daily_challenge(
-        self,
-        channel_id: int = None,
-        role_id: int = None,
-        interaction: discord.Interaction = None,
-        domain: str = "com",
-        ephemeral: bool = True,
-    ):
-        """Fetches and sends the LeetCode daily challenge."""
-        try:
-            self.logger.info(
-                f"Attempting to send daily challenge. Domain: {domain}, Channel: {channel_id}, Interaction: {'Yes' if interaction else 'No'}"
-            )
-
-            current_client = self.bot.lcus if domain == "com" else self.bot.lccn
-
-            # Determine date string based on LeetCode's server timezone for daily challenges
-            now_utc = datetime.now(pytz.UTC)
-            date_str = now_utc.strftime("%Y-%m-%d")
-
-            self.logger.debug(
-                f"Fetching daily challenge for date: {date_str} (UTC), domain: {domain}"
-            )
-            challenge_info = await current_client.get_daily_challenge()
-
-            if not challenge_info:
-                self.logger.error(
-                    f"Failed to get daily challenge info for domain {domain}."
-                )
-                if interaction:
-                    await interaction.followup.send(
-                        "Could not fetch daily challenge.", ephemeral=ephemeral
-                    )
-                return None
-
-            self.logger.info(
-                f"Got daily challenge: {challenge_info['id']}. {challenge_info['title']} for domain {domain}"
-            )
-
-            embed = await self.create_problem_embed(
-                challenge_info, domain, is_daily=True
-            )
-            view = await self.create_problem_view(challenge_info, domain)
-
-            if interaction:
-                # If called from a slash command
-                await interaction.followup.send(
-                    embed=embed, view=view, ephemeral=ephemeral
-                )
-                self.logger.info(
-                    f"Sent daily challenge via interaction {interaction.id}"
-                )
-            elif channel_id:
-                target_channel = self.bot.get_channel(channel_id)
-                if target_channel:
-                    content_msg = ""
-                    if role_id:
-                        # Ensure role exists in guild before mentioning
-                        guild = target_channel.guild
-                        role = guild.get_role(role_id)
-                        if role:
-                            content_msg = f"{role.mention}"
-                        else:
-                            self.logger.warning(
-                                f"Role ID {role_id} not found in guild {guild.id} for channel {channel_id}."
-                            )
-                    await target_channel.send(
-                        content=content_msg if content_msg else None,
-                        embed=embed,
-                        view=view,
-                    )
-                    self.logger.info(f"Sent daily challenge to channel {channel_id}")
-                else:
-                    self.logger.error(
-                        f"Could not find channel {channel_id} to send daily challenge."
-                    )
-            else:
-                self.logger.error(
-                    "send_daily_challenge called without channel_id or interaction."
-                )
-
-            return challenge_info
-
-        except Exception as e:
-            self.logger.error(f"Error in send_daily_challenge: {e}", exc_info=True)
-            if interaction:
-                try:
-                    await interaction.followup.send(
-                        f"An error occurred while sending the daily challenge: {e}",
-                        ephemeral=ephemeral,
-                    )
-                except Exception:
-                    pass
-            return None
 
     def get_scheduled_jobs(self):
         """Get information about all scheduled jobs"""
