@@ -20,7 +20,7 @@
 - 🔔 **Custom Notifications**: Configurable role mentions and channels
 - 🌍 **Timezone Support**: Server-specific timezone settings
 - 📅 **Historical Challenges**: View past daily challenges by date
-- 🔍 **Problem Lookup**: Query any LeetCode problem by ID
+- 🔍 **Problem Lookup**: Query single or multiple LeetCode problems with custom titles and messages
 - 📈 **Submission Tracking**: View recent accepted submissions for any user
 - 🤖 **AI-Powered Features**: Optional problem translation and inspiration (requires Gemini API key)
 - 💾 **Smart Caching**: Efficient caching system for better performance
@@ -109,7 +109,7 @@ TIMEZONE=UTC     # Optional
 |---------|-------------|---------------------|
 | `/daily [date] [public]` | Display LeetCode.com (LCUS) daily challenge<br>• Optional: YYYY-MM-DD for historical challenges<br>• Optional: `public` - Show response publicly (default: private)<br>• Note: Historical data available from April 2020 onwards | None |
 | `/daily_cn [date] [public]` | Display LeetCode.cn (LCCN) daily challenge<br>• Optional: YYYY-MM-DD for historical challenges<br>• Optional: `public` - Show response publicly (default: private) | None |
-| `/problem <id> [domain] [public]` | Query any LeetCode problem by ID<br>• `id`: Problem number (1-4000)<br>• `domain`: com or cn (default: com)<br>• `public`: Show response publicly (default: private) | None |
+| `/problem <problem_ids> [domain] [public] [message] [title]` | Query one or multiple LeetCode problems<br>• `problem_ids`: Single ID (e.g., 1) or comma-separated IDs (e.g., 1,2,3)<br>• `domain`: com or cn (default: com)<br>• `public`: Show response publicly (default: private)<br>• `message`: Optional personal message/note (max 500 chars)<br>• `title`: Custom title for multi-problem mode (max 100 chars)<br>• Note: Supports up to 10 problems per query | None |
 | `/recent <username> [limit] [public]` | View recent accepted submissions for a user<br>• `username`: LeetCode username (LCUS only)<br>• `limit`: Number of submissions (1-50, default: 20)<br>• `public`: Show response publicly (default: private) | None |
 | `/set_channel` | Set notification channel for daily challenges | Manage Channels |
 | `/set_role` | Set role to mention with daily challenges | Manage Roles |
@@ -129,8 +129,18 @@ TIMEZONE=UTC     # Optional
 
 #### Problem Lookup
 ```
-/problem problem_id:1     # Get Two Sum problem from LeetCode.com (private)
-/problem problem_id:1 public:true     # Get Two Sum problem publicly
+# Single problem lookup
+/problem problem_ids:1                    # Get Two Sum problem from LeetCode.com (private)
+/problem problem_ids:1 public:true        # Get Two Sum problem publicly
+
+# Multiple problems lookup
+/problem problem_ids:1,2,3                # Get multiple problems with overview
+/problem problem_ids:1,2,3 title:Dynamic Programming Practice  # Custom title
+/problem problem_ids:1,2,3 message:Today's study plan         # With personal note
+/problem problem_ids:1,2,3 title:Weekly Contest Problems message:Need to practice these  # Both title and message
+
+# Multi-problem with domain selection
+/problem problem_ids:1,2,3 domain:cn      # Query from LeetCode.cn
 ```
 
 #### Recent Submissions
@@ -156,12 +166,42 @@ TIMEZONE=UTC     # Optional
 3. Set posting time and timezone (Optional)
 4. Verify settings with `/show_settings`
 
+### Multi-Problem Features
+
+The `/problem` command supports querying multiple problems at once with enhanced customization:
+
+#### Overview Mode
+When querying multiple problems, the bot displays:
+- **Grouped Display**: Problems organized in groups of 5 per field
+- **Problem Links**: Direct clickable links to LeetCode problems
+- **Difficulty Indicators**: Color-coded emojis (🟢 Easy, 🟡 Medium, 🔴 Hard)
+- **Problem Stats**: Rating and acceptance rate when available
+- **Interactive Buttons**: Click numbered buttons to view detailed problem information
+
+#### Customization Options
+- **Custom Title**: Replace the default title with your own (max 100 characters)
+- **Personal Message**: Add notes, study plans, or context (max 500 characters)
+- **User Attribution**: Shows your name and avatar when title or message is provided
+
+#### Example Use Cases
+```
+# Study plan organization
+/problem problem_ids:70,322,518 title:📚 Dynamic Programming Week 1 message:Focus on bottom-up approach
+
+# Contest preparation
+/problem problem_ids:1,15,42 title:🏆 Weekly Contest #420 Prep message:Practice these before Sunday
+
+# Topic-based practice
+/problem problem_ids:104,226,543 title:🌳 Binary Tree Fundamentals message:Master tree traversal first
+```
+
 ## 🗺️ Development Roadmap
 
 - [x] 🎮 **Enhanced Command Interface**
   - [x] Add slash command prompts
   - [x] Reply in the same channel where slash commands are used
   - [x] Add `/problem` command for querying problems by ID
+  - [x] Enhanced `/problem` command with multi-problem support and customization
   - [x] Add `/recent` command for viewing user submissions
   - [x] Support historical daily challenges with date parameter
 - [x] ⚙️ **Advanced Configuration System**
