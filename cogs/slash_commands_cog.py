@@ -7,6 +7,7 @@ import os   # For os.getenv to get default POST_TIME and TIMEZONE
 import re   # For date format validation
 import time  # For caching submissions with timestamp
 import hashlib
+from datetime import datetime, timezone
 
 # Default values, similar to how they are defined in bot.py or schedule_manager_cog.py
 # These are used for display in show_settings if a server doesn't have specific settings.
@@ -624,8 +625,9 @@ class SlashCommandsCog(commands.Cog):
         
         embed.set_footer(
             text="LeetCode Problems Overview",
-            icon_url="https://leetcode.com/static/images/LeetCode_logo.png"
+            icon_url="https://leetcode.com/static/images/LeetCode_logo.png",
         )
+        embed.timestamp = datetime.now(timezone.utc)
         
         return embed
 
