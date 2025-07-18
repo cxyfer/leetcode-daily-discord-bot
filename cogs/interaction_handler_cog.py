@@ -82,26 +82,40 @@ class InteractionHandlerCog(commands.Cog):
                 
                 if problem_id and problem_id.isdigit():
                     problem_info = await client.get_problem(problem_id=problem_id)
-                    
                     if problem_info and problem_info.get("content"):
                         problem_content = html_to_text(problem_info["content"])
-                        
-                        if len(problem_content) > 1900:
-                            problem_content = problem_content[:1900] + "...\n(內容已截斷，請前往 LeetCode 網站查看完整題目)"
-                        
-                        emoji = {'Easy': '🟢', 'Medium': '🟡', 'Hard': '🔴'}.get(problem_info['difficulty'], '')
-                        problem_content = f"# {emoji} [{problem_info['id']}. {problem_info['title']}]({problem_info['link']}) ({problem_info['difficulty']})\n\n{problem_content}"
-                        
                         self.logger.debug(f"成功獲取題目內容: length={len(problem_content)}")
+
+                        # Choose response method based on content length
+                        if len(problem_content) < 1900:
+                            # Use original method for short content
+                            formatted_content = f"# [{problem_info['id']}. {problem_info['title']}]({problem_info['link']})\n\n{problem_content}"
+                            response_data = {"content": formatted_content}
+                        else:
+                            # Use embed for long content
+                            if len(problem_content) > 4000:
+                                problem_content = problem_content[:4000] + "...\n(內容已截斷，請前往 LeetCode 網站查看完整題目)"
+
+                            emoji = {'Easy': '🟢', 'Medium': '🟡', 'Hard': '🔴'}.get(problem_info['difficulty'], '')
+                            embed_color = {'Easy': 0x00FF00, 'Medium': 0xFFA500, 'Hard': 0xFF0000}.get(problem_info['difficulty'], 0x0099FF)
+                            embed = discord.Embed(
+                                title=f"{emoji} {problem_info['id']}. {problem_info['title']}",
+                                color=embed_color,
+                                description=problem_content,
+                                url=problem_info['link'],
+                            )
+                            embed.set_author(name="LeetCode Problem", icon_url="https://leetcode.com/static/images/LeetCode_logo.png")
+                            response_data = {"content": "由於題目內容過長，使用嵌入式訊息的方式顯示。", "embed": embed}
                     else:
-                        problem_content = "無法獲取題目描述，請前往 LeetCode 網站查看。"
+                        response_data = {"content": "無法獲取題目描述，請前往 LeetCode 網站查看。"}
                         self.logger.warning(f"題目沒有內容: problem_id={problem_id}")
                 else:
-                    problem_content = "無效的題目ID，無法顯示題目描述。"
+                    response_data = {"content": "無效的題目ID，無法顯示題目描述。"}
                     self.logger.warning(f"無效的題目ID: {problem_id}")
                 
-                await interaction.response.send_message(problem_content, ephemeral=True)
-                self.logger.info(f"成功發送題目描述給 @{interaction.user.name}: channel_id={interaction.channel.id}, problem_id={problem_id}, domain={domain}, content_length={len(problem_content)}")
+                await interaction.response.send_message(ephemeral=True, **response_data)
+                content_length = len(problem_content) if 'problem_content' in locals() else 0
+                self.logger.info(f"成功發送題目描述給 @{interaction.user.name}: channel_id={interaction.channel.id}, problem_id={problem_id}, domain={domain}, content_length={content_length}")
                 
             except discord.errors.InteractionResponded:
                 await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
@@ -137,7 +151,7 @@ class InteractionHandlerCog(commands.Cog):
                 if problem_id and problem_id.isdigit():
                     translation_data = self.bot.llm_translate_db.get_translation(int(problem_id), domain)
                     if translation_data:
-                        self.logger.debug(f"從DB取得LLM翻譯: problem_id={problem_id}")
+                        self.logger.debug(f"從DB取得LLM翻譯: problem_id={problem_id}, length={len(translation_data['translation'])}")
                         translation = translation_data["translation"]
                         model_name = translation_data.get("model_name", "Unknown Model")
                         
