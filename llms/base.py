@@ -5,7 +5,9 @@ from llms.templates import (
     TRANSLATION_JSON_PROMPT_TEMPLATE,
     INSPIRE_JSON_PROMPT_TEMPLATE,
 )
+from utils.logger import get_llm_logger
 
+logger = get_llm_logger()
 
 class LLMBase(ABC):
     """
@@ -49,13 +51,15 @@ class LLMBase(ABC):
             str: The translated text, or the original LLM response if parsing fails.
         """
 
+        logger.debug(f"Translation text: {content}")
         prompt = TRANSLATION_JSON_PROMPT_TEMPLATE.format(
             to=target_language,
             from_lang=from_lang,
             text=content,
         )
-
+        
         response = await self.generate(prompt)
+        logger.debug(f"Translation response: {response}")
         parser = SimpleJsonOutputParser()
         try:
             parsed = parser.parse(response)
