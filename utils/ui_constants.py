@@ -69,6 +69,14 @@ BUTTON_STYLES = {
     "danger": "danger",
 }
 
+# 靈感啟發欄位映射
+INSPIRE_FIELDS = {
+    "thinking": "🧠 思路",
+    "traps": "⚠️ 陷阱",
+    "algorithms": "🛠️ 推薦演算法",
+    "inspiration": "✨ 其他靈感"
+}
+
 # 限制常量
 MAX_PROBLEMS_PER_OVERVIEW = 25  # Discord 按鈕限制
 PROBLEMS_PER_FIELD = 5  # 每個欄位顯示的題目數量

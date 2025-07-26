@@ -276,13 +276,6 @@ class InteractionHandlerCog(commands.Cog):
         elif custom_id.startswith(self.bot.LEETCODE_INSPIRE_BUTTON_PREFIX):
             self.logger.debug(f"接收到LeetCode 靈感啟發按鈕交互: custom_id={custom_id}")
 
-            INSPIRE_FIELDS = [  # 定義在方法內部或類別層級，如果多處使用
-                ("thinking", "🧠 思路"),
-                ("traps", "⚠️ 陷阱"),
-                ("algorithms", "🛠️ 推薦演算法"),
-                ("inspiration", "✨ 其他靈感"),
-            ]
-
             def format_inspire_field(val):  # 輔助函式可以定義在方法內部或作為靜態方法
                 if isinstance(val, list):
                     return "\n".join(f"- {x}" for x in val)

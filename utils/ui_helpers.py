@@ -24,6 +24,7 @@ from .ui_constants import (
     FIELD_EMOJIS,
     GEMINI_LOGO_URL,
     INSPIRATION_COLOR,
+    INSPIRE_FIELDS,
     LEETCODE_LOGO_URL,
     MAX_PROBLEMS_PER_OVERVIEW,
     MAX_SIMILAR_QUESTIONS,
@@ -439,9 +440,12 @@ def create_inspiration_embed(
         title=f"{FIELD_EMOJIS['instructions']} 靈感啟發", color=INSPIRATION_COLOR
     )
 
-    # Add inspiration content fields
-    for field_name, content in inspiration_data.items():
-        if content and field_name != "footer":
+    # Add inspiration content fields in fixed order
+    for field_key in ["thinking", "traps", "algorithms", "inspiration"]:
+        if field_key in inspiration_data and inspiration_data[field_key]:
+            # Get the Chinese field name from mapping
+            field_name = INSPIRE_FIELDS.get(field_key, field_key)
+            content = inspiration_data[field_key]
             # Format content with proper spacing
             val_formatted = content.replace("\n\n", "\n").strip()
             embed.add_field(name=field_name, value=val_formatted, inline=False)
