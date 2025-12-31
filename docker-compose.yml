@@ -1,0 +1,9 @@
+services:
+  bot:
+    image: ghcr.io/${GHCR_OWNER:-your-gh-username}/${GHCR_REPO:-leetcode-daily-discord-bot}:${IMAGE_TAG:-latest}
+    container_name: leetcode-daily-discord-bot
+    restart: unless-stopped
+    volumes:
+      - ${CONFIG_PATH:-./config.toml}:/app/config.toml:ro
+      - ${DATA_DIR:-./data}:/app/data
+      - ${LOG_DIR:-./logs}:/app/logs

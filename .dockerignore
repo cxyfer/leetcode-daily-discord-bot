@@ -1,0 +1,12 @@
+.git
+.gitignore
+__pycache__/
+*.py[cod]
+*.db
+.env
+.venv/
+config.toml
+data/
+docs/
+logs/
+tests/

@@ -55,6 +55,26 @@
    uv run bot.py
    ```
 
+## 🐳 Docker Image
+
+Official GHCR image: `ghcr.io/cxyfer/leetcode-daily-discord-bot`  
+If you are using a fork, replace it with `ghcr.io/<your-owner>/<your-repo>`.
+
+### Docker Run
+
+```bash
+mkdir -p data logs
+docker run -d --name leetcode-daily-discord-bot \
+  -v /path/to/config.toml:/app/config.toml:ro \
+  -v /path/to/data:/app/data \
+  -v /path/to/logs:/app/logs \
+  ghcr.io/cxyfer/leetcode-daily-discord-bot:latest
+```
+
+- `/app/data` contains `data.db`; keep it mapped to persist settings and cache.
+- Use `:v1.0.0` to pin a specific release; `:latest` tracks the newest image.
+- If using `.env` instead, mount `-v /path/to/.env:/app/.env:ro` and omit the `config.toml` mount.
+
 ## 🛠️ Configuration
 
 ### Configuration Methods
