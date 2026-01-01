@@ -466,6 +466,39 @@ class ProblemsDatabaseManager:
             return problem
         return None
 
+    def get_problem_ids_missing_content(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id
+            FROM problems
+            WHERE (content IS NULL OR content = '')
+              AND category = 'Algorithms'
+              AND paid_only = 0
+            ORDER BY id ASC
+            """
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [str(row[0]) for row in rows] if rows else []
+
+    def count_missing_content(self) -> int:
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM problems
+            WHERE (content IS NULL OR content = '')
+              AND category = 'Algorithms'
+              AND paid_only = 0
+            """
+        )
+        row = cursor.fetchone()
+        conn.close()
+        return int(row[0]) if row else 0
+
     def _row_to_dict(self, row):
         keys = [
             "id",
