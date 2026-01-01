@@ -27,7 +27,7 @@ api_key = "your_google_gemini_api_key_here"
 [llm.gemini.models]
 # Standard model for translations
 [llm.gemini.models.standard]
-name = "gemini-2.5-flash"
+name = "gemini-3-flash-preview"
 temperature = 0.0
 # max_tokens = 4096  # Optional: uncomment to limit token output
 timeout = 30
@@ -41,6 +41,21 @@ temperature = 0.0
 timeout = 60
 max_retries = 2
 
+# Embedding model for similarity search
+[llm.gemini.models.embedding]
+name = "gemini-embedding-001"
+dim = 768
+task_type = "SEMANTIC_SIMILARITY"
+batch_size = 32
+
+# Rewrite model for simplifying problem statements
+[llm.gemini.models.rewrite]
+name = "gemini-2.5-flash"
+temperature = 0.3
+timeout = 60
+max_retries = 2
+workers = 8
+
 # Cache settings for LLM responses
 [llm.cache]
 # Translation cache expiration time in seconds (default: 1 hour)
@@ -48,6 +63,12 @@ translation_expire_seconds = 3600
 
 # Inspiration cache expiration time in seconds (default: 1 day)
 inspiration_expire_seconds = 86400
+
+[similar]
+# Default top-k results for /similar
+top_k = 5
+# Minimum similarity threshold (0.0 - 1.0)
+min_similarity = 0.70
 
 [database]
 # Database configuration
