@@ -220,7 +220,18 @@ Use the CLI to build and maintain the embedding index for `/similar`:
 uv run python embedding_cli.py --stats
 uv run python embedding_cli.py --build --dry-run
 uv run python embedding_cli.py --build
+uv run python embedding_cli.py --rebuild
 uv run python embedding_cli.py --query "two sum"
+```
+
+### LeetCode CLI (Missing Content)
+
+Fill missing problem statements (Algorithms, free only):
+
+```
+uv run python leetcode.py --missing-content-stats
+uv run python leetcode.py --fill-missing-content
+uv run python leetcode.py --fill-missing-content --fill-missing-content-workers 10
 ```
 
 ### Multi-Problem Features
