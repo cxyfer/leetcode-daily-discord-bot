@@ -2,7 +2,6 @@ apscheduler>=3.10.4
 beautifulsoup4>=4.13.3
 colorlog>=6.9.0
 discord-py>=2.5.2
-google-api-core>=2.19.0
 google-genai>=1.0.0
 langchain>=0.3.23
 langchain-google-genai>=2.1.2

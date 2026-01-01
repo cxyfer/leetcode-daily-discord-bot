@@ -8,11 +8,10 @@ from concurrent.futures import Executor
 from typing import Optional
 
 from google import genai
-from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable
-from google.genai import types
+from google.genai import errors, types
 from tenacity import (
     Retrying,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
@@ -39,6 +38,12 @@ def _resolve_api_key(config: ConfigManager) -> Optional[str]:
         or os.getenv("GEMINI_API_KEY")
         or os.getenv("GOOGLE_GEMINI_API_KEY")
     )
+
+
+def _is_retryable_api_error(exc: Exception) -> bool:
+    if isinstance(exc, errors.APIError):
+        return exc.code in {429, 503}
+    return False
 
 
 class EmbeddingRewriter:
@@ -77,7 +82,7 @@ class EmbeddingRewriter:
         retryer = Retrying(
             stop=stop_after_attempt(self.model_config.max_retries),
             wait=wait_exponential(multiplier=1, min=2, max=30),
-            retry=retry_if_exception_type((ResourceExhausted, ServiceUnavailable)),
+            retry=retry_if_exception(_is_retryable_api_error),
             reraise=True,
         )
         for attempt in retryer:

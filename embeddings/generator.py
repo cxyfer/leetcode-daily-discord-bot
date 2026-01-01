@@ -7,11 +7,10 @@ import os
 from typing import List, Sequence
 
 from google import genai
-from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable
-from google.genai import types
+from google.genai import errors, types
 from tenacity import (
     retry,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
@@ -29,6 +28,12 @@ def _resolve_api_key(config: ConfigManager) -> str | None:
         or os.getenv("GEMINI_API_KEY")
         or os.getenv("GOOGLE_GEMINI_API_KEY")
     )
+
+
+def _is_retryable_api_error(exc: Exception) -> bool:
+    if isinstance(exc, errors.APIError):
+        return exc.code in {429, 503}
+    return False
 
 
 class EmbeddingGenerator:
@@ -58,7 +63,7 @@ class EmbeddingGenerator:
     @retry(
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=1, min=2, max=60),
-        retry=retry_if_exception_type((ResourceExhausted, ServiceUnavailable)),
+        retry=retry_if_exception(_is_retryable_api_error),
         reraise=True,
     )
     def _embed_sync(self, contents: Sequence[str]):
