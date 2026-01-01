@@ -75,6 +75,8 @@ class SimilarCog(commands.Cog):
                 return
 
             rewritten = await self.rewriter.rewrite(query)
+            if not rewritten or not rewritten.strip():
+                rewritten = query
             embedding = await self.generator.embed(rewritten)
             results = await self.searcher.search(
                 embedding,

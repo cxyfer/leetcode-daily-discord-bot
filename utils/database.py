@@ -562,6 +562,8 @@ class EmbeddingDatabaseManager:
         )
 
     def create_vec_table(self, dim: int) -> None:
+        if not isinstance(dim, int) or isinstance(dim, bool) or dim <= 0:
+            raise ValueError("dim must be a positive integer")
         self.execute(
             f"""
             CREATE VIRTUAL TABLE IF NOT EXISTS vec_embeddings USING vec0(
@@ -800,8 +802,6 @@ class LLMInspireDatabaseManager:
             if val is None:
                 return ""
             if isinstance(val, (dict, list)):
-                import json
-
                 return json.dumps(val, ensure_ascii=False)
             return str(val)
 

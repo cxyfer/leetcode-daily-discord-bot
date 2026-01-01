@@ -431,7 +431,7 @@ class InteractionHandlerCog(commands.Cog):
                     if len(error_message) > 1900:
                         error_message = error_message[:1900] + "...\n(內容已截斷)"
                     await interaction.followup.send(error_message, ephemeral=True)
-                except:  # noqa
+                except Exception:  # noqa
                     pass
             finally:
                 # Remove from ongoing requests

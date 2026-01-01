@@ -25,7 +25,6 @@ TRANSLATION_JSON_PROMPT = """你是一位專業的翻譯助手，擅長根據上
 原文：
 {text}
 """
-TRANSLATION_JSON_PROMPT_TEMPLATE = PromptTemplate.from_template(TRANSLATION_JSON_PROMPT)
 
 INSPIRE_JSON_PROMPT = """你是一位專業的 LeetCode 解題靈感啟發助手，擅長根據題目內容、標籤與難度，為使用者提供解題思路與啟發，但嚴禁給出任何程式碼、偽代碼、演算法步驟或直接解答。
 

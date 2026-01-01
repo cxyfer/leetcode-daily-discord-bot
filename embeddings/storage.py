@@ -193,6 +193,8 @@ class EmbeddingStorage:
         )
 
     def _count_table_sync(self, table: str, source: Optional[str] = None) -> int:
+        if table not in ("vec_embeddings", "problem_embeddings"):
+            raise ValueError(f"Invalid table name: {table}")
         if source:
             row = self.db.execute(
                 f"SELECT COUNT(*) FROM {table} WHERE source = ?",
