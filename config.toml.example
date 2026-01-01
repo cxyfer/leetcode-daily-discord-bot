@@ -82,20 +82,21 @@ level = "INFO"
 # Directory to store log files
 directory = "./logs"
 
-# Module-specific log levels
 [logging.modules]
-core = "DEBUG"
-commands = "DEBUG"
-leetcode = "DEBUG"
-database = "DEBUG"
-scheduler = "DEBUG"
-llm = "DEBUG"
-config = "DEBUG"
-ui = "DEBUG"
+# bot related
+core = "INFO"
+commands = "INFO"
+leetcode = "INFO"
+database = "INFO"
+scheduler = "INFO"
+llm = "INFO"
+config = "INFO"
+ui = "INFO"
+# third party packages related
 discord = "WARNING"
-"discord.gateway" = "WARNING"
-"discord.client" = "WARNING"
 requests = "WARNING"
+google_genai = "WARNING"
+httpx = "WARNING"
 
 [leetcode]
 # Request timeout in seconds
