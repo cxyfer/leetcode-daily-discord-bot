@@ -584,7 +584,7 @@ class EmbeddingDatabaseManager:
             if row and row[0] != dim:
                 return False
         except sqlite3.OperationalError:
-            return True
+            return False
         return True
 
     def execute(
