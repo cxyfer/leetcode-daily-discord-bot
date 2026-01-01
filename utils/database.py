@@ -556,6 +556,12 @@ class LLMTranslateDatabaseManager:
 
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+        if translation is None:
+            translation = ""
+        elif isinstance(translation, (dict, list)):
+            translation = json.dumps(translation, ensure_ascii=False)
+        else:
+            translation = str(translation)
         cursor.execute(
             """
         INSERT OR REPLACE INTO llm_translate_results (problem_id, domain, translation, created_at, model_name)

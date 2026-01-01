@@ -242,8 +242,13 @@ class InteractionHandlerCog(commands.Cog):
                             )
                         except Exception as llm_e:
                             self.logger.error(f"LLM 翻譯失敗: {llm_e}", exc_info=True)
+                            error_message = f"LLM 翻譯失敗：{str(llm_e)}"
+                            if len(error_message) > 1900:
+                                error_message = (
+                                    error_message[:1900] + "...\n(內容已截斷)"
+                                )
                             await interaction.followup.send(
-                                f"LLM 翻譯失敗：{str(llm_e)}", ephemeral=True
+                                error_message, ephemeral=True
                             )
                     else:
                         self.logger.warning(f"題目沒有內容: problem_id={problem_id}")
@@ -356,6 +361,7 @@ class InteractionHandlerCog(commands.Cog):
                             for k in ["thinking", "traps", "algorithms", "inspiration"]
                         ):
                             raw_response = llm_output.get("raw", str(llm_output))
+                            raw_response = str(raw_response)
                             if len(raw_response) > 1900:
                                 raw_response = raw_response[:1900] + "...\n(內容已截斷)"
                             await interaction.followup.send(
@@ -395,8 +401,13 @@ class InteractionHandlerCog(commands.Cog):
                         )
                     except Exception as llm_e:
                         self.logger.error(f"LLM 靈感啟發失敗: {llm_e}", exc_info=True)
+                        error_message = f"LLM 靈感啟發失敗：{str(llm_e)}"
+                        if len(error_message) > 1900:
+                            error_message = (
+                                error_message[:1900] + "...\n(內容已截斷)"
+                            )
                         await interaction.followup.send(
-                            f"LLM 靈感啟發失敗：{str(llm_e)}", ephemeral=True
+                            error_message, ephemeral=True
                         )
                         # Cleanup will be handled by finally block
                         return
@@ -420,8 +431,11 @@ class InteractionHandlerCog(commands.Cog):
                     f"處理LLM靈感啟發按鈕交互時發生錯誤: {e}", exc_info=True
                 )
                 try:
+                    error_message = f"LLM 靈感啟發時發生錯誤：{str(e)}"
+                    if len(error_message) > 1900:
+                        error_message = error_message[:1900] + "...\n(內容已截斷)"
                     await interaction.followup.send(
-                        f"LLM 靈感啟發時發生錯誤：{str(e)}", ephemeral=True
+                        error_message, ephemeral=True
                     )
                 except:  # noqa
                     pass

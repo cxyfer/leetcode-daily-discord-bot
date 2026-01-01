@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import json
 from langchain_core.output_parsers import SimpleJsonOutputParser
 
 from llms.templates import (
@@ -22,6 +23,27 @@ class LLMBase(ABC):
     def __init__(self):
         self.llm = None
         self.model_name = None
+
+    @staticmethod
+    def _normalize_response(response) -> str:
+        if response is None:
+            return ""
+        if isinstance(response, str):
+            return response
+        if isinstance(response, list):
+            parts = []
+            for item in response:
+                if isinstance(item, dict):
+                    text = item.get("text")
+                    parts.append(str(text) if text is not None else str(item))
+                else:
+                    parts.append(str(item))
+            return "".join(parts)
+        if isinstance(response, dict):
+            if "text" in response:
+                return str(response["text"])
+            return json.dumps(response, ensure_ascii=False)
+        return str(response)
 
     @abstractmethod
     async def generate(self, prompt: str) -> str:
@@ -59,13 +81,14 @@ class LLMBase(ABC):
         )
         
         response = await self.generate(prompt)
-        logger.debug(f"Translation response: {response}")
+        response_text = self._normalize_response(response)
+        logger.debug(f"Translation response: {response_text}")
         parser = SimpleJsonOutputParser()
         try:
-            parsed = parser.parse(response)
-            return parsed["translation"]
+            parsed = parser.parse(response_text)
+            return parsed.get("translation", response_text)
         except Exception:
-            return response
+            return response_text
 
     async def inspire(self, content: str, tags: list, difficulty: str) -> dict:
         """
@@ -82,9 +105,10 @@ class LLMBase(ABC):
             text=content, tags=", ".join(tags) if tags else "", difficulty=difficulty
         )
         response = await self.generate(prompt)
+        response_text = self._normalize_response(response)
         parser = SimpleJsonOutputParser()
         try:
-            parsed = parser.parse(response)
+            parsed = parser.parse(response_text)
             return parsed
         except Exception:
-            return {"raw": response}
+            return {"raw": response_text}
