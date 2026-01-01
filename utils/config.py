@@ -2,6 +2,7 @@
 Configuration management module for loading and accessing settings from config.toml
 """
 
+import logging
 import os
 import sys
 from dataclasses import dataclass
@@ -20,10 +21,8 @@ else:
             "Please install it with: pip install tomli"
         )
 
-from utils.logger import get_config_logger
-
-# Module-level logger
-logger = get_config_logger()
+# Module-level logger (avoid initializing logger system during import)
+logger = logging.getLogger("config")
 
 
 class ConfigManager:

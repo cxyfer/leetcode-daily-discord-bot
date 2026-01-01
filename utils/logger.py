@@ -3,36 +3,33 @@ import os
 from datetime import datetime
 from typing import Dict, Optional
 
-# Global configuration - load once at module import time
-try:
-    from utils.config import get_config
+# Global configuration defaults (config.toml overrides are loaded in setup)
+GLOBAL_LOG_LEVEL = logging.INFO
+GLOBAL_LOG_DIR = "./logs"
+GLOBAL_MODULE_LEVELS = {
+    # bot related
+    "core": logging.INFO,
+    "commands": logging.INFO,
+    "leetcode": logging.INFO,
+    "database": logging.INFO,
+    "scheduler": logging.INFO,
+    "llm": logging.INFO,
+    "config": logging.INFO,
+    "ui": logging.INFO,
+    # third party packages related
+    "discord": logging.WARNING,
+    "requests": logging.WARNING,
+    "google_genai": logging.WARNING,
+    "httpx": logging.WARNING,
+}
 
-    config = get_config()
-    logger_config = config.get_section("logging")
-    GLOBAL_LOG_LEVEL = getattr(logging, logger_config.get("level", "INFO"))
-    GLOBAL_LOG_DIR = logger_config.get("directory", "./logs")
-    GLOBAL_MODULE_LEVELS = {
-        module: getattr(logging, level)
-        for module, level in logger_config.get("modules", {}).items()
-    }
-except Exception:
-    # Use default values if config loading fails
-    GLOBAL_LOG_LEVEL = logging.INFO
-    GLOBAL_LOG_DIR = "./logs"
-    GLOBAL_MODULE_LEVELS = {
-        "core": logging.DEBUG,
-        "commands": logging.DEBUG,
-        "leetcode": logging.DEBUG,
-        "database": logging.DEBUG,
-        "scheduler": logging.DEBUG,
-        "llm": logging.DEBUG,
-        "config": logging.DEBUG,
-        "ui": logging.DEBUG,
-        "discord": logging.WARNING,
-        "discord.gateway": logging.WARNING,
-        "discord.client": logging.WARNING,
-        "requests": logging.WARNING,
-    }
+
+def _resolve_log_level(value: object, default: int) -> int:
+    if isinstance(value, int):
+        return value
+    if value is None:
+        return default
+    return getattr(logging, str(value).upper(), default)
 
 
 class ColoredFormatter(logging.Formatter):
@@ -50,7 +47,7 @@ class ColoredFormatter(logging.Formatter):
 
     def format(self, record):
         # Add file location information to the record
-        record.fileloc = f"[{record.filename}:{record.lineno}]"
+        record.fileloc = f"{record.filename}:{record.lineno}"
 
         # Add color to the level name
         levelname = record.levelname
@@ -117,17 +114,48 @@ class Logger:
         """
         Set up the logging system with global configuration.
         """
+        global GLOBAL_LOG_LEVEL, GLOBAL_LOG_DIR, GLOBAL_MODULE_LEVELS
+        try:
+            # Load config here to avoid circular import during module load
+            from utils.config import get_config
+
+            config = get_config()
+            logger_config = config.get_section("logging")
+            GLOBAL_LOG_LEVEL = _resolve_log_level(
+                logger_config.get("level", "INFO"), logging.INFO
+            )
+            GLOBAL_LOG_DIR = logger_config.get("directory", "./logs")
+            GLOBAL_MODULE_LEVELS = {
+                module: _resolve_log_level(level, logging.INFO)
+                for module, level in logger_config.get("modules", {}).items()
+            }
+        except Exception as exc:
+            try:
+                import sys
+
+                sys.stderr.write(
+                    "Warning: Failed to load logging config from config.toml, "
+                    f"using defaults. Error: {exc}\n"
+                )
+            except Exception:
+                pass
         # Create logs directory if it doesn't exist
         os.makedirs(GLOBAL_LOG_DIR, exist_ok=True)
 
         # Create formatters
         stream_formatter = ColoredFormatter(
-            fmt="%(asctime)s | %(levelname)-17s | %(fileloc)-32s | %(message)s",
+            fmt=(
+                "%(asctime)s | %(levelname)-17s | %(fileloc)-32s | "
+                "%(message)s"
+            ),
             datefmt="%Y-%m-%d %H:%M:%S",
         )
 
         file_formatter = logging.Formatter(
-            fmt="%(asctime)s | %(levelname)-8s | %(fileloc)-32s | %(message)s",
+            fmt=(
+                "%(asctime)s | %(levelname)-8s | %(fileloc)-32s | "
+                "%(message)s"
+            ),
             datefmt="%Y-%m-%d %H:%M:%S",
         )
 
