@@ -612,6 +612,13 @@ class EmbeddingDatabaseManager:
                 self._conn.commit()
             return cursor.rowcount
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+        return False
+
     def close(self) -> None:
         with self._lock:
             self._conn.close()

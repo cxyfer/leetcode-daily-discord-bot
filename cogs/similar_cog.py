@@ -36,6 +36,12 @@ class SimilarCog(commands.Cog):
         self.generator = EmbeddingGenerator(self.config)
         self.searcher = SimilaritySearcher(self.db, self.storage)
 
+    def cog_unload(self) -> None:
+        try:
+            self.db.close()
+        except Exception as exc:
+            self.logger.warning("Failed to close embedding DB: %s", exc)
+
     @app_commands.command(name="similar", description="搜尋相似題目")
     @app_commands.describe(
         query="題目敘述或關鍵字",
@@ -111,7 +117,7 @@ class SimilarCog(commands.Cog):
         lines = []
         for idx, result in enumerate(results, start=1):
             problem_id = result.get("problem_id")
-            title = result.get("title") or f"Problem {problem_id}"
+            problem_title = result.get("title") or f"Problem {problem_id}"
             difficulty = result.get("difficulty") or "Unknown"
             emoji = (
                 get_difficulty_emoji(difficulty) if result.get("difficulty") else "⚪"
@@ -122,9 +128,9 @@ class SimilarCog(commands.Cog):
             if show_source:
                 source_tag = f"[{result.get('source', 'unknown')}] "
             if link:
-                line = f"{idx}. {source_tag}{emoji} [{problem_id}. {title}]({link}) · {similarity:.2f}"
+                line = f"{idx}. {source_tag}{emoji} [{problem_id}. {problem_title}]({link}) · {similarity:.2f}"
             else:
-                line = f"{idx}. {source_tag}{emoji} {problem_id}. {title} · {similarity:.2f}"
+                line = f"{idx}. {source_tag}{emoji} {problem_id}. {problem_title} · {similarity:.2f}"
             lines.append(line)
 
         embed.add_field(name="結果", value="\n".join(lines), inline=False)

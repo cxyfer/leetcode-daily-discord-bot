@@ -112,31 +112,16 @@ class EmbeddingRewriter:
         if not content or not content.strip():
             return ""
         prompt = self._build_prompt(content)
-        max_attempts = max(1, self.model_config.max_retries)
-        for attempt in range(1, max_attempts + 1):
-            try:
-                return await asyncio.wait_for(
-                    asyncio.get_running_loop().run_in_executor(
-                        executor, self._rewrite_sync, prompt
-                    ),
-                    timeout=self.model_config.timeout,
-                )
-            except asyncio.TimeoutError:
-                if attempt < max_attempts:
-                    wait_seconds = min(2**attempt, 30)
-                    logger.warning(
-                        "Rewrite timed out after %s seconds (attempt %s/%s), retrying in %ss",
-                        self.model_config.timeout,
-                        attempt,
-                        max_attempts,
-                        wait_seconds,
-                    )
-                    await asyncio.sleep(wait_seconds)
-                    continue
-                logger.error(
-                    "Rewrite timed out after %s seconds (attempt %s/%s), giving up",
-                    self.model_config.timeout,
-                    attempt,
-                    max_attempts,
-                )
-                raise
+        try:
+            return await asyncio.wait_for(
+                asyncio.get_running_loop().run_in_executor(
+                    executor, self._rewrite_sync, prompt
+                ),
+                timeout=self.model_config.timeout,
+            )
+        except asyncio.TimeoutError:
+            logger.error(
+                "Rewrite timed out after %s seconds",
+                self.model_config.timeout,
+            )
+            raise

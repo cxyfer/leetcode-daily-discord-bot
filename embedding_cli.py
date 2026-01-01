@@ -211,6 +211,13 @@ async def build_embeddings(
             except Exception as exc:
                 logger.error("Embedding batch failed: %s", exc)
                 return 0
+            if len(embeddings) != len(problem_ids):
+                logger.error(
+                    "Embedding batch size mismatch: expected %s got %s",
+                    len(problem_ids),
+                    len(embeddings),
+                )
+                return 0
             for problem_id, rewritten, embedding in zip(
                 problem_ids, rewritten_texts, embeddings
             ):
