@@ -1,4 +1,4 @@
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 
 TRANSLATION_JSON_PROMPT = """你是一位專業的翻譯助手，擅長根據上下文理解原文的用語風格（情感、語氣），並且準確地在 {to} 中再現這種風格。
 
