@@ -271,6 +271,10 @@ When querying multiple problems, the bot displays:
 - [ ] 🌍 **Internationalization**
   - [ ] Support multiple display languages
 
+## 🗞️ Release Notes
+
+See [CHANGELOG.md](CHANGELOG.md) for versioned release notes and history.
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
