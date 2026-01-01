@@ -10,6 +10,7 @@ from utils.logger import get_llm_logger
 
 logger = get_llm_logger()
 
+
 class LLMBase(ABC):
     """
     LLMBase is the abstract base class for all LLM implementations.
@@ -79,7 +80,7 @@ class LLMBase(ABC):
             from_lang=from_lang,
             text=content,
         )
-        
+
         response = await self.generate(prompt)
         response_text = self._normalize_response(response)
         logger.debug(f"Translation response: {response_text}")

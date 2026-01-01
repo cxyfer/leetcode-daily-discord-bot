@@ -4,6 +4,7 @@ Configuration management module for loading and accessing settings from config.t
 
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -65,12 +66,14 @@ class ConfigManager:
         Environment variables take precedence over config file values.
         Mapping:
         - DISCORD_TOKEN -> discord.token
-        - GOOGLE_GEMINI_API_KEY -> llm.gemini.api_key
+        - GOOGLE_GEMINI_API_KEY / GOOGLE_API_KEY / GEMINI_API_KEY -> llm.gemini.api_key
         - POST_TIME -> schedule.post_time
         - TIMEZONE -> schedule.timezone
         """
         env_mappings = {
             "DISCORD_TOKEN": ("discord", "token"),
+            "GOOGLE_API_KEY": ("llm", "gemini", "api_key"),
+            "GEMINI_API_KEY": ("llm", "gemini", "api_key"),
             "GOOGLE_GEMINI_API_KEY": ("llm", "gemini", "api_key"),
             "POST_TIME": ("schedule", "post_time"),
             "TIMEZONE": ("schedule", "timezone"),
@@ -183,6 +186,64 @@ class ConfigManager:
         key = f"llm.cache.{cache_type}_expire_seconds"
         default = 3600 if cache_type == "translation" else 86400
         return self.get(key, default)
+
+    def get_embedding_model_config(self) -> "EmbeddingModelConfig":
+        """Get embedding model configuration"""
+        section = self.get("llm.gemini.models.embedding", {})
+        return EmbeddingModelConfig(
+            name=section.get("name", "gemini-embedding-001"),
+            dim=section.get("dim", 768),
+            task_type=section.get("task_type", "SEMANTIC_SIMILARITY"),
+            batch_size=section.get("batch_size", 32),
+        )
+
+    def get_rewrite_model_config(self) -> "RewriteModelConfig":
+        """Get rewrite model configuration"""
+        section = self.get("llm.gemini.models.rewrite", {})
+        return RewriteModelConfig(
+            name=section.get("name", "gemini-2.0-flash"),
+            temperature=section.get("temperature", 0.3),
+            timeout=section.get("timeout", 30),
+            max_retries=section.get("max_retries", 2),
+            workers=section.get("workers", 4),
+        )
+
+    def get_similar_config(self) -> "SimilarConfig":
+        """Get similar-problem search configuration"""
+        section = self.get("similar", {})
+        return SimilarConfig(
+            top_k=section.get("top_k", 5),
+            min_similarity=section.get("min_similarity", 0.70),
+        )
+
+
+@dataclass
+class EmbeddingModelConfig:
+    """Embedding model configuration"""
+
+    name: str = "gemini-embedding-001"
+    dim: int = 768
+    task_type: str = "SEMANTIC_SIMILARITY"
+    batch_size: int = 32
+
+
+@dataclass
+class RewriteModelConfig:
+    """Rewrite model configuration"""
+
+    name: str = "gemini-2.0-flash"
+    temperature: float = 0.3
+    timeout: int = 30
+    max_retries: int = 2
+    workers: int = 4
+
+
+@dataclass
+class SimilarConfig:
+    """Similar problem search configuration"""
+
+    top_k: int = 5
+    min_similarity: float = 0.70
 
 
 # Global configuration instance

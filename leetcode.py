@@ -1150,6 +1150,22 @@ async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--init", action="store_true", help="Initialize database")
     parser.add_argument("--full", action="store_true", help="Fetch all problems")
+    parser.add_argument(
+        "--fill-missing-content",
+        action="store_true",
+        help="Fetch missing problem content only (Algorithms, free)",
+    )
+    parser.add_argument(
+        "--fill-missing-content-workers",
+        type=int,
+        default=5,
+        help="Concurrent workers for --fill-missing-content",
+    )
+    parser.add_argument(
+        "--missing-content-stats",
+        action="store_true",
+        help="Show missing content count (Algorithms, free)",
+    )
     parser.add_argument("--daily", action="store_true", help="Fetch daily challenge")
     parser.add_argument(
         "--date", type=str, help="Fetch daily challenge for a specific date"
@@ -1174,6 +1190,70 @@ async def main():
         problems = await client.init_all_problems()
         for i, problem in enumerate(problems):
             problems[i] = await client.get_problem(problem["id"])
+
+    if args.fill_missing_content:
+        missing_ids = client.problems_db.get_problem_ids_missing_content()
+        if not missing_ids:
+            logger.info("No problems missing content.")
+        else:
+            workers = max(1, int(args.fill_missing_content_workers or 1))
+            workers = min(workers, len(missing_ids))
+            logger.info(
+                "Fetching missing content for %s problems (workers=%s)...",
+                len(missing_ids),
+                workers,
+            )
+            if workers == 1:
+                for index, problem_id in enumerate(missing_ids, start=1):
+                    await client.get_problem(problem_id=problem_id)
+                    if index % 50 == 0 or index == len(missing_ids):
+                        logger.info(
+                            "Processed %s/%s missing problems",
+                            index,
+                            len(missing_ids),
+                        )
+            else:
+                queue: asyncio.Queue[str | None] = asyncio.Queue()
+                for problem_id in missing_ids:
+                    queue.put_nowait(problem_id)
+                for _ in range(workers):
+                    queue.put_nowait(None)
+
+                total = len(missing_ids)
+                processed = 0
+                progress_lock = asyncio.Lock()
+
+                async def worker(worker_id: int) -> None:
+                    nonlocal processed
+                    while True:
+                        problem_id = await queue.get()
+                        if problem_id is None:
+                            queue.task_done()
+                            break
+                        try:
+                            await client.get_problem(problem_id=problem_id)
+                        except Exception as exc:
+                            logger.error(
+                                "Failed to fetch problem %s: %s", problem_id, exc
+                            )
+                        finally:
+                            queue.task_done()
+                        async with progress_lock:
+                            processed += 1
+                            if processed % 50 == 0 or processed == total:
+                                logger.info(
+                                    "Processed %s/%s missing problems",
+                                    processed,
+                                    total,
+                                )
+
+                tasks = [asyncio.create_task(worker(i)) for i in range(workers)]
+                await queue.join()
+                await asyncio.gather(*tasks)
+
+    if args.missing_content_stats:
+        missing_count = client.problems_db.count_missing_content()
+        print(f"Missing content: {missing_count}")
 
     if args.daily:
         logger.info("Fetching daily challenge...")

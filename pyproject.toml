@@ -9,10 +9,13 @@ dependencies = [
     "beautifulsoup4>=4.13.3",
     "colorlog>=6.9.0",
     "discord-py>=2.5.2",
+    "google-genai>=1.0.0",
     "langchain>=0.3.23",
     "langchain-google-genai>=2.1.2",
     "python-dotenv>=1.0.0",
     "pytz>=2025.2",
     "requests>=2.32.3",
+    "sqlite-vec>=0.1.6",
+    "tenacity>=8.2.0",
     "tomli>=2.0.1; python_version < '3.11'",
 ]

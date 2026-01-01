@@ -403,12 +403,8 @@ class InteractionHandlerCog(commands.Cog):
                         self.logger.error(f"LLM 靈感啟發失敗: {llm_e}", exc_info=True)
                         error_message = f"LLM 靈感啟發失敗：{str(llm_e)}"
                         if len(error_message) > 1900:
-                            error_message = (
-                                error_message[:1900] + "...\n(內容已截斷)"
-                            )
-                        await interaction.followup.send(
-                            error_message, ephemeral=True
-                        )
+                            error_message = error_message[:1900] + "...\n(內容已截斷)"
+                        await interaction.followup.send(error_message, ephemeral=True)
                         # Cleanup will be handled by finally block
                         return
 
@@ -434,10 +430,8 @@ class InteractionHandlerCog(commands.Cog):
                     error_message = f"LLM 靈感啟發時發生錯誤：{str(e)}"
                     if len(error_message) > 1900:
                         error_message = error_message[:1900] + "...\n(內容已截斷)"
-                    await interaction.followup.send(
-                        error_message, ephemeral=True
-                    )
-                except:  # noqa
+                    await interaction.followup.send(error_message, ephemeral=True)
+                except Exception:  # noqa
                     pass
             finally:
                 # Remove from ongoing requests

@@ -3,9 +3,8 @@ import asyncio
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-import logging
 from utils.logger import get_core_logger
-from utils.config import get_config
+from utils.config import EmbeddingModelConfig, RewriteModelConfig, SimilarConfig, get_config
 
 from leetcode import LeetCodeClient  # html_to_text 會在 cog 中使用
 from llms import GeminiLLM
@@ -78,6 +77,22 @@ except FileNotFoundError:
         def get_cache_expire_seconds(self, cache_type):
             """Get cache expiration time"""
             return 3600 if cache_type == "translation" else 86400
+
+        def get_embedding_model_config(self):
+            """Get embedding model configuration"""
+            return EmbeddingModelConfig()
+
+        def get_rewrite_model_config(self):
+            """Get rewrite model configuration"""
+            return RewriteModelConfig()
+
+        def get_similar_config(self):
+            """Get similar problem search configuration"""
+            return SimilarConfig()
+
+        @property
+        def database_path(self):
+            return self.get("database.path", "data/data.db")
 
         @property
         def discord_token(self):
