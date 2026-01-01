@@ -11,10 +11,6 @@ from typing import Any, Dict, List, Optional
 import discord
 import pytz
 from .logger import get_ui_logger
-
-# Module-level logger
-logger = get_ui_logger()
-
 from .ui_constants import (
     BUTTON_EMOJIS,
     DEFAULT_COLOR,
@@ -30,6 +26,9 @@ from .ui_constants import (
     MAX_SIMILAR_QUESTIONS,
     PROBLEMS_PER_FIELD,
 )
+
+# Module-level logger
+logger = get_ui_logger()
 
 
 def get_user_color(user: discord.User) -> int:
@@ -485,9 +484,7 @@ async def send_daily_challenge(
         challenge_info = await current_client.get_daily_challenge()
 
         if not challenge_info:
-            logger.error(
-                f"Failed to get daily challenge info for domain {domain}."
-            )
+            logger.error(f"Failed to get daily challenge info for domain {domain}.")
             if interaction:
                 await interaction.followup.send(
                     "Could not fetch daily challenge.", ephemeral=ephemeral
@@ -510,12 +507,8 @@ async def send_daily_challenge(
 
         if interaction:
             # If called from a slash command
-            await interaction.followup.send(
-                embed=embed, view=view, ephemeral=ephemeral
-            )
-            logger.info(
-                f"Sent daily challenge via interaction {interaction.id}"
-            )
+            await interaction.followup.send(embed=embed, view=view, ephemeral=ephemeral)
+            logger.info(f"Sent daily challenge via interaction {interaction.id}")
         elif channel_id:
             target_channel = bot.get_channel(channel_id)
             if target_channel:

@@ -74,7 +74,7 @@ INSPIRE_FIELDS = {
     "thinking": "🧠 思路",
     "traps": "⚠️ 陷阱",
     "algorithms": "🛠️ 推薦演算法",
-    "inspiration": "✨ 其他靈感"
+    "inspiration": "✨ 其他靈感",
 }
 
 # 限制常量

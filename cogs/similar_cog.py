@@ -3,7 +3,12 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from embeddings import EmbeddingGenerator, EmbeddingRewriter, EmbeddingStorage, SimilaritySearcher
+from embeddings import (
+    EmbeddingGenerator,
+    EmbeddingRewriter,
+    EmbeddingStorage,
+    SimilaritySearcher,
+)
 from utils.config import get_config
 from utils.database import EmbeddingDatabaseManager
 from utils.logger import get_commands_logger
@@ -54,7 +59,9 @@ class SimilarCog(commands.Cog):
 
         top_k = max(1, min(top_k, 10))
         source_input = (source or "").strip().lower()
-        source_filter = None if not source_input or source_input == "all" else source_input
+        source_filter = (
+            None if not source_input or source_input == "all" else source_input
+        )
 
         await interaction.response.defer(ephemeral=not public)
 
@@ -84,9 +91,7 @@ class SimilarCog(commands.Cog):
                 "搜尋服務暫時不可用，請稍後再試", ephemeral=not public
             )
 
-    async def create_results_embed(
-        self, query: str, results: list, source: str | None
-    ):
+    async def create_results_embed(self, query: str, results: list, source: str | None):
         display_source = source or "all"
         show_source = source is None
         title = f"{FIELD_EMOJIS['search']} 相似題目搜尋結果"
@@ -106,20 +111,18 @@ class SimilarCog(commands.Cog):
             problem_id = result.get("problem_id")
             title = result.get("title") or f"Problem {problem_id}"
             difficulty = result.get("difficulty") or "Unknown"
-            emoji = get_difficulty_emoji(difficulty) if result.get("difficulty") else "⚪"
+            emoji = (
+                get_difficulty_emoji(difficulty) if result.get("difficulty") else "⚪"
+            )
             similarity = result.get("similarity", 0)
             link = result.get("link") or ""
             source_tag = ""
             if show_source:
                 source_tag = f"[{result.get('source', 'unknown')}] "
             if link:
-                line = (
-                    f"{idx}. {source_tag}{emoji} [{problem_id}. {title}]({link}) · {similarity:.2f}"
-                )
+                line = f"{idx}. {source_tag}{emoji} [{problem_id}. {title}]({link}) · {similarity:.2f}"
             else:
-                line = (
-                    f"{idx}. {source_tag}{emoji} {problem_id}. {title} · {similarity:.2f}"
-                )
+                line = f"{idx}. {source_tag}{emoji} {problem_id}. {title} · {similarity:.2f}"
             lines.append(line)
 
         embed.add_field(name="結果", value="\n".join(lines), inline=False)

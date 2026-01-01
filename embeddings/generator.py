@@ -9,7 +9,12 @@ from typing import List, Sequence
 from google import genai
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable
 from google.genai import types
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from utils.config import ConfigManager, EmbeddingModelConfig, get_config
 from utils.logger import get_llm_logger
@@ -29,7 +34,9 @@ def _resolve_api_key(config: ConfigManager) -> str | None:
 class EmbeddingGenerator:
     def __init__(self, config: ConfigManager | None = None):
         self.config = config or get_config()
-        self.model_config: EmbeddingModelConfig = self.config.get_embedding_model_config()
+        self.model_config: EmbeddingModelConfig = (
+            self.config.get_embedding_model_config()
+        )
         api_key = _resolve_api_key(self.config)
         if not api_key:
             raise ValueError("Gemini API key not configured")

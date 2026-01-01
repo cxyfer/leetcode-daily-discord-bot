@@ -8,7 +8,12 @@ import math
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Tuple
 
-from embeddings import EmbeddingGenerator, EmbeddingRewriter, EmbeddingStorage, SimilaritySearcher
+from embeddings import (
+    EmbeddingGenerator,
+    EmbeddingRewriter,
+    EmbeddingStorage,
+    SimilaritySearcher,
+)
 from leetcode import html_to_text
 from utils.config import get_config
 from utils.database import EmbeddingDatabaseManager
@@ -17,7 +22,9 @@ from utils.logger import get_core_logger
 logger = get_core_logger()
 
 
-def _fetch_problems_with_content_sync(db: EmbeddingDatabaseManager) -> List[Tuple[str, str]]:
+def _fetch_problems_with_content_sync(
+    db: EmbeddingDatabaseManager,
+) -> List[Tuple[str, str]]:
     rows = db.execute(
         """
         SELECT id, content
@@ -280,7 +287,9 @@ async def query_similar(
             print(f"   {link}")
 
 
-async def show_stats(db: EmbeddingDatabaseManager, storage: EmbeddingStorage, source: str) -> None:
+async def show_stats(
+    db: EmbeddingDatabaseManager, storage: EmbeddingStorage, source: str
+) -> None:
     config = get_config()
     embedding_config = config.get_embedding_model_config()
 
@@ -307,7 +316,9 @@ async def main() -> None:
     parser.add_argument("--rebuild", action="store_true", help="Rebuild embeddings")
     parser.add_argument("--query", type=str, help="Query similar problems")
     parser.add_argument("--stats", action="store_true", help="Show embedding stats")
-    parser.add_argument("--dry-run", action="store_true", help="Estimate embedding cost")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Estimate embedding cost"
+    )
     # Compromise: problems table has no source, so CLI default tags embeddings as leetcode.
     parser.add_argument(
         "--source",
@@ -322,7 +333,9 @@ async def main() -> None:
         help="Minimum similarity threshold",
         default=None,
     )
-    parser.add_argument("--batch-size", type=int, help="Embedding batch size", default=None)
+    parser.add_argument(
+        "--batch-size", type=int, help="Embedding batch size", default=None
+    )
 
     args = parser.parse_args()
     config = get_config()
@@ -332,7 +345,9 @@ async def main() -> None:
     source = args.source
     top_k = args.top_k or similar_config.top_k
     min_similarity = (
-        args.min_similarity if args.min_similarity is not None else similar_config.min_similarity
+        args.min_similarity
+        if args.min_similarity is not None
+        else similar_config.min_similarity
     )
     batch_size = args.batch_size or embedding_config.batch_size
 

@@ -115,7 +115,7 @@ class SlashCommandsCog(commands.Cog):
                     f"查詢每日挑戰時發生錯誤：{e}", ephemeral=not public
                 )
         else:
-                        await send_daily_challenge(
+            await send_daily_challenge(
                 bot=self.bot,
                 interaction=interaction,
                 domain="com",

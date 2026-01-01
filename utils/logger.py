@@ -1,5 +1,4 @@
 import logging
-import colorlog
 import os
 from datetime import datetime
 from typing import Dict, Optional
@@ -7,6 +6,7 @@ from typing import Dict, Optional
 # Global configuration - load once at module import time
 try:
     from utils.config import get_config
+
     config = get_config()
     logger_config = config.get_section("logging")
     GLOBAL_LOG_LEVEL = getattr(logging, logger_config.get("level", "INFO"))
@@ -40,12 +40,12 @@ class ColoredFormatter(logging.Formatter):
 
     # ANSI color codes
     COLORS = {
-        'DEBUG': '\033[32m',      # Green
-        'INFO': '\033[36m',       # Cyan
-        'WARNING': '\033[33m',    # Yellow
-        'ERROR': '\033[31m',      # Red
-        'CRITICAL': '\033[31;47m',  # Red background
-        'RESET': '\033[0m'        # Reset
+        "DEBUG": "\033[32m",  # Green
+        "INFO": "\033[36m",  # Cyan
+        "WARNING": "\033[33m",  # Yellow
+        "ERROR": "\033[31m",  # Red
+        "CRITICAL": "\033[31;47m",  # Red background
+        "RESET": "\033[0m",  # Reset
     }
 
     def format(self, record):
@@ -55,7 +55,9 @@ class ColoredFormatter(logging.Formatter):
         # Add color to the level name
         levelname = record.levelname
         if levelname in self.COLORS:
-            record.levelname = f"{self.COLORS[levelname]}{levelname}{self.COLORS['RESET']}"
+            record.levelname = (
+                f"{self.COLORS[levelname]}{levelname}{self.COLORS['RESET']}"
+            )
 
         # Call parent format method
         result = super().format(record)
@@ -76,10 +78,10 @@ class Logger:
     def setup_logger(name: str) -> logging.Logger:
         """
         Create or return an existing logger with global configuration.
-        
+
         Args:
             name (str): Logger name
-        
+
         Returns:
             logging.Logger: The configured logger instance
         """
@@ -101,10 +103,10 @@ class Logger:
     def get_logger(name: str) -> Optional[logging.Logger]:
         """
         Get an existing logger by name.
-        
+
         Args:
             name (str): Logger name
-        
+
         Returns:
             logging.Logger or None: The logger instance if exists, None otherwise
         """
@@ -121,7 +123,7 @@ class Logger:
         # Create formatters
         stream_formatter = ColoredFormatter(
             fmt="%(asctime)s | %(levelname)-17s | %(fileloc)-32s | %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S"
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
 
         file_formatter = logging.Formatter(
@@ -166,11 +168,11 @@ class Logger:
     def set_module_level(module_name: str, level: int) -> bool:
         """
         Set the log level for a specific module.
-        
+
         Args:
             module_name (str): The name of the module to configure
             level (int): The logging level to set
-        
+
         Returns:
             bool: True if successful, False if logging hasn't been initialized yet
         """

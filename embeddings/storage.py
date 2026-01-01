@@ -42,7 +42,9 @@ class EmbeddingStorage:
         }
 
     async def get_embedding_meta(self, source: str, problem_id: str) -> Optional[dict]:
-        return await asyncio.to_thread(self._get_embedding_meta_sync, source, problem_id)
+        return await asyncio.to_thread(
+            self._get_embedding_meta_sync, source, problem_id
+        )
 
     def _get_existing_ids_sync(self, source: str, model: str, dim: int) -> set[str]:
         rows = self.db.execute(

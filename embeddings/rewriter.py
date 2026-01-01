@@ -10,7 +10,12 @@ from typing import Optional
 from google import genai
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable
 from google.genai import types
-from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import (
+    Retrying,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from utils.config import ConfigManager, RewriteModelConfig, get_config
 from utils.logger import get_llm_logger
@@ -50,7 +55,9 @@ class EmbeddingRewriter:
 
     def _build_generation_config(self):
         try:
-            return types.GenerateContentConfig(temperature=self.model_config.temperature)
+            return types.GenerateContentConfig(
+                temperature=self.model_config.temperature
+            )
         except Exception:  # pragma: no cover - fallback for SDK differences
             return {"temperature": self.model_config.temperature}
 

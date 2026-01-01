@@ -3,7 +3,6 @@ import asyncio
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-import logging
 from utils.logger import get_core_logger
 from utils.config import get_config
 
