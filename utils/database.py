@@ -2,6 +2,7 @@ import sqlite3
 import os
 import json
 import time
+import threading
 from pathlib import Path
 from .logger import get_database_logger
 
@@ -485,6 +486,100 @@ class ProblemsDatabaseManager:
             "similar_questions",
         ]
         return dict(zip(keys, row))
+
+
+class EmbeddingDatabaseManager:
+    """
+    管理 embeddings 相關資料表與 sqlite-vec 連線
+    """
+
+    def __init__(self, db_path="data/data.db"):
+        self.db_path = db_path
+        Path(os.path.dirname(db_path)).mkdir(parents=True, exist_ok=True)
+        self._lock = threading.Lock()
+        self._conn = self._create_connection()
+        self._ensure_metadata_table()
+        logger.info(f"Embedding DB manager initialized with database at {db_path}")
+
+    def _create_connection(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        conn.enable_load_extension(True)
+        try:
+            import sqlite_vec
+        except ImportError as exc:
+            raise RuntimeError("sqlite-vec is required for embeddings") from exc
+        sqlite_vec.load(conn)
+        conn.enable_load_extension(False)
+        return conn
+
+    def _ensure_metadata_table(self) -> None:
+        self.execute(
+            """
+            CREATE TABLE IF NOT EXISTS problem_embeddings (
+                source TEXT NOT NULL,
+                problem_id TEXT NOT NULL,
+                rewritten_content TEXT,
+                model TEXT NOT NULL,
+                dim INTEGER NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (source, problem_id)
+            )
+            """,
+            commit=True,
+        )
+
+    def create_vec_table(self, dim: int) -> None:
+        self.execute(
+            f"""
+            CREATE VIRTUAL TABLE IF NOT EXISTS vec_embeddings USING vec0(
+                source TEXT,
+                problem_id TEXT,
+                embedding float[{dim}]
+            )
+            """,
+            commit=True,
+        )
+
+    def check_dimension_consistency(self, dim: int) -> bool:
+        try:
+            row = self.execute(
+                "SELECT vec_length(embedding) FROM vec_embeddings LIMIT 1",
+                fetchone=True,
+            )
+            if row and row[0] != dim:
+                return False
+        except sqlite3.OperationalError:
+            return True
+        return True
+
+    def execute(
+        self,
+        query: str,
+        params: tuple = (),
+        commit: bool = False,
+        fetchone: bool = False,
+        fetchall: bool = False,
+    ):
+        with self._lock:
+            cursor = self._conn.execute(query, params)
+            if commit:
+                self._conn.commit()
+            if fetchone:
+                return cursor.fetchone()
+            if fetchall:
+                return cursor.fetchall()
+            return None
+
+    def executemany(self, query: str, seq, commit: bool = False) -> int:
+        with self._lock:
+            cursor = self._conn.executemany(query, seq)
+            if commit:
+                self._conn.commit()
+            return cursor.rowcount
+
+    def close(self) -> None:
+        with self._lock:
+            self._conn.close()
 
 
 class LLMTranslateDatabaseManager:
