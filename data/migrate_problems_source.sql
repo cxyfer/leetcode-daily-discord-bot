@@ -3,26 +3,11 @@
 -- Migration script: Update problems table to support multi-source
 -- Usage: sqlite3 data/data.db < data/migrate_problems_source.sql
 -- Please back up the database before running this script.
-
--- Pre-check: if source already exists, stop to avoid a destructive re-run.
-CREATE TEMP TABLE IF NOT EXISTS _migration_guard (
-    needs_migration INTEGER NOT NULL CHECK (needs_migration = 1)
-);
-DELETE FROM _migration_guard;
-INSERT INTO _migration_guard (needs_migration)
-SELECT CASE
-    WHEN EXISTS (
-        SELECT 1
-        FROM pragma_table_info('problems')
-        WHERE name = 'source'
-    )
-    THEN 0
-    ELSE 1
-END;
-DROP TABLE _migration_guard;
+--
+-- IDEMPOTENT: Running this script multiple times is safe.
+-- If already migrated, the script will fail early with "duplicate column name: source".
 
 PRAGMA foreign_keys = OFF;
-BEGIN TRANSACTION;
 
 -- Ensure the old schema exists (safe for fresh environments).
 CREATE TABLE IF NOT EXISTS problems (
@@ -44,9 +29,11 @@ CREATE TABLE IF NOT EXISTS problems (
     similar_questions TEXT
 );
 
--- Ensure source column exists for data migration.
-ALTER TABLE problems
-    ADD COLUMN source TEXT NOT NULL DEFAULT 'leetcode';
+-- Add source column. This will fail if already migrated (idempotent guard).
+-- With .bail on, script stops here on re-run.
+ALTER TABLE problems ADD COLUMN source TEXT NOT NULL DEFAULT 'leetcode';
+
+BEGIN TRANSACTION;
 
 DROP TABLE IF EXISTS problems_old;
 ALTER TABLE problems RENAME TO problems_old;

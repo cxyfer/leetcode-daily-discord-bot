@@ -8,7 +8,7 @@ LEETCODE_URL_RE = re.compile(
     r"leetcode\.(?:com|cn)/problems/([^/?#]+)", re.IGNORECASE
 )
 ATCODER_ID_RE = re.compile(r"^(abc|arc|agc|ahc)\d+_[a-z]\d*$", re.IGNORECASE)
-CF_ID_RE = re.compile(r"^\d+[A-Za-z]\d*$")
+CF_ID_RE = re.compile(r"^\d+[A-Za-z]$")
 
 
 def detect_source(problem_id: str, explicit_source: Optional[str] = None) -> Tuple[str, str]:

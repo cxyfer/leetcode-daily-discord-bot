@@ -256,7 +256,7 @@ class SlashCommandsCog(commands.Cog):
                 )
                 if detected_source == "unknown":
                     await interaction.response.send_message(
-                        f"無法判斷 '{id_str}' 的來源，請使用 source: 前綴 (例如 atcoder:abc001_a)",
+                        f"無法判斷 '{id_str}' 的來源。請使用 source:id 格式（如 atcoder:abc001_a）、題目 URL，或指定 source 參數",
                         ephemeral=not public,
                     )
                     return

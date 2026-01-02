@@ -1112,8 +1112,8 @@ def html_to_text(html):
         str: Formatted text
     """
     def normalize_var_text(raw_text: str) -> str:
-        cleaned = re.sub(r"\s+", " ", raw_text.strip())
-        cleaned = re.sub(r"\s*_\s*", "_", cleaned)
+        cleaned = re.sub(r"\s*_\s*", "_", raw_text.strip())
+        cleaned = re.sub(r"\s+", " ", cleaned)
         cleaned = re.sub(r"\s*,\s*", ",", cleaned)
         return cleaned
 

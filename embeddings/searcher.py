@@ -19,6 +19,11 @@ class SimilaritySearcher:
         self.storage = storage
 
     def _get_problem_info_sync(self, source: str, problem_id: str) -> Optional[dict]:
+        if problem_id is None:
+            return None
+        problem_id = str(problem_id).strip()
+        if not problem_id:
+            return None
         row = self.db.execute(
             "SELECT id, title, difficulty, link FROM problems WHERE source = ? AND id = ?",
             (source, problem_id),

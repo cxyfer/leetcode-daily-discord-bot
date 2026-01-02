@@ -428,16 +428,37 @@ async def main() -> None:
             if args.rebuild:
                 await _prepare_db(db, embedding_config.dim, rebuild=True)
                 await storage.delete_all_embeddings(None)
-            for src in sources:
-                await build_embeddings(
-                    db,
-                    storage,
-                    rewriter,
-                    generator,
+            total_sources = len(sources)
+            failed_sources: List[str] = []
+            for index, src in enumerate(sources, start=1):
+                logger.info(
+                    "Building embeddings for source '%s' (%d/%d)",
                     src,
-                    batch_size,
-                    rebuild=False,
-                    dry_run=args.dry_run,
+                    index,
+                    total_sources,
+                )
+                try:
+                    await build_embeddings(
+                        db,
+                        storage,
+                        rewriter,
+                        generator,
+                        src,
+                        batch_size,
+                        rebuild=False,
+                        dry_run=args.dry_run,
+                    )
+                except Exception as exc:
+                    logger.error(
+                        "Failed to build embeddings for source '%s': %s",
+                        src,
+                        exc,
+                        exc_info=True,
+                    )
+                    failed_sources.append(src)
+            if failed_sources:
+                print(
+                    f"Embedding build completed with failures for: {', '.join(failed_sources)}"
                 )
         else:
             await build_embeddings(
