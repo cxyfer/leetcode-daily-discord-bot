@@ -206,6 +206,7 @@ async def build_embeddings(
                     break
                 buffer.append(item)
                 if len(buffer) >= effective_batch_size:
+                    logger.info("Flushing embeddings (%s problems)", len(buffer))
                     embedded_total += await _flush_embeddings(
                         buffer, storage, generator, embedding_config, source
                     )
