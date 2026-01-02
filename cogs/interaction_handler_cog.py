@@ -294,10 +294,10 @@ class InteractionHandlerCog(commands.Cog):
 
                     problem_info = await client.get_problem(problem_id=problem_id)
                     if problem_info and problem_info.get("content"):
-                        problem_content_raw = html_to_text(problem_info["content"])
+                        problem_content_text = html_to_text(problem_info["content"])
                         try:
                             translation = await self.bot.llm.translate(
-                                problem_content_raw, "zh-TW"
+                                problem_content_text, "zh-TW"
                             )
                             model_name = getattr(
                                 self.bot.llm, "model_name", "Unknown Model"
@@ -408,8 +408,10 @@ class InteractionHandlerCog(commands.Cog):
                     )
                     return
 
-                problem_content_raw = html_to_text(problem_info["content"])
-                translation = await self.bot.llm.translate(problem_content_raw, "zh-TW")
+                problem_content_text = html_to_text(problem_info["content"])
+                translation = await self.bot.llm.translate(
+                    problem_content_text, "zh-TW"
+                )
                 model_name = getattr(self.bot.llm, "model_name", "Unknown Model")
 
                 footer_text = f"\n\n✨ 由 `{model_name}` 提供翻譯"
@@ -510,13 +512,13 @@ class InteractionHandlerCog(commands.Cog):
                         # Cleanup will be handled by finally block
                         return
 
-                    problem_content_raw = html_to_text(problem_info["content"])
+                    problem_content_text = html_to_text(problem_info["content"])
                     tags = problem_info.get("tags", [])
                     difficulty = problem_info.get("difficulty", "")
 
                     try:
                         llm_output = await self.bot.llm_pro.inspire(
-                            problem_content_raw, tags, difficulty
+                            problem_content_text, tags, difficulty
                         )
                         model_name = getattr(
                             self.bot.llm_pro, "model_name", "Unknown Model"
@@ -649,12 +651,12 @@ class InteractionHandlerCog(commands.Cog):
                     model_name = inspire_result_data.get("model_name", "Unknown Model")
                     inspiration_data = inspire_result_data.copy()
                 else:
-                    problem_content_raw = html_to_text(problem_info["content"])
+                    problem_content_text = html_to_text(problem_info["content"])
                     tags = problem_info.get("tags", []) or []
                     difficulty = problem_info.get("difficulty", "")
 
                     llm_output = await self.bot.llm_pro.inspire(
-                        problem_content_raw, tags, difficulty
+                        problem_content_text, tags, difficulty
                     )
                     model_name = getattr(self.bot.llm_pro, "model_name", "Unknown Model")
 

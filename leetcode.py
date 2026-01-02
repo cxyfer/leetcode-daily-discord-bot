@@ -1118,6 +1118,19 @@ def html_to_text(html):
         return cleaned
 
     def replace_latex_tokens(raw_text: str) -> str:
+        command_patterns = [
+            r"\\mathrm\s*\{([^{}]*)\}",
+            r"\\text\s*\{([^{}]*)\}",
+            r"\\mathbf\s*\{([^{}]*)\}",
+            r"\\mathit\s*\{([^{}]*)\}",
+            r"\\mathsf\s*\{([^{}]*)\}",
+        ]
+        for pattern in command_patterns:
+            while True:
+                updated = re.sub(pattern, r"\1", raw_text)
+                if updated == raw_text:
+                    break
+                raw_text = updated
         replacements = [
             ("\\displaystyle", ""),
             ("\\leq", "<="),
@@ -1135,9 +1148,17 @@ def html_to_text(html):
             ("\\left", ""),
             ("\\right", ""),
             ("\\sum", "sum"),
+            ("\\{", "{"),
+            ("\\}", "}"),
+            ("\\_", "_"),
         ]
         for token, replacement in replacements:
             raw_text = raw_text.replace(token, replacement)
+        raw_text = re.sub(
+            r"\\(?:mathrm|text|mathbf|mathit|mathsf)\s*", "", raw_text
+        )
+        raw_text = re.sub(r"\s*_\s*", "_", raw_text)
+        raw_text = re.sub(r"\s*\^\s*", "^", raw_text)
         return raw_text
 
     soup = BeautifulSoup(html, "html.parser")

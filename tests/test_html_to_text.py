@@ -31,3 +31,21 @@ def test_html_to_text_atcoder_formatting():
     assert "*" in output
     assert "i-j" in output
     assert "|" in output
+
+
+def test_html_to_text_mathjax_commands():
+    html = """
+    <span class="lang-en">
+      <p><var>\\mathrm{query}_i</var> <var>\\text{count}</var> <var>\\mathbf{X}</var></p>
+      <p><var>\\mathrm query_j</var></p>
+    </span>
+    """
+
+    output = html_to_text(html)
+
+    assert "query_i" in output
+    assert "count" in output
+    assert "X" in output
+    assert "query_j" in output
+    assert "\\mathrm" not in output
+    assert "\\text" not in output
