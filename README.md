@@ -234,6 +234,17 @@ uv run python leetcode.py --fill-missing-content
 uv run python leetcode.py --fill-missing-content --fill-missing-content-workers 10
 ```
 
+### AtCoder CLI
+
+Fetch AtCoder contests and problem content:
+
+```
+uv run python atcoder.py --sync-kenkoooo
+uv run python atcoder.py --fetch-all --resume
+uv run python atcoder.py --contest abc001
+uv run python atcoder.py --status
+```
+
 ### Multi-Problem Features
 
 The `/problem` command supports querying multiple problems at once with enhanced customization:
