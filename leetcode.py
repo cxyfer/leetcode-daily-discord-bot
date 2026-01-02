@@ -1111,9 +1111,42 @@ def html_to_text(html):
     Returns:
         str: Formatted text
     """
+    def normalize_var_text(raw_text: str) -> str:
+        cleaned = re.sub(r"\s+", " ", raw_text.strip())
+        cleaned = re.sub(r"\s*_\s*", "_", cleaned)
+        cleaned = re.sub(r"\s*,\s*", ",", cleaned)
+        return cleaned
+
+    def replace_latex_tokens(raw_text: str) -> str:
+        replacements = [
+            ("\\displaystyle", ""),
+            ("\\leq", "<="),
+            ("\\geq", ">="),
+            ("\\le", "<="),
+            ("\\ge", ">="),
+            ("\\neq", "!="),
+            ("\\times", "*"),
+            ("\\cdot", "*"),
+            ("\\ldots", "..."),
+            ("\\cdots", "..."),
+            ("\\dots", "..."),
+            ("\\lvert", "|"),
+            ("\\rvert", "|"),
+            ("\\left", ""),
+            ("\\right", ""),
+            ("\\sum", "sum"),
+        ]
+        for token, replacement in replacements:
+            raw_text = raw_text.replace(token, replacement)
+        return raw_text
+
     soup = BeautifulSoup(html, "html.parser")
     for sup in soup.find_all("sup"):
         sup.replace_with("^" + sup.get_text())
+    for sub in soup.find_all("sub"):
+        sub.replace_with("_" + sub.get_text())
+    for var in soup.find_all("var"):
+        var.replace_with(normalize_var_text(var.get_text()))
     for strong in soup.find_all("strong"):
         strong.replace_with(f"**{strong.get_text()}**")
     for em in soup.find_all("em"):
@@ -1122,18 +1155,44 @@ def html_to_text(html):
         code.replace_with(f"`{code.get_text()}`")
     for li in soup.find_all("li"):
         li.insert_before("- ")
-    for pre in soup.find_all("pre"):
-        pre.replace_with(
-            "".join(f"\t{line}\n" for line in pre.get_text().strip().split("\n"))
-        )
+    for header in soup.find_all(["h2", "h3"]):
+        header.replace_with(f"\n\n## {header.get_text(strip=True)}\n")
+    for hr in soup.find_all("hr"):
+        hr.replace_with("\n\n")
     for br in soup.find_all("br"):
-        br.replace_with("\n\n")
+        br.replace_with("\n")
+
+    code_blocks = []
+    for pre in soup.find_all("pre"):
+        raw_lines = [line.rstrip() for line in pre.get_text().splitlines()]
+        while raw_lines and not raw_lines[0].strip():
+            raw_lines.pop(0)
+        while raw_lines and not raw_lines[-1].strip():
+            raw_lines.pop()
+        indents = [
+            len(line) - len(line.lstrip()) for line in raw_lines if line.strip()
+        ]
+        min_indent = min(indents) if indents else 0
+        content = "\n".join(line[min_indent:] for line in raw_lines)
+        code_blocks.append(content)
+        pre.replace_with(f"__CODE_BLOCK_{len(code_blocks) - 1}__")
+
     for p in soup.find_all("p"):
         p.insert_before("\n\n")
+
     text = soup.get_text()
+    text = replace_latex_tokens(text)
+
+    for idx, content in enumerate(code_blocks):
+        placeholder = f"__CODE_BLOCK_{idx}__"
+        fenced = f"\n\n```\n{content}\n```\n"
+        text = text.replace(placeholder, fenced)
+
     lines = [line.rstrip() for line in text.splitlines()]
     keywords = {"Example": 2, "Constraints": 2}
     for i, line in enumerate(lines):
+        if line.startswith("#"):
+            continue
         for keyword, level in keywords.items():
             if keyword in line:
                 lines[i] = f"{'#' * level} {line}"
