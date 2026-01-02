@@ -12,6 +12,7 @@ import discord
 import pytz
 from .logger import get_ui_logger
 from .ui_constants import (
+    ATCODER_LOGO_URL,
     BUTTON_EMOJIS,
     DEFAULT_COLOR,
     DIFFICULTY_COLORS,
@@ -24,6 +25,7 @@ from .ui_constants import (
     LEETCODE_LOGO_URL,
     MAX_PROBLEMS_PER_OVERVIEW,
     MAX_SIMILAR_QUESTIONS,
+    NON_DIFFICULTY_EMOJI,
     PROBLEMS_PER_FIELD,
 )
 
@@ -59,6 +61,13 @@ def get_difficulty_emoji(difficulty: str) -> str:
     return DIFFICULTY_EMOJIS.get(difficulty, "⚫")
 
 
+def get_problem_emoji(problem_info: Dict[str, Any]) -> str:
+    """依題目來源選擇對應表情符號"""
+    if problem_info.get("source", "leetcode") == "leetcode":
+        return get_difficulty_emoji(problem_info.get("difficulty", ""))
+    return NON_DIFFICULTY_EMOJI
+
+
 async def create_problem_embed(
     problem_info: Dict[str, Any],
     bot: Any,
@@ -72,19 +81,30 @@ async def create_problem_embed(
     """Create an embed for a LeetCode problem"""
     source = problem_info.get("source", "leetcode")
     if source != "leetcode":
+        source_label = "AtCoder" if source == "atcoder" else source.capitalize()
         embed = discord.Embed(
-            title=f"{FIELD_EMOJIS['link']} {problem_info['id']}. {problem_info['title']}",
+            title=f"{FIELD_EMOJIS['link']} {problem_info['id']}: {problem_info['title']}",
             color=DEFAULT_COLOR,
             url=problem_info.get("link"),
         )
-        embed.add_field(name="Source", value=source, inline=True)
+        if (title or message) and user:
+            embed.set_author(
+                name=f"{user.display_name}", icon_url=user.display_avatar.url
+            )
+        if message:
+            embed.description = message
+        embed.add_field(name="Source", value=source_label, inline=True)
         if problem_info.get("difficulty"):
             embed.add_field(
                 name=f"{FIELD_EMOJIS['difficulty']} Difficulty",
                 value=f"**{problem_info['difficulty']}**",
                 inline=True,
             )
-        embed.set_footer(text=f"{source.capitalize()} Problem")
+        footer_icon_url = ATCODER_LOGO_URL if source == "atcoder" else None
+        if footer_icon_url:
+            embed.set_footer(text=f"{source_label} Problem", icon_url=footer_icon_url)
+        else:
+            embed.set_footer(text=f"{source_label} Problem")
         return embed
 
     embed_color = get_difficulty_color(problem_info["difficulty"])
@@ -173,8 +193,35 @@ async def create_problem_embed(
 async def create_problem_view(
     problem_info: Dict[str, Any], bot: Any, domain: str = "com"
 ) -> discord.ui.View:
-    """Create a view with buttons for a LeetCode problem"""
+    """Create a view with buttons for a problem"""
     view = discord.ui.View(timeout=None)
+    source = problem_info.get("source", "leetcode")
+    if source == "leetcode":
+        description_prefix = getattr(
+            bot, "LEETCODE_DISCRIPTION_BUTTON_PREFIX", "leetcode_problem_"
+        )
+        translate_prefix = getattr(
+            bot, "LEETCODE_TRANSLATE_BUTTON_PREFIX", "leetcode_translate_"
+        )
+        inspire_prefix = getattr(
+            bot, "LEETCODE_INSPIRE_BUTTON_PREFIX", "leetcode_inspire_"
+        )
+        description_id = f"{description_prefix}{problem_info['id']}_{domain}"
+        translate_id = f"{translate_prefix}{problem_info['id']}_{domain}"
+        inspire_id = f"{inspire_prefix}{problem_info['id']}_{domain}"
+    else:
+        description_prefix = getattr(
+            bot, "ATCODER_DESCRIPTION_BUTTON_PREFIX", "atcoder_problem|"
+        )
+        translate_prefix = getattr(
+            bot, "ATCODER_TRANSLATE_BUTTON_PREFIX", "atcoder_translate|"
+        )
+        inspire_prefix = getattr(
+            bot, "ATCODER_INSPIRE_BUTTON_PREFIX", "atcoder_inspire|"
+        )
+        description_id = f"{description_prefix}{problem_info['id']}"
+        translate_id = f"{translate_prefix}{problem_info['id']}"
+        inspire_id = f"{inspire_prefix}{problem_info['id']}"
 
     # Description button
     view.add_item(
@@ -182,7 +229,7 @@ async def create_problem_view(
             style=discord.ButtonStyle.primary,
             label="題目描述",
             emoji=BUTTON_EMOJIS["description"],
-            custom_id=f"{bot.LEETCODE_DISCRIPTION_BUTTON_PREFIX}{problem_info['id']}_{domain}",
+            custom_id=description_id,
         )
     )
 
@@ -193,7 +240,7 @@ async def create_problem_view(
                 style=discord.ButtonStyle.success,
                 label="LLM 翻譯",
                 emoji=BUTTON_EMOJIS["translate"],
-                custom_id=f"{bot.LEETCODE_TRANSLATE_BUTTON_PREFIX}{problem_info['id']}_{domain}",
+                custom_id=translate_id,
             )
         )
 
@@ -204,7 +251,7 @@ async def create_problem_view(
                 style=discord.ButtonStyle.danger,
                 label="靈感啟發",
                 emoji=BUTTON_EMOJIS["inspire"],
-                custom_id=f"{bot.LEETCODE_INSPIRE_BUTTON_PREFIX}{problem_info['id']}_{domain}",
+                custom_id=inspire_id,
             )
         )
 
@@ -359,10 +406,18 @@ def create_problems_overview_embed(
 
         problem_lines = []
         for problem in chunk:
-            emoji = get_difficulty_emoji(problem.get("difficulty", ""))
+            emoji = get_problem_emoji(problem)
+            source = problem.get("source", "leetcode")
 
             # Create line with hyperlink
-            line = f"- {emoji} **[{problem['id']}. {problem['title']}]({problem['link']})**"
+            if source == "leetcode":
+                line = (
+                    f"- {emoji} **[{problem['id']}. {problem['title']}]({problem['link']})**"
+                )
+            else:
+                line = (
+                    f"- {emoji} **[{problem['id']}: {problem['title']}]({problem['link']})**"
+                )
             if problem.get("rating") and problem["rating"] > 0:
                 line += f" {FIELD_EMOJIS['rating']}{round(problem['rating'])}"
 
@@ -383,10 +438,13 @@ def create_problems_overview_embed(
             inline=False,
         )
 
-    embed.set_footer(
-        text=f"{source_label} Problems Overview",
-        icon_url=footer_icon_url,
-    )
+    if footer_icon_url:
+        embed.set_footer(
+            text=f"{source_label} Problems Overview",
+            icon_url=footer_icon_url,
+        )
+    else:
+        embed.set_footer(text=f"{source_label} Problems Overview")
     embed.timestamp = datetime.now(timezone.utc)
 
     return embed
@@ -400,13 +458,14 @@ def create_problems_overview_view(
 
     # Create buttons for each problem (max 25 buttons per view)
     for i, problem in enumerate(problems[:MAX_PROBLEMS_PER_OVERVIEW]):
-        emoji = get_difficulty_emoji(problem.get("difficulty", ""))
+        emoji = get_problem_emoji(problem)
+        source = problem.get("source", "leetcode")
 
         button = discord.ui.Button(
             style=discord.ButtonStyle.secondary,
             label=f"{problem['id']}",
             emoji=emoji,
-            custom_id=f"problem_detail_{problem['id']}_{domain}",
+            custom_id=f"problem_detail|{source}|{problem['id']}|{domain}",
             row=i // 5,  # 5 buttons per row
         )
         view.add_item(button)
@@ -434,21 +493,33 @@ def create_settings_embed(
 
 
 def create_problem_description_embed(
-    problem_info: Dict[str, Any], domain: str
+    problem_info: Dict[str, Any], domain: str, source: str = "leetcode"
 ) -> discord.Embed:
     """Create an embed for problem description"""
-    emoji = get_difficulty_emoji(problem_info["difficulty"])
-    embed_color = get_difficulty_color(problem_info["difficulty"])
+    if source == "leetcode":
+        emoji = get_difficulty_emoji(problem_info["difficulty"])
+        embed_color = get_difficulty_color(problem_info["difficulty"])
+        embed = discord.Embed(
+            title=f"{emoji} {problem_info['id']}. {problem_info['title']}",
+            description=problem_info["description"],
+            color=embed_color,
+            url=problem_info["link"],
+        )
+        embed.set_author(name="LeetCode Problem", icon_url=LEETCODE_LOGO_URL)
+        return embed
 
+    source_label = "AtCoder" if source == "atcoder" else source.capitalize()
     embed = discord.Embed(
-        title=f"{emoji} {problem_info['id']}. {problem_info['title']}",
+        title=f"{NON_DIFFICULTY_EMOJI} {problem_info['id']}: {problem_info['title']}",
         description=problem_info["description"],
-        color=embed_color,
+        color=DEFAULT_COLOR,
         url=problem_info["link"],
     )
-
-    embed.set_author(name="LeetCode Problem", icon_url=LEETCODE_LOGO_URL)
-
+    footer_icon_url = ATCODER_LOGO_URL if source == "atcoder" else None
+    if footer_icon_url:
+        embed.set_footer(text=f"{source_label} Problem", icon_url=footer_icon_url)
+    else:
+        embed.set_footer(text=f"{source_label} Problem")
     return embed
 
 

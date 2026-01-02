@@ -9,6 +9,7 @@ from discord.ext import commands
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from cogs.slash_commands_cog import SlashCommandsCog
+from utils.ui_constants import NON_DIFFICULTY_EMOJI
 
 
 def _make_interaction():
@@ -31,6 +32,11 @@ def _make_bot():
     bot.lcus = MagicMock()
     bot.lccn = MagicMock()
     bot.lcus.problems_db = MagicMock()
+    bot.llm = MagicMock()
+    bot.llm_pro = MagicMock()
+    bot.ATCODER_DESCRIPTION_BUTTON_PREFIX = "atcoder_problem|"
+    bot.ATCODER_TRANSLATE_BUTTON_PREFIX = "atcoder_translate|"
+    bot.ATCODER_INSPIRE_BUTTON_PREFIX = "atcoder_inspire|"
     return bot
 
 
@@ -76,7 +82,9 @@ async def test_problem_command_atcoder_single_sends_without_view():
 
     assert interaction.followup.send.call_count == 1
     _, kwargs = interaction.followup.send.call_args
-    assert "view" not in kwargs
+    assert "view" in kwargs
+    assert len(kwargs["view"].children) == 3
+    assert kwargs["view"].children[0].custom_id.startswith("atcoder_problem|")
 
 
 @pytest.mark.asyncio
@@ -103,4 +111,11 @@ async def test_problem_command_atcoder_multiple_sends_without_view():
 
     assert interaction.followup.send.call_count == 1
     _, kwargs = interaction.followup.send.call_args
-    assert "view" not in kwargs
+    assert "view" in kwargs
+    assert len(kwargs["view"].children) == 2
+    for button in kwargs["view"].children:
+        emoji_value = (
+            button.emoji.name if hasattr(button.emoji, "name") else str(button.emoji)
+        )
+        assert emoji_value == NON_DIFFICULTY_EMOJI
+        assert button.custom_id.startswith("problem_detail|atcoder|")

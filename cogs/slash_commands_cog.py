@@ -20,7 +20,7 @@ from utils.ui_helpers import (
     create_problem_view,
     send_daily_challenge,
 )
-from utils.ui_constants import LEETCODE_LOGO_URL
+from utils.ui_constants import ATCODER_LOGO_URL, LEETCODE_LOGO_URL
 from utils.source_detector import detect_source
 
 # Default values, similar to how they are defined in bot.py or schedule_manager_cog.py
@@ -323,6 +323,7 @@ class SlashCommandsCog(commands.Cog):
 
             sources = {problem.get("source", "leetcode") for problem in problems}
             leetcode_only = sources == {"leetcode"}
+            atcoder_only = sources == {"atcoder"}
 
             # If only one problem, display normally without overview
             if len(problems) == 1:
@@ -335,36 +336,42 @@ class SlashCommandsCog(commands.Cog):
                     title=title,
                     message=message,
                 )
-                view = None
-                if leetcode_only:
-                    view = await create_problem_view(
-                        problem_info=problems[0], bot=self.bot, domain=domain
-                    )
-                send_kwargs = {"embed": embed, "ephemeral": not public}
-                if view is not None:
-                    send_kwargs["view"] = view
-                await interaction.followup.send(**send_kwargs)
+                view = await create_problem_view(
+                    problem_info=problems[0], bot=self.bot, domain=domain
+                )
+                await interaction.followup.send(
+                    embed=embed, view=view, ephemeral=not public
+                )
                 self.logger.info(
                     f"Sent single problem {problems[0]['id']} info to user {interaction.user.name}"
                 )
                 return
 
             # Multiple problems - show overview with detail buttons
+            if atcoder_only:
+                source_label = "AtCoder"
+                footer_icon_url = ATCODER_LOGO_URL
+            elif leetcode_only:
+                source_label = "LeetCode"
+                footer_icon_url = LEETCODE_LOGO_URL
+            else:
+                source_label = "Mixed Sources"
+                footer_icon_url = None
+
             embed = create_problems_overview_embed(
                 problems,
                 domain,
                 interaction.user,
                 message,
                 title,
-                source_label="LeetCode" if leetcode_only else "Mixed Sources",
-                show_instructions=leetcode_only,
-                footer_icon_url=LEETCODE_LOGO_URL if leetcode_only else None,
+                source_label=source_label,
+                show_instructions=True,
+                footer_icon_url=footer_icon_url,
             )
-            view = create_problems_overview_view(problems, domain) if leetcode_only else None
-            send_kwargs = {"embed": embed, "ephemeral": not public}
-            if view is not None:
-                send_kwargs["view"] = view
-            await interaction.followup.send(**send_kwargs)
+            view = create_problems_overview_view(problems, domain)
+            await interaction.followup.send(
+                embed=embed, view=view, ephemeral=not public
+            )
             self.logger.info(
                 f"Sent {len(problems)} problems overview to user {interaction.user.name}"
             )
