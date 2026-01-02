@@ -34,7 +34,6 @@ Instructions:
 
 2.  **Content to KEEP**:
     *   The core problem definition and objective.
-    *   All constraints (e.g., `1 <= n <= 1000`). Convert them to MathJax.
 
 3.  **HTML Processing**:
     *   Extract text content from semantic tags like `<span data-keyword="...">` (e.g., `<span data-keyword="binary-array">binary array</span>` → "binary array").
