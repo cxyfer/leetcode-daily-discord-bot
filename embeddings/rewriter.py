@@ -21,15 +21,38 @@ from utils.logger import get_llm_logger
 
 logger = get_llm_logger()
 
-REWRITE_PROMPT = """I have the following competitive programming problem that I want to show someone else:
+REWRITE_PROMPT = """Role: Competitive Programming Problem Simplifier
 
-=======
-[[ORIGINAL]]
-=======
+Task: Rewrite the given problem statement into its core algorithmic essence. The output must be concise, self-contained, and immediately understandable without referencing the original.
 
-Strip off all the stories, legends, characters, backgrounds, examples, well-known definitions etc. from the statement while still enabling everyone to understand the problem. Also remove the name of the character if applicable. If it is not in English translate it. Make it as succinct as possible while still being understandable. Try to avoid formulas and symbols. Abstract freely - for example, if the problem is about buying sushi, you can just phrase it as a knapsack problem. If necessary, mathjax ($...$) for math. Provide the *succinct* simplified statement directly without jargon. Start your response with "Simplified statement:".
+Instructions:
+
+1.  **Content to REMOVE**:
+    *   All storytelling, legends, character names, and background context.
+    *   All examples and their explanations.
+    *   Redundant phrasing.
+
+2.  **Content to KEEP**:
+    *   The core problem definition and objective.
+    *   All constraints (e.g., `1 <= n <= 1000`). Convert them to MathJax.
+
+3.  **HTML Processing**:
+    *   Extract text content from semantic tags like `<span data-keyword="...">` (e.g., `<span data-keyword="binary-array">binary array</span>` → "binary array").
+    *   Convert mathematical HTML to MathJax:
+        *   `<sup>` → `^{{}}` (e.g., `10<sup>9</sup>` → $10^9$)
+        *   `<sub>` → `_{{}}` (e.g., `a<sub>i</sub>` → $a_i$)
+        *   `<code>` variables → inline math (e.g., `<code>n</code>` → $n$)
+
+4.  **Language**: If the original is not in English, translate to English.
+
+5.  **Output Format**:
+    *   Use MathJax ($...$) for all math.
+    *   Be as succinct as possible while remaining unambiguous.
+    *   **Output ONLY the simplified statement. No preamble, no labels, no markdown fences.**
+
+Input Statement:
+{ORIGINAL}
 """
-
 
 def _resolve_api_key(config: ConfigManager) -> Optional[str]:
     return (
@@ -56,7 +79,7 @@ class EmbeddingRewriter:
         self.client = genai.Client(api_key=api_key)
 
     def _build_prompt(self, original: str) -> str:
-        return REWRITE_PROMPT.replace("[[ORIGINAL]]", original)
+        return REWRITE_PROMPT.format(ORIGINAL=original)
 
     def _build_generation_config(self):
         try:
