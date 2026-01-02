@@ -1,3 +1,5 @@
+import asyncio
+import json
 import os
 import sys
 
@@ -9,7 +11,12 @@ try:
 except ImportError:
     from llms.base import LLMBase  # When executed directly
 
+from google import genai
+from google.genai import types
 from langchain_google_genai import ChatGoogleGenerativeAI
+from utils.logger import get_llm_logger
+
+logger = get_llm_logger()
 
 
 class GeminiLLM(LLMBase):
@@ -46,6 +53,7 @@ class GeminiLLM(LLMBase):
         if not self.api_key:
             raise ValueError("請設定 GOOGLE_GEMINI_API_KEY 環境變數或傳入 api_key 參數")
 
+        self.temperature = temperature
         self.llm = ChatGoogleGenerativeAI(
             google_api_key=self.api_key,
             model=model,
@@ -54,7 +62,50 @@ class GeminiLLM(LLMBase):
             timeout=timeout,
             max_retries=max_retries,
         )
+        self.genai_client = genai.Client(api_key=self.api_key)
         self.model_name = model
+
+    @staticmethod
+    def _schema_to_json(schema: type) -> dict | None:
+        if hasattr(schema, "model_json_schema"):
+            return schema.model_json_schema()
+        if hasattr(schema, "schema"):
+            return schema.schema()
+        return None
+
+    async def _invoke_structured_output(self, prompt: str, schema: type) -> object | None:
+        json_schema = self._schema_to_json(schema)
+        if not json_schema:
+            return None
+        try:
+            config_kwargs = {
+                "response_mime_type": "application/json",
+                "response_json_schema": json_schema,
+            }
+            if self.temperature is not None:
+                config_kwargs["temperature"] = self.temperature
+            config = types.GenerateContentConfig(**config_kwargs)
+            response = await asyncio.to_thread(
+                self.genai_client.models.generate_content,
+                model=self.model_name,
+                contents=prompt,
+                config=config,
+            )
+        except Exception as exc:
+            logger.warning("Structured output failed: %s", exc, exc_info=True)
+            return None
+
+        parsed = getattr(response, "parsed", None)
+        if parsed is not None:
+            return parsed
+        text = getattr(response, "text", None)
+        if not text:
+            return None
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            logger.warning("Structured output JSON parse failed", exc_info=True)
+            return None
 
     async def generate(self, prompt: str) -> str:
         """

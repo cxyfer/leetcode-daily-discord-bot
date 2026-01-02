@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import json
 from langchain_core.output_parsers import SimpleJsonOutputParser
+from langchain_core.pydantic_v1 import BaseModel
 
 from llms.templates import (
     TRANSLATION_JSON_PROMPT_TEMPLATE,
@@ -9,6 +10,18 @@ from llms.templates import (
 from utils.logger import get_llm_logger
 
 logger = get_llm_logger()
+
+
+class TranslationOutput(BaseModel):
+    thinking: str
+    translation: str
+
+
+class InspireOutput(BaseModel):
+    thinking: str
+    traps: str
+    algorithms: str
+    inspiration: str
 
 
 class LLMBase(ABC):
@@ -59,6 +72,18 @@ class LLMBase(ABC):
         """
         pass
 
+    async def _invoke_structured_output(self, prompt: str, schema: type) -> object | None:
+        if not self.llm or not hasattr(self.llm, "with_structured_output"):
+            return None
+        try:
+            structured_llm = self.llm.with_structured_output(schema)
+            return await structured_llm.ainvoke(prompt)
+        except Exception as exc:
+            logger.warning(
+                "Structured output failed: %s", exc, exc_info=True
+            )
+            return None
+
     async def translate(
         self, content: str, target_language: str, from_lang: str = "auto"
     ) -> str:
@@ -80,6 +105,15 @@ class LLMBase(ABC):
             from_lang=from_lang,
             text=content,
         )
+
+        structured = await self._invoke_structured_output(prompt, TranslationOutput)
+        if structured is not None:
+            if isinstance(structured, TranslationOutput):
+                return structured.translation
+            if isinstance(structured, dict):
+                translation = structured.get("translation")
+                if translation:
+                    return translation
 
         response = await self.generate(prompt)
         response_text = self._normalize_response(response)
@@ -105,6 +139,13 @@ class LLMBase(ABC):
         prompt = INSPIRE_JSON_PROMPT_TEMPLATE.format(
             text=content, tags=", ".join(tags) if tags else "", difficulty=difficulty
         )
+        structured = await self._invoke_structured_output(prompt, InspireOutput)
+        if structured is not None:
+            if isinstance(structured, InspireOutput):
+                return structured.dict()
+            if isinstance(structured, dict):
+                return structured
+
         response = await self.generate(prompt)
         response_text = self._normalize_response(response)
         parser = SimpleJsonOutputParser()
