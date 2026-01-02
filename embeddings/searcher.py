@@ -18,12 +18,10 @@ class SimilaritySearcher:
         self.db = db
         self.storage = storage
 
-    def _get_problem_info_sync(self, problem_id: str) -> Optional[dict]:
-        if not problem_id.isdigit():
-            return None
+    def _get_problem_info_sync(self, source: str, problem_id: str) -> Optional[dict]:
         row = self.db.execute(
-            "SELECT id, title, difficulty, link FROM problems WHERE id = ?",
-            (int(problem_id),),
+            "SELECT id, title, difficulty, link FROM problems WHERE source = ? AND id = ?",
+            (source, problem_id),
             fetchone=True,
         )
         if not row:
@@ -35,8 +33,8 @@ class SimilaritySearcher:
             "link": row[3],
         }
 
-    async def get_problem_info(self, problem_id: str) -> Optional[dict]:
-        return await asyncio.to_thread(self._get_problem_info_sync, problem_id)
+    async def get_problem_info(self, source: str, problem_id: str) -> Optional[dict]:
+        return await asyncio.to_thread(self._get_problem_info_sync, source, problem_id)
 
     async def search(
         self,
@@ -53,7 +51,7 @@ class SimilaritySearcher:
 
         enriched: List[dict] = []
         for result in results:
-            info = await self.get_problem_info(result["problem_id"])
+            info = await self.get_problem_info(result["source"], result["problem_id"])
             if info:
                 result.update(info)
             enriched.append(result)
