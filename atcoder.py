@@ -43,8 +43,15 @@ class AtCoderClient:
         self.max_backoff = max_backoff
         self._last_request_at = 0.0
 
-    def _headers(self) -> dict:
-        return {"User-Agent": USER_AGENT}
+    def _headers(self, referer: Optional[str] = None) -> dict:
+        headers = {
+            "User-Agent": USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9,ja;q=0.8",
+        }
+        if referer:
+            headers["Referer"] = referer
+        return headers
 
     async def _throttle(self) -> None:
         elapsed = time.monotonic() - self._last_request_at
@@ -53,11 +60,16 @@ class AtCoderClient:
             await asyncio.sleep(wait_for)
         self._last_request_at = time.monotonic()
 
-    async def _fetch_text(self, session: aiohttp.ClientSession, url: str) -> Optional[str]:
+    async def _fetch_text(
+        self,
+        session: aiohttp.ClientSession,
+        url: str,
+        referer: Optional[str] = None,
+    ) -> Optional[str]:
         for attempt in range(1, self.max_retries + 1):
             await self._throttle()
             try:
-                async with session.get(url, headers=self._headers()) as response:
+                async with session.get(url, headers=self._headers(referer)) as response:
                     if response.status == 429:
                         backoff = min(self.max_backoff, self.backoff_base * (2 ** (attempt - 1)))
                         logger.warning("Rate limited (%s). Backing off %.1fs", url, backoff)
@@ -162,12 +174,14 @@ class AtCoderClient:
 
     def _is_permission_denied(self, html: str) -> bool:
         lowered = html.lower()
-        return (
-            "permission denied" in lowered
-            or "access denied" in lowered
-            or "sign in" in lowered
-            or "login" in lowered
+        deny_markers = (
+            "permission denied",
+            "access denied",
+            "forbidden",
+            "please sign in",
+            "please log in",
         )
+        return any(marker in lowered for marker in deny_markers)
 
     def _build_problem_from_kenkoooo(self, item: dict) -> Optional[dict]:
         problem_id = item.get("id") or item.get("problem_id")
@@ -244,7 +258,8 @@ class AtCoderClient:
         self, contest_id: str, session: aiohttp.ClientSession
     ) -> list[dict]:
         url = self.CONTEST_TASKS_URL_TEMPLATE.format(contest_id=contest_id)
-        html = await self._fetch_text(session, url)
+        contest_url = f"https://atcoder.jp/contests/{contest_id}"
+        html = await self._fetch_text(session, url, referer=contest_url)
         if not html:
             return []
         return self._parse_contest_tasks(html, contest_id)
@@ -255,7 +270,8 @@ class AtCoderClient:
         base_url = self.PROBLEM_URL_TEMPLATE.format(
             contest_id=contest_id, problem_id=problem_id
         )
-        html = await self._fetch_text(session, f"{base_url}?lang=en")
+        referer = self.CONTEST_TASKS_URL_TEMPLATE.format(contest_id=contest_id)
+        html = await self._fetch_text(session, f"{base_url}?lang=en", referer=referer)
         if not html:
             return None
         if self._is_permission_denied(html):
@@ -264,7 +280,7 @@ class AtCoderClient:
         content = self._extract_statement(html, prefer_lang="en")
         if content:
             return content
-        html = await self._fetch_text(session, f"{base_url}?lang=ja")
+        html = await self._fetch_text(session, f"{base_url}?lang=ja", referer=referer)
         if not html:
             return None
         if self._is_permission_denied(html):
