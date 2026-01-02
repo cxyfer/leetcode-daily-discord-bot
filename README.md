@@ -145,7 +145,7 @@ TIMEZONE=UTC     # Optional
 |---------|-------------|---------------------|
 | `/daily [date] [public]` | Display LeetCode.com (LCUS) daily challenge<br>• Optional: YYYY-MM-DD for historical challenges<br>• Optional: `public` - Show response publicly (default: private)<br>• Note: Historical data available from April 2020 onwards | None |
 | `/daily_cn [date] [public]` | Display LeetCode.cn (LCCN) daily challenge<br>• Optional: YYYY-MM-DD for historical challenges<br>• Optional: `public` - Show response publicly (default: private) | None |
-| `/problem <problem_ids> [domain] [public] [message] [title]` | Query one or multiple LeetCode problems<br>• `problem_ids`: Single ID (e.g., 1) or comma-separated IDs (e.g., 1,2,3)<br>• `domain`: com or cn (default: com)<br>• `public`: Show response publicly (default: private)<br>• `message`: Optional personal message/note (max 500 chars)<br>• `title`: Custom title for multi-problem mode (max 100 chars)<br>• Note: Supports up to 10 problems per query | None |
+| `/problem <problem_ids> [source] [domain] [public] [message] [title]` | Query one or multiple problems<br>• `problem_ids`: Single ID (e.g., `1`) or comma-separated IDs (e.g., `1,2,3`)<br>• Supports `source:id` format (e.g., `atcoder:abc001_a`, `leetcode:1`)<br>• `source`: Problem source - `leetcode` (default) or `atcoder`<br>• `domain`: LeetCode domain - `com` or `cn` (default: `com`)<br>• `public`: Show response publicly (default: private)<br>• `message`: Optional personal message/note (max 500 chars)<br>• `title`: Custom title for multi-problem mode (max 100 chars)<br>• Note: Supports up to 10 problems per query | None |
 | `/recent <username> [limit] [public]` | View recent accepted submissions for a user<br>• `username`: LeetCode username (LCUS only)<br>• `limit`: Number of submissions (1-50, default: 20)<br>• `public`: Show response publicly (default: private) | None |
 | `/similar <query> [top_k] [source] [public]` | Find similar problems from the embedding index<br>• `query`: Problem description or keywords<br>• `top_k`: Number of results (default: 5)<br>• `source`: Problem source (default: leetcode)<br>• `public`: Show response publicly (default: private) | None |
 | `/set_channel` | Set notification channel for daily challenges | Manage Channels |
@@ -178,6 +178,14 @@ TIMEZONE=UTC     # Optional
 
 # Multi-problem with domain selection
 /problem problem_ids:1,2,3 domain:cn      # Query from LeetCode.cn
+
+# AtCoder problems (auto-detected or explicit source)
+/problem problem_ids:abc001_a             # Auto-detect AtCoder from ID pattern
+/problem problem_ids:atcoder:abc001_a     # Explicit source:id format
+/problem problem_ids:abc001_a source:atcoder  # Explicit source parameter
+
+# Mixed sources
+/problem problem_ids:1,abc001_a,leetcode:15   # Mix LeetCode and AtCoder
 ```
 
 #### Recent Submissions
