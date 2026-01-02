@@ -279,7 +279,8 @@ class ProblemsDatabaseManager:
         cursor = conn.cursor()
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS problems (
-            id INTEGER PRIMARY KEY,
+            id TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT 'leetcode',
             slug TEXT NOT NULL,
             title TEXT,
             title_cn TEXT,
@@ -294,7 +295,8 @@ class ProblemsDatabaseManager:
             paid_only INTEGER,
             content TEXT,
             content_cn TEXT,
-            similar_questions TEXT
+            similar_questions TEXT,
+            PRIMARY KEY (source, id)
         )
         """)
         conn.commit()
@@ -322,9 +324,12 @@ class ProblemsDatabaseManager:
         # Prepare data to insert
         values = []
         for problem in problems:
+            problem_id = problem.get("id")
+            problem_source = problem.get("source") or "leetcode"
             values.append(
                 (
-                    problem.get("id"),
+                    str(problem_id) if problem_id is not None else None,
+                    problem_source,
                     problem.get("slug"),
                     problem.get("title"),
                     problem.get("title_cn"),
@@ -347,10 +352,10 @@ class ProblemsDatabaseManager:
             cursor.executemany(
                 """
             INSERT OR IGNORE INTO problems (
-                id, slug, title, title_cn, difficulty, ac_rate,
+                id, source, slug, title, title_cn, difficulty, ac_rate,
                 rating, contest, problem_index, tags, link,
                 category, paid_only, content, content_cn, similar_questions
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 values,
             )
@@ -387,13 +392,16 @@ class ProblemsDatabaseManager:
         """
         # Check if id exists to identify the problem
         problem_id = problem.get("id")
+        problem_source = problem.get("source") or "leetcode"
 
         if not problem_id:
             raise ValueError("Problem must have 'id' field for identification")
+        problem_id = str(problem_id)
+        problem["source"] = problem_source
 
         # If not force update, get existing data and merge
         if not force_update:
-            existing_problem = self.get_problem(problem_id)
+            existing_problem = self.get_problem(id=problem_id, source=problem_source)
             if existing_problem:
                 # Merge update: if new data field is empty, keep old data
                 for key in existing_problem:
@@ -409,13 +417,14 @@ class ProblemsDatabaseManager:
             cursor.execute(
                 """
             INSERT OR REPLACE INTO problems (
-                id, slug, title, title_cn, difficulty, ac_rate,
+                id, source, slug, title, title_cn, difficulty, ac_rate,
                 rating, contest, problem_index, tags, link,
                 category, paid_only, content, content_cn, similar_questions
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     problem_id,
+                    problem_source,
                     problem.get("slug"),
                     problem.get("title"),
                     problem.get("title_cn"),
@@ -436,7 +445,10 @@ class ProblemsDatabaseManager:
 
             conn.commit()
             logger.debug(
-                f"Updated problem with id={problem_id}, force_update={force_update}"
+                "Updated problem with source=%s, id=%s, force_update=%s",
+                problem_source,
+                problem_id,
+                force_update,
             )
             return True
 
@@ -446,13 +458,19 @@ class ProblemsDatabaseManager:
         finally:
             conn.close()
 
-    def get_problem(self, id=None, slug=None):
+    def get_problem(self, id=None, slug=None, source="leetcode"):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         if id:
-            cursor.execute("SELECT * FROM problems WHERE id = ?", (id,))
+            cursor.execute(
+                "SELECT * FROM problems WHERE source = ? AND id = ?",
+                (source, str(id)),
+            )
         elif slug:
-            cursor.execute("SELECT * FROM problems WHERE slug = ?", (slug,))
+            cursor.execute(
+                "SELECT * FROM problems WHERE source = ? AND slug = ?",
+                (source, slug),
+            )
         row = cursor.fetchone()
         conn.close()
         if row:
@@ -466,34 +484,39 @@ class ProblemsDatabaseManager:
             return problem
         return None
 
-    def get_problem_ids_missing_content(self):
+    def get_problem_ids_missing_content(self, source="leetcode"):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute(
             """
             SELECT id
             FROM problems
-            WHERE (content IS NULL OR content = '')
+            WHERE source = ?
+              AND (content IS NULL OR content = '')
               AND category = 'Algorithms'
               AND paid_only = 0
+            -- id 為 TEXT，排序為字典序；若需數值排序請另行轉型
             ORDER BY id ASC
-            """
+            """,
+            (source,),
         )
         rows = cursor.fetchall()
         conn.close()
         return [str(row[0]) for row in rows] if rows else []
 
-    def count_missing_content(self) -> int:
+    def count_missing_content(self, source="leetcode") -> int:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute(
             """
             SELECT COUNT(*)
             FROM problems
-            WHERE (content IS NULL OR content = '')
+            WHERE source = ?
+              AND (content IS NULL OR content = '')
               AND category = 'Algorithms'
               AND paid_only = 0
-            """
+            """,
+            (source,),
         )
         row = cursor.fetchone()
         conn.close()
@@ -502,6 +525,7 @@ class ProblemsDatabaseManager:
     def _row_to_dict(self, row):
         keys = [
             "id",
+            "source",
             "slug",
             "title",
             "title_cn",
