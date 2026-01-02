@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import json
 from langchain_core.output_parsers import SimpleJsonOutputParser
-from langchain_core.pydantic_v1 import BaseModel
+from pydantic import BaseModel
 
 from llms.templates import (
     TRANSLATION_JSON_PROMPT_TEMPLATE,
