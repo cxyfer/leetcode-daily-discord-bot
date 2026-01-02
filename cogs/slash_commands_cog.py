@@ -340,9 +340,10 @@ class SlashCommandsCog(commands.Cog):
                     view = await create_problem_view(
                         problem_info=problems[0], bot=self.bot, domain=domain
                     )
-                await interaction.followup.send(
-                    embed=embed, view=view, ephemeral=not public
-                )
+                send_kwargs = {"embed": embed, "ephemeral": not public}
+                if view is not None:
+                    send_kwargs["view"] = view
+                await interaction.followup.send(**send_kwargs)
                 self.logger.info(
                     f"Sent single problem {problems[0]['id']} info to user {interaction.user.name}"
                 )
@@ -360,10 +361,10 @@ class SlashCommandsCog(commands.Cog):
                 footer_icon_url=LEETCODE_LOGO_URL if leetcode_only else None,
             )
             view = create_problems_overview_view(problems, domain) if leetcode_only else None
-
-            await interaction.followup.send(
-                embed=embed, view=view, ephemeral=not public
-            )
+            send_kwargs = {"embed": embed, "ephemeral": not public}
+            if view is not None:
+                send_kwargs["view"] = view
+            await interaction.followup.send(**send_kwargs)
             self.logger.info(
                 f"Sent {len(problems)} problems overview to user {interaction.user.name}"
             )
