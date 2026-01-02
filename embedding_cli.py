@@ -6,7 +6,7 @@ import argparse
 import asyncio
 import math
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from embeddings import (
     EmbeddingGenerator,
@@ -24,29 +24,47 @@ logger = get_core_logger()
 
 def _fetch_problems_with_content_sync(
     db: EmbeddingDatabaseManager,
+    source: str,
 ) -> List[Tuple[str, str]]:
     rows = db.execute(
         """
         SELECT id, content
         FROM problems
-        WHERE content IS NOT NULL AND content != ''
+        WHERE source = ?
+          AND content IS NOT NULL AND content != ''
         ORDER BY id ASC
         """,
+        (source,),
         fetchall=True,
     )
     return [(str(row[0]), row[1]) for row in rows] if rows else []
 
 
-def _count_problems_with_content_sync(db: EmbeddingDatabaseManager) -> int:
+def _count_problems_with_content_sync(db: EmbeddingDatabaseManager, source: str) -> int:
     row = db.execute(
         """
         SELECT COUNT(*)
         FROM problems
-        WHERE content IS NOT NULL AND content != ''
+        WHERE source = ?
+          AND content IS NOT NULL AND content != ''
         """,
+        (source,),
         fetchone=True,
     )
     return int(row[0]) if row else 0
+
+
+def _fetch_sources_with_content_sync(db: EmbeddingDatabaseManager) -> List[str]:
+    rows = db.execute(
+        """
+        SELECT DISTINCT source
+        FROM problems
+        WHERE content IS NOT NULL AND content != ''
+        ORDER BY source ASC
+        """,
+        fetchall=True,
+    )
+    return [row[0] for row in rows] if rows else []
 
 
 async def _prepare_db(db: EmbeddingDatabaseManager, dim: int, rebuild: bool) -> None:
@@ -78,7 +96,9 @@ async def build_embeddings(
             "Embedding dimension mismatch. Please run with --rebuild to reset the index."
         )
 
-    total_problems = await asyncio.to_thread(_count_problems_with_content_sync, db)
+    total_problems = await asyncio.to_thread(
+        _count_problems_with_content_sync, db, source
+    )
     existing_metadata = await storage.get_existing_ids(
         source, embedding_config.name, embedding_config.dim
     )
@@ -99,7 +119,7 @@ async def build_embeddings(
     if rewriter is None or generator is None:
         raise ValueError("Embedding generator not initialized")
 
-    problems = await asyncio.to_thread(_fetch_problems_with_content_sync, db)
+    problems = await asyncio.to_thread(_fetch_problems_with_content_sync, db, source)
     pending = [(pid, content) for pid, content in problems if pid not in existing_ids]
 
     if not pending:
@@ -250,7 +270,7 @@ async def query_similar(
     storage: EmbeddingStorage,
     rewriter: EmbeddingRewriter,
     generator: EmbeddingGenerator,
-    source: str,
+    source: Optional[str],
     query: str,
     top_k: int,
     min_similarity: float,
@@ -302,7 +322,9 @@ async def show_stats(
 
     await _prepare_db(db, embedding_config.dim, rebuild=False)
 
-    total_problems = await asyncio.to_thread(_count_problems_with_content_sync, db)
+    total_problems = await asyncio.to_thread(
+        _count_problems_with_content_sync, db, source
+    )
     total_vectors = await storage.count_embeddings(source)
     total_metadata = await storage.count_metadata(source)
 
@@ -326,7 +348,7 @@ async def main() -> None:
     parser.add_argument(
         "--dry-run", action="store_true", help="Estimate embedding cost"
     )
-    # Compromise: problems table has no source, so CLI default tags embeddings as leetcode.
+    # Default source is leetcode; use --source all to process every source.
     parser.add_argument(
         "--source",
         type=str,
@@ -349,7 +371,7 @@ async def main() -> None:
     similar_config = config.get_similar_config()
     embedding_config = config.get_embedding_model_config()
 
-    source = args.source
+    source = (args.source or DEFAULT_EMBEDDING_SOURCE).strip().lower()
     top_k = args.top_k or similar_config.top_k
     min_similarity = (
         args.min_similarity
@@ -371,30 +393,84 @@ async def main() -> None:
         rewriter = EmbeddingRewriter(config)
         generator = EmbeddingGenerator(config)
 
+    sources: List[str] = []
+    if source == "all":
+        sources = await asyncio.to_thread(_fetch_sources_with_content_sync, db)
+
     if args.stats:
-        await show_stats(db, storage, source)
+        if source == "all":
+            if not sources:
+                print("No problems with content found.")
+            for src in sources:
+                print(f"Source: {src}")
+                await show_stats(db, storage, src)
+        else:
+            await show_stats(db, storage, source)
+
     if args.query:
+        query_source = None if source == "all" else source
         await query_similar(
             db,
             storage,
             rewriter,
             generator,
-            source,
+            query_source,
             args.query,
             top_k,
             min_similarity,
         )
+
     if args.build or args.rebuild:
-        await build_embeddings(
-            db,
-            storage,
-            rewriter,
-            generator,
-            source,
-            batch_size,
-            args.rebuild,
-            args.dry_run,
-        )
+        if source == "all":
+            if not sources:
+                print("No problems with content found.")
+                return
+            if args.rebuild:
+                await _prepare_db(db, embedding_config.dim, rebuild=True)
+                await storage.delete_all_embeddings(None)
+            total_sources = len(sources)
+            failed_sources: List[str] = []
+            for index, src in enumerate(sources, start=1):
+                logger.info(
+                    "Building embeddings for source '%s' (%d/%d)",
+                    src,
+                    index,
+                    total_sources,
+                )
+                try:
+                    await build_embeddings(
+                        db,
+                        storage,
+                        rewriter,
+                        generator,
+                        src,
+                        batch_size,
+                        rebuild=False,
+                        dry_run=args.dry_run,
+                    )
+                except Exception as exc:
+                    logger.error(
+                        "Failed to build embeddings for source '%s': %s",
+                        src,
+                        exc,
+                        exc_info=True,
+                    )
+                    failed_sources.append(src)
+            if failed_sources:
+                print(
+                    f"Embedding build completed with failures for: {', '.join(failed_sources)}"
+                )
+        else:
+            await build_embeddings(
+                db,
+                storage,
+                rewriter,
+                generator,
+                source,
+                batch_size,
+                args.rebuild,
+                args.dry_run,
+            )
 
 
 if __name__ == "__main__":

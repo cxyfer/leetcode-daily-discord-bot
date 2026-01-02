@@ -86,6 +86,19 @@ class InteractionHandlerCog(commands.Cog):
             return
 
         custom_id = interaction.data.get("custom_id", "")
+        atcoder_description_prefix = getattr(
+            self.bot, "ATCODER_DESCRIPTION_BUTTON_PREFIX", "atcoder_problem|"
+        )
+        atcoder_translate_prefix = getattr(
+            self.bot, "ATCODER_TRANSLATE_BUTTON_PREFIX", "atcoder_translate|"
+        )
+        atcoder_inspire_prefix = getattr(
+            self.bot, "ATCODER_INSPIRE_BUTTON_PREFIX", "atcoder_inspire|"
+        )
+        def format_inspire_field(val):
+            if isinstance(val, list):
+                return "\n".join(f"- {x}" for x in val)
+            return str(val)
 
         # Button for displaying LeetCode problem description
         if custom_id.startswith(self.bot.LEETCODE_DISCRIPTION_BUTTON_PREFIX):
@@ -168,6 +181,73 @@ class InteractionHandlerCog(commands.Cog):
                     except:  # noqa
                         pass
 
+        # Button for displaying AtCoder problem description
+        elif custom_id.startswith(atcoder_description_prefix):
+            self.logger.debug(f"接收到AtCoder按鈕交互: custom_id={custom_id}")
+
+            try:
+                problem_id = custom_id[len(atcoder_description_prefix) :]
+                if not problem_id:
+                    await interaction.response.send_message(
+                        "無效的題目ID，無法顯示題目描述。", ephemeral=True
+                    )
+                    return
+
+                await interaction.response.defer(ephemeral=True)
+
+                problem_info = self.bot.lcus.problems_db.get_problem(
+                    id=problem_id, source="atcoder"
+                )
+                if not problem_info or not problem_info.get("content"):
+                    await interaction.followup.send(
+                        "無法獲取題目描述，請前往 AtCoder 網站查看。", ephemeral=True
+                    )
+                    return
+
+                problem_content = html_to_text(problem_info["content"])
+                if len(problem_content) < 1900:
+                    formatted_content = (
+                        f"# [{problem_info['id']}: {problem_info['title']}]({problem_info['link']})"
+                        f"\n\n{problem_content}"
+                    )
+                    response_data = {"content": formatted_content}
+                else:
+                    if len(problem_content) > 4000:
+                        problem_content = (
+                            problem_content[:4000]
+                            + "...\n(內容已截斷，請前往 AtCoder 網站查看完整題目)"
+                        )
+                    problem_info_with_desc = problem_info.copy()
+                    problem_info_with_desc["description"] = problem_content
+                    embed = create_problem_description_embed(
+                        problem_info_with_desc, domain="com", source="atcoder"
+                    )
+                    response_data = {
+                        "content": "由於題目內容過長，使用嵌入式訊息的方式顯示。",
+                        "embed": embed,
+                    }
+
+                await interaction.followup.send(ephemeral=True, **response_data)
+                self.logger.info(
+                    "成功發送 AtCoder 題目描述給 @%s: problem_id=%s, content_length=%s",
+                    interaction.user.name,
+                    problem_id,
+                    len(problem_content),
+                )
+
+            except discord.errors.InteractionResponded:
+                await interaction.followup.send(
+                    "已經回應過此交互，請重新點擊按鈕。", ephemeral=True
+                )
+            except Exception as e:
+                self.logger.error(f"處理AtCoder描述按鈕交互時發生錯誤: {e}", exc_info=True)
+                try:
+                    await interaction.followup.send(
+                        f"顯示題目時發生錯誤：{str(e)}", ephemeral=True
+                    )
+                except Exception:  # noqa
+                    pass
+
         # Button for LLM translation
         elif custom_id.startswith(self.bot.LEETCODE_TRANSLATE_BUTTON_PREFIX):
             self.logger.debug(f"接收到LeetCode LLM翻譯按鈕交互: custom_id={custom_id}")
@@ -214,10 +294,10 @@ class InteractionHandlerCog(commands.Cog):
 
                     problem_info = await client.get_problem(problem_id=problem_id)
                     if problem_info and problem_info.get("content"):
-                        problem_content_raw = html_to_text(problem_info["content"])
+                        problem_content_text = html_to_text(problem_info["content"])
                         try:
                             translation = await self.bot.llm.translate(
-                                problem_content_raw, "zh-TW"
+                                problem_content_text, "zh-TW"
                             )
                             model_name = getattr(
                                 self.bot.llm, "model_name", "Unknown Model"
@@ -277,14 +357,102 @@ class InteractionHandlerCog(commands.Cog):
                 # Remove from ongoing requests
                 await self._cleanup_request(request_key)
 
+        # Button for AtCoder LLM translation
+        elif custom_id.startswith(atcoder_translate_prefix):
+            self.logger.debug(f"接收到AtCoder LLM翻譯按鈕交互: custom_id={custom_id}")
+            if not self.bot.llm:
+                await interaction.response.send_message(
+                    "LLM 翻譯尚未啟用。", ephemeral=True
+                )
+                return
+
+            problem_id = custom_id[len(atcoder_translate_prefix) :]
+            if not problem_id:
+                await interaction.response.send_message(
+                    "無效的題目ID，無法顯示翻譯。", ephemeral=True
+                )
+                return
+
+            request_key = (interaction.user.id, problem_id, "translate")
+            if await self._handle_duplicate_request(
+                interaction, request_key, "translate"
+            ):
+                return
+
+            try:
+                await interaction.response.defer(ephemeral=True)
+
+                translation_data = self.bot.llm_translate_db.get_translation(
+                    problem_id, "atcoder"
+                )
+                if translation_data:
+                    translation = translation_data["translation"]
+                    model_name = translation_data.get("model_name", "Unknown Model")
+
+                    if translation and model_name:
+                        footer_text = f"\n\n✨ 由 `{model_name}` 提供翻譯"
+                        if len(translation) + len(footer_text) > 2000:
+                            translation = translation[: 2000 - len(footer_text)]
+                        translation += footer_text
+
+                    await interaction.followup.send(translation, ephemeral=True)
+                    return
+
+                problem_info = self.bot.lcus.problems_db.get_problem(
+                    id=problem_id, source="atcoder"
+                )
+                if not problem_info or not problem_info.get("content"):
+                    await interaction.followup.send(
+                        "無法獲取題目描述，請前往 AtCoder 網站查看。",
+                        ephemeral=True,
+                    )
+                    return
+
+                problem_content_text = html_to_text(problem_info["content"])
+                translation = await self.bot.llm.translate(
+                    problem_content_text, "zh-TW"
+                )
+                model_name = getattr(self.bot.llm, "model_name", "Unknown Model")
+
+                footer_text = f"\n\n✨ 由 `{model_name}` 提供翻譯"
+                max_length = 2000 - len(footer_text)
+                if len(translation) > max_length:
+                    translation = (
+                        translation[: max_length - 10] + "...\n(翻譯內容已截斷)"
+                    )
+
+                self.bot.llm_translate_db.save_translation(
+                    problem_id, "atcoder", translation, model_name
+                )
+                translation += footer_text
+                await interaction.followup.send(translation, ephemeral=True)
+                self.logger.info(
+                    "成功發送 AtCoder LLM 翻譯給 @%s: problem_id=%s, content_length=%s",
+                    interaction.user.name,
+                    problem_id,
+                    len(translation),
+                )
+
+            except discord.errors.InteractionResponded:
+                await interaction.followup.send(
+                    "已經回應過此交互，請重新點擊按鈕。", ephemeral=True
+                )
+            except Exception as e:
+                self.logger.error(
+                    f"處理AtCoder LLM翻譯按鈕交互時發生錯誤: {e}", exc_info=True
+                )
+                try:
+                    await interaction.followup.send(
+                        f"LLM 翻譯時發生錯誤：{str(e)}", ephemeral=True
+                    )
+                except Exception:  # noqa
+                    pass
+            finally:
+                await self._cleanup_request(request_key)
+
         # Button for LLM inspire
         elif custom_id.startswith(self.bot.LEETCODE_INSPIRE_BUTTON_PREFIX):
             self.logger.debug(f"接收到LeetCode 靈感啟發按鈕交互: custom_id={custom_id}")
-
-            def format_inspire_field(val):  # 輔助函式可以定義在方法內部或作為靜態方法
-                if isinstance(val, list):
-                    return "\n".join(f"- {x}" for x in val)
-                return str(val)
 
             try:
                 parts = custom_id.split("_")
@@ -344,13 +512,13 @@ class InteractionHandlerCog(commands.Cog):
                         # Cleanup will be handled by finally block
                         return
 
-                    problem_content_raw = html_to_text(problem_info["content"])
+                    problem_content_text = html_to_text(problem_info["content"])
                     tags = problem_info.get("tags", [])
                     difficulty = problem_info.get("difficulty", "")
 
                     try:
                         llm_output = await self.bot.llm_pro.inspire(
-                            problem_content_raw, tags, difficulty
+                            problem_content_text, tags, difficulty
                         )
                         model_name = getattr(
                             self.bot.llm_pro, "model_name", "Unknown Model"
@@ -435,6 +603,123 @@ class InteractionHandlerCog(commands.Cog):
                     pass
             finally:
                 # Remove from ongoing requests
+                await self._cleanup_request(request_key)
+
+        # Button for AtCoder LLM inspire
+        elif custom_id.startswith(atcoder_inspire_prefix):
+            self.logger.debug(f"接收到AtCoder 靈感啟發按鈕交互: custom_id={custom_id}")
+            if not self.bot.llm_pro:
+                await interaction.response.send_message(
+                    "LLM 靈感啟發尚未啟用。", ephemeral=True
+                )
+                return
+
+            problem_id = custom_id[len(atcoder_inspire_prefix) :]
+            if not problem_id:
+                await interaction.response.send_message(
+                    "無效的題目ID，無法顯示靈感啟發。", ephemeral=True
+                )
+                return
+
+            request_key = (interaction.user.id, problem_id, "inspire")
+            if await self._handle_duplicate_request(
+                interaction, request_key, "inspire"
+            ):
+                return
+
+            try:
+                await interaction.response.defer(ephemeral=True)
+
+                inspire_result_data = self.bot.llm_inspire_db.get_inspire(
+                    problem_id, "atcoder"
+                )
+                model_name = "Unknown Model"
+
+                problem_info = self.bot.lcus.problems_db.get_problem(
+                    id=problem_id, source="atcoder"
+                )
+                if not problem_info or not problem_info.get("content"):
+                    await interaction.followup.send(
+                        "無法獲取題目資訊。", ephemeral=True
+                    )
+                    return
+
+                if inspire_result_data:
+                    self.logger.debug(
+                        "Get inspire result from DB: problem_id=%s", problem_id
+                    )
+                    model_name = inspire_result_data.get("model_name", "Unknown Model")
+                    inspiration_data = inspire_result_data.copy()
+                else:
+                    problem_content_text = html_to_text(problem_info["content"])
+                    tags = problem_info.get("tags", []) or []
+                    difficulty = problem_info.get("difficulty", "")
+
+                    llm_output = await self.bot.llm_pro.inspire(
+                        problem_content_text, tags, difficulty
+                    )
+                    model_name = getattr(self.bot.llm_pro, "model_name", "Unknown Model")
+
+                    if not isinstance(llm_output, dict) or not all(
+                        k in llm_output
+                        for k in ["thinking", "traps", "algorithms", "inspiration"]
+                    ):
+                        raw_response = llm_output.get("raw", str(llm_output))
+                        raw_response = str(raw_response)
+                        if len(raw_response) > 1900:
+                            raw_response = raw_response[:1900] + "...\n(內容已截斷)"
+                        await interaction.followup.send(raw_response, ephemeral=True)
+                        return
+
+                    inspire_result_content = llm_output
+                    db_thinking = format_inspire_field(
+                        inspire_result_content.get("thinking", "")
+                    )
+                    db_traps = format_inspire_field(
+                        inspire_result_content.get("traps", "")
+                    )
+                    db_algorithms = format_inspire_field(
+                        inspire_result_content.get("algorithms", "")
+                    )
+                    db_inspiration = format_inspire_field(
+                        inspire_result_content.get("inspiration", "")
+                    )
+
+                    self.bot.llm_inspire_db.save_inspire(
+                        problem_id,
+                        "atcoder",
+                        db_thinking,
+                        db_traps,
+                        db_algorithms,
+                        db_inspiration,
+                        model_name=model_name,
+                    )
+
+                    inspiration_data = llm_output.copy()
+                inspiration_data["footer"] = f"由 {model_name} 提供靈感"
+                embed = create_inspiration_embed(inspiration_data, problem_info)
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                self.logger.info(
+                    "成功發送 AtCoder LLM 靈感給 @%s: problem_id=%s",
+                    interaction.user.name,
+                    problem_id,
+                )
+
+            except discord.errors.InteractionResponded:
+                await interaction.followup.send(
+                    "已經回應過此交互，請重新點擊按鈕。", ephemeral=True
+                )
+            except Exception as e:
+                self.logger.error(
+                    f"處理AtCoder LLM靈感按鈕交互時發生錯誤: {e}", exc_info=True
+                )
+                try:
+                    await interaction.followup.send(
+                        f"LLM 靈感啟發時發生錯誤：{str(e)}", ephemeral=True
+                    )
+                except Exception:  # noqa
+                    pass
+            finally:
                 await self._cleanup_request(request_key)
 
         # Navigation buttons for user submissions
@@ -545,21 +830,39 @@ class InteractionHandlerCog(commands.Cog):
                     pass
 
         # Handle individual problem detail buttons
-        elif custom_id.startswith("problem_detail_"):
+        elif custom_id.startswith("problem_detail|") or custom_id.startswith(
+            "problem_detail_"
+        ):
             self.logger.debug(f"接收到題目詳細資訊按鈕交互: custom_id={custom_id}")
 
             try:
-                # Parse custom_id: problem_detail_{problem_id}_{domain}
-                parts = custom_id.split("_")
-                problem_id = parts[2]
-                domain = parts[3] if len(parts) > 3 else "com"
+                if custom_id.startswith("problem_detail|"):
+                    parts = custom_id.split("|")
+                    if len(parts) < 4:
+                        await interaction.followup.send(
+                            "題目資訊格式錯誤，請重新點擊按鈕。", ephemeral=True
+                        )
+                        return
+                    _, source, problem_id, domain = parts[:4]
+                else:
+                    # Legacy format: problem_detail_{problem_id}_{domain}
+                    parts = custom_id.split("_")
+                    problem_id = parts[2]
+                    domain = parts[3] if len(parts) > 3 else "com"
+                    source = "leetcode"
 
                 # Defer the response as this might take some time
                 await interaction.response.defer(ephemeral=True)
 
-                # Get the problem information
-                current_client = self.bot.lcus if domain == "com" else self.bot.lccn
-                problem_info = await current_client.get_problem(problem_id=problem_id)
+                if source == "leetcode":
+                    current_client = self.bot.lcus if domain == "com" else self.bot.lccn
+                    problem_info = await current_client.get_problem(
+                        problem_id=problem_id
+                    )
+                else:
+                    problem_info = self.bot.lcus.problems_db.get_problem(
+                        id=problem_id, source=source
+                    )
 
                 if not problem_info:
                     await interaction.followup.send(

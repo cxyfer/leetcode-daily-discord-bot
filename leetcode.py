@@ -359,7 +359,7 @@ class LeetCodeClient:
         Returns:
             dict: Problem information if found, None otherwise
         """
-        problem = self.problems_db.get_problem(id=problem_id, slug=slug)
+        problem = self.problems_db.get_problem(id=problem_id, slug=slug, source="leetcode")
 
         # If problem not found, fetch all problems from LeetCode API to initialize
         if not problem:
@@ -367,7 +367,7 @@ class LeetCodeClient:
                 f"Problem {problem_id or slug} not found, fetching all problems from LeetCode API..."
             )
             await self.init_all_problems()
-            problem = self.problems_db.get_problem(id=problem_id, slug=slug)
+            problem = self.problems_db.get_problem(id=problem_id, slug=slug, source="leetcode")
             # If problem still not found, return None
             if not problem:
                 logger.error(
@@ -395,7 +395,7 @@ class LeetCodeClient:
                 f"Problem {problem_id_for_log} still not have rating, fetching rating from LeetCode API..."
             )
             await self.get_problem_rating(problem_id_for_log)
-            problem = self.problems_db.get_problem(problem_id_for_log)
+            problem = self.problems_db.get_problem(problem_id_for_log, source="leetcode")
 
         return problem
 
@@ -416,7 +416,7 @@ class LeetCodeClient:
             )
 
             # 1. Try to get problem data from database
-            problem = self.problems_db.get_problem(problem_id)
+            problem = self.problems_db.get_problem(problem_id, source="leetcode")
             if problem and problem.get("rating") and float(problem["rating"]) > 0:
                 logger.info(
                     f"Found rating for problem {problem_id} in database: {problem['rating']}"
@@ -1111,9 +1111,63 @@ def html_to_text(html):
     Returns:
         str: Formatted text
     """
+    def normalize_var_text(raw_text: str) -> str:
+        cleaned = re.sub(r"\s*_\s*", "_", raw_text.strip())
+        cleaned = re.sub(r"\s+", " ", cleaned)
+        cleaned = re.sub(r"\s*,\s*", ",", cleaned)
+        return cleaned
+
+    def replace_latex_tokens(raw_text: str) -> str:
+        command_patterns = [
+            r"\\mathrm\s*\{([^{}]*)\}",
+            r"\\text\s*\{([^{}]*)\}",
+            r"\\mathbf\s*\{([^{}]*)\}",
+            r"\\mathit\s*\{([^{}]*)\}",
+            r"\\mathsf\s*\{([^{}]*)\}",
+        ]
+        for pattern in command_patterns:
+            while True:
+                updated = re.sub(pattern, r"\1", raw_text)
+                if updated == raw_text:
+                    break
+                raw_text = updated
+        replacements = [
+            ("\\displaystyle", ""),
+            ("\\leq", "<="),
+            ("\\geq", ">="),
+            ("\\le", "<="),
+            ("\\ge", ">="),
+            ("\\neq", "!="),
+            ("\\times", "*"),
+            ("\\cdot", "*"),
+            ("\\ldots", "..."),
+            ("\\cdots", "..."),
+            ("\\dots", "..."),
+            ("\\lvert", "|"),
+            ("\\rvert", "|"),
+            ("\\left", ""),
+            ("\\right", ""),
+            ("\\sum", "sum"),
+            ("\\{", "{"),
+            ("\\}", "}"),
+            ("\\_", "_"),
+        ]
+        for token, replacement in replacements:
+            raw_text = raw_text.replace(token, replacement)
+        raw_text = re.sub(
+            r"\\(?:mathrm|text|mathbf|mathit|mathsf)\s*", "", raw_text
+        )
+        raw_text = re.sub(r"\s*_\s*", "_", raw_text)
+        raw_text = re.sub(r"\s*\^\s*", "^", raw_text)
+        return raw_text
+
     soup = BeautifulSoup(html, "html.parser")
     for sup in soup.find_all("sup"):
         sup.replace_with("^" + sup.get_text())
+    for sub in soup.find_all("sub"):
+        sub.replace_with("_" + sub.get_text())
+    for var in soup.find_all("var"):
+        var.replace_with(normalize_var_text(var.get_text()))
     for strong in soup.find_all("strong"):
         strong.replace_with(f"**{strong.get_text()}**")
     for em in soup.find_all("em"):
@@ -1122,18 +1176,44 @@ def html_to_text(html):
         code.replace_with(f"`{code.get_text()}`")
     for li in soup.find_all("li"):
         li.insert_before("- ")
-    for pre in soup.find_all("pre"):
-        pre.replace_with(
-            "".join(f"\t{line}\n" for line in pre.get_text().strip().split("\n"))
-        )
+    for header in soup.find_all(["h2", "h3"]):
+        header.replace_with(f"\n\n## {header.get_text(strip=True)}\n")
+    for hr in soup.find_all("hr"):
+        hr.replace_with("\n\n")
     for br in soup.find_all("br"):
-        br.replace_with("\n\n")
+        br.replace_with("\n")
+
+    code_blocks = []
+    for pre in soup.find_all("pre"):
+        raw_lines = [line.rstrip() for line in pre.get_text().splitlines()]
+        while raw_lines and not raw_lines[0].strip():
+            raw_lines.pop(0)
+        while raw_lines and not raw_lines[-1].strip():
+            raw_lines.pop()
+        indents = [
+            len(line) - len(line.lstrip()) for line in raw_lines if line.strip()
+        ]
+        min_indent = min(indents) if indents else 0
+        content = "\n".join(line[min_indent:] for line in raw_lines)
+        code_blocks.append(content)
+        pre.replace_with(f"__CODE_BLOCK_{len(code_blocks) - 1}__")
+
     for p in soup.find_all("p"):
         p.insert_before("\n\n")
+
     text = soup.get_text()
+    text = replace_latex_tokens(text)
+
+    for idx, content in enumerate(code_blocks):
+        placeholder = f"__CODE_BLOCK_{idx}__"
+        fenced = f"\n\n```\n{content}\n```\n"
+        text = text.replace(placeholder, fenced)
+
     lines = [line.rstrip() for line in text.splitlines()]
     keywords = {"Example": 2, "Constraints": 2}
     for i, line in enumerate(lines):
+        if line.startswith("#"):
+            continue
         for keyword, level in keywords.items():
             if keyword in line:
                 lines[i] = f"{'#' * level} {line}"
@@ -1192,7 +1272,7 @@ async def main():
             problems[i] = await client.get_problem(problem["id"])
 
     if args.fill_missing_content:
-        missing_ids = client.problems_db.get_problem_ids_missing_content()
+        missing_ids = client.problems_db.get_problem_ids_missing_content(source="leetcode")
         if not missing_ids:
             logger.info("No problems missing content.")
         else:
@@ -1252,7 +1332,7 @@ async def main():
                 await asyncio.gather(*tasks)
 
     if args.missing_content_stats:
-        missing_count = client.problems_db.count_missing_content()
+        missing_count = client.problems_db.count_missing_content(source="leetcode")
         print(f"Missing content: {missing_count}")
 
     if args.daily:

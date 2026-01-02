@@ -13,6 +13,9 @@ DIFFICULTY_COLORS = {
 # 難度表情符號映射
 DIFFICULTY_EMOJIS = {"Easy": "🟢", "Medium": "🟡", "Hard": "🔴"}
 
+# 無難度題目表情符號
+NON_DIFFICULTY_EMOJI = "🧩"
+
 # 預設顏色
 DEFAULT_COLOR = 0x0099FF
 
@@ -44,6 +47,9 @@ FIELD_EMOJIS = {
 # LeetCode 相關常量
 LEETCODE_LOGO_URL = "https://leetcode.com/static/images/LeetCode_logo.png"
 GEMINI_LOGO_URL = "https://brandlogos.net/wp-content/uploads/2025/03/gemini_icon-logo_brandlogos.net_bqzeu.png"
+
+# AtCoder 相關常量
+ATCODER_LOGO_URL = "https://img.atcoder.jp/assets/logo.png"
 
 # 域名映射
 DOMAIN_MAPPING = {
