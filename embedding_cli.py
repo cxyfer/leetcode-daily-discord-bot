@@ -335,10 +335,6 @@ async def show_stats(
     print(f"  Vector rows: {total_vectors}")
     print(f"  Pending: {pending}")
 
-
-DEFAULT_EMBEDDING_SOURCE = "leetcode"
-
-
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Embedding CLI tool")
     parser.add_argument("--build", action="store_true", help="Build embeddings")
@@ -353,7 +349,7 @@ async def main() -> None:
         "--source",
         type=str,
         help="Problem source",
-        default=DEFAULT_EMBEDDING_SOURCE,
+        default="all",
     )
     parser.add_argument("--top-k", type=int, help="Top-k results", default=None)
     parser.add_argument(
@@ -371,7 +367,7 @@ async def main() -> None:
     similar_config = config.get_similar_config()
     embedding_config = config.get_embedding_model_config()
 
-    source = (args.source or DEFAULT_EMBEDDING_SOURCE).strip().lower()
+    source = args.source.strip().lower()
     top_k = args.top_k or similar_config.top_k
     min_similarity = (
         args.min_similarity
