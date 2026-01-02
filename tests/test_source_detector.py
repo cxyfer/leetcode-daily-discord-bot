@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from utils.source_detector import detect_source
+from utils.source_detector import detect_source, looks_like_problem_id
 
 
 def test_detect_source_atcoder_url():
@@ -70,3 +70,13 @@ def test_detect_source_unknown_url():
     source, pid = detect_source("https://example.com/problems/1")
     assert source == "unknown"
     assert pid == "https://example.com/problems/1"
+
+
+def test_looks_like_problem_id_detection():
+    assert looks_like_problem_id("https://leetcode.com/problems/two-sum/")
+    assert looks_like_problem_id("atcoder:abc001_a")
+    assert looks_like_problem_id("1234")
+    assert looks_like_problem_id("abc001_a")
+    assert looks_like_problem_id("CF1234A")
+    assert looks_like_problem_id("P1001")
+    assert not looks_like_problem_id("two sum")

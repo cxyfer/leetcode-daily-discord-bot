@@ -52,3 +52,24 @@ def detect_source(problem_id: str, explicit_source: Optional[str] = None) -> Tup
         return "luogu", pid.upper()
 
     return "leetcode", pid
+
+
+def looks_like_problem_id(problem_id: str) -> bool:
+    if problem_id is None:
+        return False
+    pid = str(problem_id).strip()
+    if not pid:
+        return False
+    if "://" in pid:
+        return True
+    if ":" in pid:
+        return True
+    if pid.isdigit():
+        return True
+    if ATCODER_ID_RE.match(pid):
+        return True
+    if pid.upper().startswith("CF") or CF_ID_RE.match(pid):
+        return True
+    if pid.upper().startswith("P") and pid[1:].isdigit():
+        return True
+    return False

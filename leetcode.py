@@ -359,7 +359,7 @@ class LeetCodeClient:
         Returns:
             dict: Problem information if found, None otherwise
         """
-        problem = self.problems_db.get_problem(id=problem_id, slug=slug)
+        problem = self.problems_db.get_problem(id=problem_id, slug=slug, source="leetcode")
 
         # If problem not found, fetch all problems from LeetCode API to initialize
         if not problem:
@@ -367,7 +367,7 @@ class LeetCodeClient:
                 f"Problem {problem_id or slug} not found, fetching all problems from LeetCode API..."
             )
             await self.init_all_problems()
-            problem = self.problems_db.get_problem(id=problem_id, slug=slug)
+            problem = self.problems_db.get_problem(id=problem_id, slug=slug, source="leetcode")
             # If problem still not found, return None
             if not problem:
                 logger.error(
@@ -395,7 +395,7 @@ class LeetCodeClient:
                 f"Problem {problem_id_for_log} still not have rating, fetching rating from LeetCode API..."
             )
             await self.get_problem_rating(problem_id_for_log)
-            problem = self.problems_db.get_problem(problem_id_for_log)
+            problem = self.problems_db.get_problem(problem_id_for_log, source="leetcode")
 
         return problem
 
@@ -416,7 +416,7 @@ class LeetCodeClient:
             )
 
             # 1. Try to get problem data from database
-            problem = self.problems_db.get_problem(problem_id)
+            problem = self.problems_db.get_problem(problem_id, source="leetcode")
             if problem and problem.get("rating") and float(problem["rating"]) > 0:
                 logger.info(
                     f"Found rating for problem {problem_id} in database: {problem['rating']}"
@@ -1192,7 +1192,7 @@ async def main():
             problems[i] = await client.get_problem(problem["id"])
 
     if args.fill_missing_content:
-        missing_ids = client.problems_db.get_problem_ids_missing_content()
+        missing_ids = client.problems_db.get_problem_ids_missing_content(source="leetcode")
         if not missing_ids:
             logger.info("No problems missing content.")
         else:
@@ -1252,7 +1252,7 @@ async def main():
                 await asyncio.gather(*tasks)
 
     if args.missing_content_stats:
-        missing_count = client.problems_db.count_missing_content()
+        missing_count = client.problems_db.count_missing_content(source="leetcode")
         print(f"Missing content: {missing_count}")
 
     if args.daily:

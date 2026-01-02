@@ -70,6 +70,23 @@ async def create_problem_embed(
     message: Optional[str] = None,
 ) -> discord.Embed:
     """Create an embed for a LeetCode problem"""
+    source = problem_info.get("source", "leetcode")
+    if source != "leetcode":
+        embed = discord.Embed(
+            title=f"{FIELD_EMOJIS['link']} {problem_info['id']}. {problem_info['title']}",
+            color=DEFAULT_COLOR,
+            url=problem_info.get("link"),
+        )
+        embed.add_field(name="Source", value=source, inline=True)
+        if problem_info.get("difficulty"):
+            embed.add_field(
+                name=f"{FIELD_EMOJIS['difficulty']} Difficulty",
+                value=f"**{problem_info['difficulty']}**",
+                inline=True,
+            )
+        embed.set_footer(text=f"{source.capitalize()} Problem")
+        return embed
+
     embed_color = get_difficulty_color(problem_info["difficulty"])
 
     embed = discord.Embed(
@@ -314,12 +331,15 @@ def create_problems_overview_embed(
     user: Optional[discord.User] = None,
     message: Optional[str] = None,
     title: Optional[str] = None,
+    source_label: str = "LeetCode",
+    show_instructions: bool = True,
+    footer_icon_url: Optional[str] = LEETCODE_LOGO_URL,
 ) -> discord.Embed:
     """Create an overview embed showing all problems with basic info in user-provided order"""
     embed_title = (
         title
         if title
-        else f"{FIELD_EMOJIS['search']} LeetCode Problems ({len(problems)} found)"
+        else f"{FIELD_EMOJIS['search']} {source_label} Problems ({len(problems)} found)"
     )
 
     embed = discord.Embed(
@@ -356,15 +376,16 @@ def create_problems_overview_embed(
 
         embed.add_field(name=field_name, value="\n".join(problem_lines), inline=False)
 
-    embed.add_field(
-        name=f"{FIELD_EMOJIS['instructions']} Instructions",
-        value="Click the buttons below to view detailed information for each problem.",
-        inline=False,
-    )
+    if show_instructions:
+        embed.add_field(
+            name=f"{FIELD_EMOJIS['instructions']} Instructions",
+            value="Click the buttons below to view detailed information for each problem.",
+            inline=False,
+        )
 
     embed.set_footer(
-        text="LeetCode Problems Overview",
-        icon_url=LEETCODE_LOGO_URL,
+        text=f"{source_label} Problems Overview",
+        icon_url=footer_icon_url,
     )
     embed.timestamp = datetime.now(timezone.utc)
 

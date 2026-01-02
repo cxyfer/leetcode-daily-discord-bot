@@ -20,6 +20,8 @@ from utils.ui_helpers import (
     create_problem_view,
     send_daily_challenge,
 )
+from utils.ui_constants import LEETCODE_LOGO_URL
+from utils.source_detector import detect_source
 
 # Default values, similar to how they are defined in bot.py or schedule_manager_cog.py
 # These are used for display in show_settings if a server doesn't have specific settings.
@@ -193,11 +195,12 @@ class SlashCommandsCog(commands.Cog):
 
     @app_commands.command(name="problem", description="根據題號查詢 LeetCode 題目資訊")
     @app_commands.describe(
-        problem_ids="題目編號 (1-3500+)，可用逗號分隔多個 (例如: 1,2,3)",
+        problem_ids="題目編號或連結，可用逗號分隔 (例如: 1, abc001_a, atcoder:abc001_a)",
         domain="選擇 LeetCode 網域",
         public="是否公開顯示回覆 (預設為私密回覆)",
         title="自定義標題 (多題模式下替換預設標題，最多 100 個字元)",
         message="可選的個人訊息或備註 (最多 500 個字元)",
+        source="題庫來源 (例如 leetcode/atcoder)，可與 source: 前綴混用",
     )
     async def problem_command(
         self,
@@ -207,6 +210,7 @@ class SlashCommandsCog(commands.Cog):
         public: bool = False,
         message: str = None,
         title: str = None,
+        source: str = None,
     ):
         """
         Get LeetCode problem information by problem IDs
@@ -218,6 +222,7 @@ class SlashCommandsCog(commands.Cog):
             public: Whether to show reply publicly (defaults to private)
             message: Optional user message or note (max 500 characters)
             title: Custom title for multi-problem mode (max 100 characters)
+            source: Optional problem source override
         """
         if domain not in ["com", "cn"]:
             await interaction.response.send_message(
@@ -242,26 +247,31 @@ class SlashCommandsCog(commands.Cog):
         # Parse and validate problem IDs
         try:
             id_strings = [id_str.strip() for id_str in problem_ids.split(",")]
-            problem_id_list = []
+            id_strings = [id_str for id_str in id_strings if id_str]
+            resolved_problem_ids = []
 
             for id_str in id_strings:
-                if not id_str.isdigit():
+                detected_source, normalized_id = detect_source(
+                    id_str, explicit_source=source
+                )
+                if detected_source == "unknown":
                     await interaction.response.send_message(
-                        f"題目編號 '{id_str}' 不是有效的數字", ephemeral=not public
+                        f"無法判斷 '{id_str}' 的來源，請使用 source: 前綴 (例如 atcoder:abc001_a)",
+                        ephemeral=not public,
                     )
                     return
-
-                problem_id = int(id_str)
-                if problem_id < 1:
-                    await interaction.response.send_message(
-                        f"題目編號 {problem_id} 必須是正整數", ephemeral=not public
-                    )
-                    return
-
-                problem_id_list.append(problem_id)
+                if detected_source == "leetcode" and normalized_id.isdigit():
+                    problem_id_value = int(normalized_id)
+                    if problem_id_value < 1:
+                        await interaction.response.send_message(
+                            f"題目編號 {problem_id_value} 必須是正整數",
+                            ephemeral=not public,
+                        )
+                        return
+                resolved_problem_ids.append((detected_source, normalized_id))
 
             # Limit number of problems to prevent abuse
-            if len(problem_id_list) > 20:
+            if len(resolved_problem_ids) > 20:
                 await interaction.response.send_message(
                     "一次最多只能查詢 20 個題目", ephemeral=not public
                 )
@@ -269,7 +279,7 @@ class SlashCommandsCog(commands.Cog):
 
         except ValueError:
             await interaction.response.send_message(
-                "題目編號格式錯誤，請輸入有效的數字（例如：1,2,3）",
+                "題目編號格式錯誤，請輸入有效格式（例如：1,2,3 或 atcoder:abc001_a）",
                 ephemeral=not public,
             )
             return
@@ -281,14 +291,28 @@ class SlashCommandsCog(commands.Cog):
 
             # Fetch all problems
             problems = []
-            for problem_id in problem_id_list:
-                problem_info = await current_client.get_problem(
-                    problem_id=str(problem_id)
-                )
+            for detected_source, normalized_id in resolved_problem_ids:
+                if detected_source == "leetcode":
+                    if normalized_id.isdigit():
+                        problem_info = await current_client.get_problem(
+                            problem_id=normalized_id
+                        )
+                    else:
+                        problem_info = await current_client.get_problem(
+                            slug=normalized_id
+                        )
+                else:
+                    problem_info = current_client.problems_db.get_problem(
+                        id=normalized_id, source=detected_source
+                    )
                 if problem_info:
                     problems.append(problem_info)
                 else:
-                    self.logger.warning(f"Problem {problem_id} not found")
+                    self.logger.warning(
+                        "Problem not found: source=%s id=%s",
+                        detected_source,
+                        normalized_id,
+                    )
 
             if not problems:
                 await interaction.followup.send(
@@ -296,6 +320,9 @@ class SlashCommandsCog(commands.Cog):
                     ephemeral=not public,
                 )
                 return
+
+            sources = {problem.get("source", "leetcode") for problem in problems}
+            leetcode_only = sources == {"leetcode"}
 
             # If only one problem, display normally without overview
             if len(problems) == 1:
@@ -308,9 +335,11 @@ class SlashCommandsCog(commands.Cog):
                     title=title,
                     message=message,
                 )
-                view = await create_problem_view(
-                    problem_info=problems[0], bot=self.bot, domain=domain
-                )
+                view = None
+                if leetcode_only:
+                    view = await create_problem_view(
+                        problem_info=problems[0], bot=self.bot, domain=domain
+                    )
                 await interaction.followup.send(
                     embed=embed, view=view, ephemeral=not public
                 )
@@ -321,9 +350,16 @@ class SlashCommandsCog(commands.Cog):
 
             # Multiple problems - show overview with detail buttons
             embed = create_problems_overview_embed(
-                problems, domain, interaction.user, message, title
+                problems,
+                domain,
+                interaction.user,
+                message,
+                title,
+                source_label="LeetCode" if leetcode_only else "Mixed Sources",
+                show_instructions=leetcode_only,
+                footer_icon_url=LEETCODE_LOGO_URL if leetcode_only else None,
             )
-            view = create_problems_overview_view(problems, domain)
+            view = create_problems_overview_view(problems, domain) if leetcode_only else None
 
             await interaction.followup.send(
                 embed=embed, view=view, ephemeral=not public
