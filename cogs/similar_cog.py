@@ -14,7 +14,7 @@ from utils.database import EmbeddingDatabaseManager
 from utils.logger import get_commands_logger
 from utils.ui_constants import DEFAULT_COLOR, FIELD_EMOJIS, LEETCODE_LOGO_URL
 from utils.ui_helpers import get_difficulty_emoji
-from utils.source_detector import detect_source, looks_like_problem_id
+from utils.source_detector import looks_like_problem_id
 
 
 class SimilarCog(commands.Cog):
@@ -64,20 +64,17 @@ class SimilarCog(commands.Cog):
             )
             return
 
+        if looks_like_problem_id(query):
+            await interaction.response.send_message(
+                "請輸入題目描述或關鍵字，而非題目編號", ephemeral=not public
+            )
+            return
+
         top_k = max(1, min(top_k, 10))
         source_input = (source or "").strip().lower()
         source_filter = (
             None if not source_input or source_input == "all" else source_input
         )
-        if source_filter is None and looks_like_problem_id(query):
-            inferred_source, _ = detect_source(query)
-            if inferred_source == "unknown":
-                await interaction.response.send_message(
-                    "無法判斷題庫來源，請使用 source: 前綴 (例如 atcoder:abc001_a)",
-                    ephemeral=not public,
-                )
-                return
-            source_filter = inferred_source
 
         await interaction.response.defer(ephemeral=not public)
 
