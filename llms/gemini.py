@@ -1,5 +1,4 @@
 import asyncio
-import json
 import os
 import sys
 
@@ -7,16 +6,32 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from .base import LLMBase  # As a module
+    from .base import LLMBase, TranslationOutput, InspireOutput  # As a module
 except ImportError:
-    from llms.base import LLMBase  # When executed directly
+    from llms.base import LLMBase, TranslationOutput, InspireOutput  # When executed directly
 
 from google import genai
-from google.genai import types
 from langchain_google_genai import ChatGoogleGenerativeAI
+from pydantic import BaseModel, Field
 from utils.logger import get_llm_logger
 
 logger = get_llm_logger()
+
+
+class GeminiBaseModel(BaseModel):
+    pass
+
+
+class GeminiTranslationOutput(GeminiBaseModel):
+    thinking: str = Field(description="Translation reasoning")
+    translation: str = Field(description="Translated content")
+
+
+class GeminiInspireOutput(GeminiBaseModel):
+    thinking: str = Field(description="Problem analysis thinking")
+    traps: str = Field(description="Common pitfalls")
+    algorithms: str = Field(description="Recommended algorithms")
+    inspiration: str = Field(description="Extra hints")
 
 
 class GeminiLLM(LLMBase):
@@ -73,8 +88,29 @@ class GeminiLLM(LLMBase):
             return schema.schema()
         return None
 
+    @staticmethod
+    def _parse_schema_response(schema: type, text: str) -> object | None:
+        if hasattr(schema, "model_validate_json"):
+            return schema.model_validate_json(text)
+        if hasattr(schema, "parse_raw"):
+            return schema.parse_raw(text)
+        return None
+
+    @staticmethod
+    def _select_gemini_schema(schema: type) -> type | None:
+        if schema in (TranslationOutput, GeminiTranslationOutput):
+            return GeminiTranslationOutput
+        if schema in (InspireOutput, GeminiInspireOutput):
+            return GeminiInspireOutput
+        if isinstance(schema, type) and issubclass(schema, GeminiBaseModel):
+            return schema
+        return None
+
     async def _invoke_structured_output(self, prompt: str, schema: type) -> object | None:
-        json_schema = self._schema_to_json(schema)
+        gemini_schema = self._select_gemini_schema(schema)
+        if not gemini_schema:
+            return None
+        json_schema = self._schema_to_json(gemini_schema)
         if not json_schema:
             return None
         try:
@@ -84,28 +120,23 @@ class GeminiLLM(LLMBase):
             }
             if self.temperature is not None:
                 config_kwargs["temperature"] = self.temperature
-            config = types.GenerateContentConfig(**config_kwargs)
             response = await asyncio.to_thread(
                 self.genai_client.models.generate_content,
                 model=self.model_name,
                 contents=prompt,
-                config=config,
+                config=config_kwargs,
             )
         except Exception as exc:
             logger.warning("Structured output failed: %s", exc, exc_info=True)
             return None
 
-        parsed = getattr(response, "parsed", None)
-        if parsed is not None:
-            return parsed
         text = getattr(response, "text", None)
         if not text:
             return None
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
+        parsed = self._parse_schema_response(gemini_schema, text)
+        if parsed is None:
             logger.warning("Structured output JSON parse failed", exc_info=True)
-            return None
+        return parsed
 
     async def generate(self, prompt: str) -> str:
         """

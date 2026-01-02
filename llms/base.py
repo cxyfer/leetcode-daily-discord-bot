@@ -108,12 +108,13 @@ class LLMBase(ABC):
 
         structured = await self._invoke_structured_output(prompt, TranslationOutput)
         if structured is not None:
-            if isinstance(structured, TranslationOutput):
-                return structured.translation
             if isinstance(structured, dict):
                 translation = structured.get("translation")
-                if translation:
+                if translation is not None:
                     return translation
+            translation = getattr(structured, "translation", None)
+            if translation is not None:
+                return translation
 
         response = await self.generate(prompt)
         response_text = self._normalize_response(response)
@@ -141,10 +142,11 @@ class LLMBase(ABC):
         )
         structured = await self._invoke_structured_output(prompt, InspireOutput)
         if structured is not None:
-            if isinstance(structured, InspireOutput):
-                return structured.dict()
             if isinstance(structured, dict):
                 return structured
+            fields = ("thinking", "traps", "algorithms", "inspiration")
+            if all(hasattr(structured, field) for field in fields):
+                return {field: getattr(structured, field) for field in fields}
 
         response = await self.generate(prompt)
         response_text = self._normalize_response(response)
