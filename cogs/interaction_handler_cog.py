@@ -95,6 +95,10 @@ class InteractionHandlerCog(commands.Cog):
         atcoder_inspire_prefix = getattr(
             self.bot, "ATCODER_INSPIRE_BUTTON_PREFIX", "atcoder_inspire|"
         )
+        def format_inspire_field(val):
+            if isinstance(val, list):
+                return "\n".join(f"- {x}" for x in val)
+            return str(val)
 
         # Button for displaying LeetCode problem description
         if custom_id.startswith(self.bot.LEETCODE_DISCRIPTION_BUTTON_PREFIX):
@@ -378,6 +382,22 @@ class InteractionHandlerCog(commands.Cog):
             try:
                 await interaction.response.defer(ephemeral=True)
 
+                translation_data = self.bot.llm_translate_db.get_translation(
+                    problem_id, "atcoder"
+                )
+                if translation_data:
+                    translation = translation_data["translation"]
+                    model_name = translation_data.get("model_name", "Unknown Model")
+
+                    if translation and model_name:
+                        footer_text = f"\n\n✨ 由 `{model_name}` 提供翻譯"
+                        if len(translation) + len(footer_text) > 2000:
+                            translation = translation[: 2000 - len(footer_text)]
+                        translation += footer_text
+
+                    await interaction.followup.send(translation, ephemeral=True)
+                    return
+
                 problem_info = self.bot.lcus.problems_db.get_problem(
                     id=problem_id, source="atcoder"
                 )
@@ -399,6 +419,9 @@ class InteractionHandlerCog(commands.Cog):
                         translation[: max_length - 10] + "...\n(翻譯內容已截斷)"
                     )
 
+                self.bot.llm_translate_db.save_translation(
+                    problem_id, "atcoder", translation, model_name
+                )
                 translation += footer_text
                 await interaction.followup.send(translation, ephemeral=True)
                 self.logger.info(
@@ -428,11 +451,6 @@ class InteractionHandlerCog(commands.Cog):
         # Button for LLM inspire
         elif custom_id.startswith(self.bot.LEETCODE_INSPIRE_BUTTON_PREFIX):
             self.logger.debug(f"接收到LeetCode 靈感啟發按鈕交互: custom_id={custom_id}")
-
-            def format_inspire_field(val):  # 輔助函式可以定義在方法內部或作為靜態方法
-                if isinstance(val, list):
-                    return "\n".join(f"- {x}" for x in val)
-                return str(val)
 
             try:
                 parts = custom_id.split("_")
@@ -610,6 +628,11 @@ class InteractionHandlerCog(commands.Cog):
             try:
                 await interaction.response.defer(ephemeral=True)
 
+                inspire_result_data = self.bot.llm_inspire_db.get_inspire(
+                    problem_id, "atcoder"
+                )
+                model_name = "Unknown Model"
+
                 problem_info = self.bot.lcus.problems_db.get_problem(
                     id=problem_id, source="atcoder"
                 )
@@ -619,27 +642,58 @@ class InteractionHandlerCog(commands.Cog):
                     )
                     return
 
-                problem_content_raw = html_to_text(problem_info["content"])
-                tags = problem_info.get("tags", []) or []
-                difficulty = problem_info.get("difficulty", "")
+                if inspire_result_data:
+                    self.logger.debug(
+                        "Get inspire result from DB: problem_id=%s", problem_id
+                    )
+                    model_name = inspire_result_data.get("model_name", "Unknown Model")
+                    inspiration_data = inspire_result_data.copy()
+                else:
+                    problem_content_raw = html_to_text(problem_info["content"])
+                    tags = problem_info.get("tags", []) or []
+                    difficulty = problem_info.get("difficulty", "")
 
-                llm_output = await self.bot.llm_pro.inspire(
-                    problem_content_raw, tags, difficulty
-                )
-                model_name = getattr(self.bot.llm_pro, "model_name", "Unknown Model")
+                    llm_output = await self.bot.llm_pro.inspire(
+                        problem_content_raw, tags, difficulty
+                    )
+                    model_name = getattr(self.bot.llm_pro, "model_name", "Unknown Model")
 
-                if not isinstance(llm_output, dict) or not all(
-                    k in llm_output
-                    for k in ["thinking", "traps", "algorithms", "inspiration"]
-                ):
-                    raw_response = llm_output.get("raw", str(llm_output))
-                    raw_response = str(raw_response)
-                    if len(raw_response) > 1900:
-                        raw_response = raw_response[:1900] + "...\n(內容已截斷)"
-                    await interaction.followup.send(raw_response, ephemeral=True)
-                    return
+                    if not isinstance(llm_output, dict) or not all(
+                        k in llm_output
+                        for k in ["thinking", "traps", "algorithms", "inspiration"]
+                    ):
+                        raw_response = llm_output.get("raw", str(llm_output))
+                        raw_response = str(raw_response)
+                        if len(raw_response) > 1900:
+                            raw_response = raw_response[:1900] + "...\n(內容已截斷)"
+                        await interaction.followup.send(raw_response, ephemeral=True)
+                        return
 
-                inspiration_data = llm_output.copy()
+                    inspire_result_content = llm_output
+                    db_thinking = format_inspire_field(
+                        inspire_result_content.get("thinking", "")
+                    )
+                    db_traps = format_inspire_field(
+                        inspire_result_content.get("traps", "")
+                    )
+                    db_algorithms = format_inspire_field(
+                        inspire_result_content.get("algorithms", "")
+                    )
+                    db_inspiration = format_inspire_field(
+                        inspire_result_content.get("inspiration", "")
+                    )
+
+                    self.bot.llm_inspire_db.save_inspire(
+                        problem_id,
+                        "atcoder",
+                        db_thinking,
+                        db_traps,
+                        db_algorithms,
+                        db_inspiration,
+                        model_name=model_name,
+                    )
+
+                    inspiration_data = llm_output.copy()
                 inspiration_data["footer"] = f"由 {model_name} 提供靈感"
                 embed = create_inspiration_embed(inspiration_data, problem_info)
                 await interaction.followup.send(embed=embed, ephemeral=True)
