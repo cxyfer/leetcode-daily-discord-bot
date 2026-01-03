@@ -362,8 +362,8 @@ async def show_stats(
     total_problems = await asyncio.to_thread(
         _count_problems_with_content_sync, db, source, filter_pattern
     )
-    total_vectors = await storage.count_embeddings(source)
-    total_metadata = await storage.count_metadata(source)
+    total_vectors = await storage.count_embeddings(source, filter_pattern)
+    total_metadata = await storage.count_metadata(source, filter_pattern)
 
     pending = max(total_problems - total_metadata, 0)
     print("Embedding stats:")
