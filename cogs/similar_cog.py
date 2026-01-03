@@ -70,7 +70,7 @@ class SimilarCog(commands.Cog):
             )
             return
 
-        top_k = max(1, min(top_k, 10))
+        top_k = max(1, min(top_k, 20))
         source_input = (source or "").strip().lower()
         source_filter = (
             None if not source_input or source_input == "all" else source_input
@@ -125,26 +125,33 @@ class SimilarCog(commands.Cog):
             )
             return embed
 
-        lines = []
-        for idx, result in enumerate(results, start=1):
-            problem_id = result.get("problem_id")
-            problem_title = result.get("title") or f"Problem {problem_id}"
-            difficulty = result.get("difficulty") or "Unknown"
-            emoji = (
-                get_difficulty_emoji(difficulty) if result.get("difficulty") else "🧩"
-            )
-            similarity = result.get("similarity", 0)
-            link = result.get("link") or ""
-            source_tag = ""
-            if show_source:
-                source_tag = f"[{result.get('source', 'unknown')}] "
-            if link:
-                line = f"{idx}. {emoji} [{problem_id}. {problem_title}]({link}) {source_tag} · {similarity:.2f}"
-            else:
-                line = f"{idx}. {emoji} {problem_id}. {problem_title} {source_tag} · {similarity:.2f}"
-            lines.append(line)
+        chunk_size = 5
+        for i in range(0, len(results), chunk_size):
+            chunk = results[i : i + chunk_size]
+            lines = []
+            for idx, result in enumerate(chunk, start=i + 1):
+                problem_id = result.get("problem_id")
+                problem_title = result.get("title") or f"Problem {problem_id}"
+                difficulty = result.get("difficulty") or "Unknown"
+                emoji = (
+                    get_difficulty_emoji(difficulty) if result.get("difficulty") else "🧩"
+                )
+                similarity = result.get("similarity", 0)
+                link = result.get("link") or ""
+                source_tag = ""
+                if show_source:
+                    source_tag = f"[{result.get('source', 'unknown')}] "
+                if link:
+                    line = f"{idx}. {emoji} [{problem_id}. {problem_title}]({link}) {source_tag}· {similarity:.2f}"
+                else:
+                    line = f"{idx}. {emoji} {problem_id}. {problem_title} {source_tag}· {similarity:.2f}"
+                lines.append(line)
+            
+            start_idx = i + 1
+            end_idx = min(i + chunk_size, len(results))
+            field_name = f"🔍 搜尋結果 ({start_idx}-{end_idx})"
+            embed.add_field(name=field_name, value="\n".join(lines), inline=False)
 
-        embed.add_field(name="🔍 搜尋結果", value="\n".join(lines), inline=False)
         embed.set_footer(text=f"Source: {display_source}", icon_url=LEETCODE_LOGO_URL)
         return embed
 
