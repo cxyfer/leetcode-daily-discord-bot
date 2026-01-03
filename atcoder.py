@@ -288,6 +288,27 @@ class AtCoderClient:
             return None
         return self._extract_statement(html, prefer_lang="ja")
 
+    async def fetch_content_by_url(
+        self, session: aiohttp.ClientSession, url: str
+    ) -> Optional[str]:
+        """Fetch problem content directly from URL."""
+        html = await self._fetch_text(session, f"{url}?lang=en")
+        if not html:
+            return None
+        if self._is_permission_denied(html):
+            logger.warning("Permission denied while fetching %s", url)
+            return None
+        content = self._extract_statement(html, prefer_lang="en")
+        if content:
+            return content
+        html = await self._fetch_text(session, f"{url}?lang=ja")
+        if not html:
+            return None
+        if self._is_permission_denied(html):
+            logger.warning("Permission denied while fetching %s", url)
+            return None
+        return self._extract_statement(html, prefer_lang="ja")
+
     def get_progress(self) -> dict:
         if not self.progress_file.exists():
             return {"fetched_contests": [], "last_updated": None, "last_contest_id": None}
@@ -356,6 +377,33 @@ class AtCoderClient:
             progress.get("last_updated"),
         )
 
+    async def fill_missing_content(self) -> int:
+        """Fetch content for problems that have no content."""
+        missing = self.problems_db.get_problems_missing_content(source="atcoder")
+        if not missing:
+            logger.info("No problems missing content.")
+            return 0
+
+        total = len(missing)
+        filled = 0
+        logger.info("Fetching missing content for %s problems...", total)
+
+        async with aiohttp.ClientSession() as session:
+            for index, (problem_id, link) in enumerate(missing, start=1):
+                content = await self.fetch_content_by_url(session, link)
+                if content:
+                    self.problems_db.update_problem({
+                        "id": problem_id,
+                        "source": "atcoder",
+                        "content": content,
+                    })
+                    filled += 1
+                if index % 50 == 0 or index == total:
+                    logger.info("Processed %s/%s, filled %s", index, total, filled)
+
+        logger.info("Filled %s/%s problems", filled, total)
+        return filled
+
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description="AtCoder CLI tool")
@@ -365,6 +413,16 @@ async def main() -> None:
     parser.add_argument("--resume", action="store_true", help="Resume from progress file")
     parser.add_argument("--contest", type=str, help="Fetch a single contest")
     parser.add_argument("--status", action="store_true", help="Show progress status")
+    parser.add_argument(
+        "--fill-missing-content",
+        action="store_true",
+        help="Fetch missing problem content",
+    )
+    parser.add_argument(
+        "--missing-content-stats",
+        action="store_true",
+        help="Show missing content count",
+    )
     parser.add_argument("--rate-limit", type=float, default=1.0, help="Rate limit in seconds")
     parser.add_argument("--data-dir", type=str, default=None, help="Data directory")
     parser.add_argument("--db-path", type=str, default=None, help="Database path")
@@ -386,6 +444,8 @@ async def main() -> None:
         or args.fetch_all
         or args.contest
         or args.status
+        or args.fill_missing_content
+        or args.missing_content_stats
     ):
         parser.print_help()
         return
@@ -401,6 +461,13 @@ async def main() -> None:
 
     if args.contest:
         await client.fetch_single_contest(args.contest)
+
+    if args.fill_missing_content:
+        await client.fill_missing_content()
+
+    if args.missing_content_stats:
+        count = client.problems_db.count_missing_content(source="atcoder")
+        print(f"Missing content: {count}")
 
 
 if __name__ == "__main__":

@@ -522,6 +522,25 @@ class ProblemsDatabaseManager:
         conn.close()
         return int(row[0]) if row else 0
 
+    def get_problems_missing_content(self, source: str) -> list[tuple[str, str]]:
+        """Get (id, link) pairs for problems missing content."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, link
+            FROM problems
+            WHERE source = ?
+              AND (content IS NULL OR content = '')
+              AND link IS NOT NULL AND link != ''
+            ORDER BY id ASC
+            """,
+            (source,),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [(str(row[0]), row[1]) for row in rows] if rows else []
+
     def _row_to_dict(self, row):
         keys = [
             "id",
