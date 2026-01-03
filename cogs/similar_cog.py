@@ -114,8 +114,12 @@ class SimilarCog(commands.Cog):
         title = f"{FIELD_EMOJIS['search']} 相似題目搜尋結果"
         embed = discord.Embed(title=title, color=DEFAULT_COLOR)
         
-        embed.add_field(name="❓ 原始查詢", value=query, inline=False)
-        embed.add_field(name="🤖 LLM 重寫", value=rewritten_query, inline=False)
+        # Truncate content to avoid Discord limits (1024 chars per field value)
+        display_query = (query[:1000] + "...") if len(query) > 1000 else query
+        display_rewritten = (rewritten_query[:1000] + "...") if len(rewritten_query) > 1000 else rewritten_query
+
+        embed.add_field(name="❓ 原始查詢", value=display_query, inline=False)
+        embed.add_field(name="🤖 AI 重寫", value=display_rewritten, inline=False)
 
         if not results:
             embed.add_field(
