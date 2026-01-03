@@ -60,10 +60,9 @@ def looks_like_problem_id(problem_id: str) -> bool:
     pid = str(problem_id).strip()
     if not pid:
         return False
-    if "://" in pid:
-        return True
-    if ":" in pid:
-        return True
+    if ":" in pid and len(pid.split(":")) == 2:
+        source, pid = pid.split(":", 1)
+        return source.lower() in ["atcoder", "leetcode", "codeforces", "luogu"] and looks_like_problem_id(pid)
     if pid.isdigit():
         return True
     if ATCODER_ID_RE.match(pid):
