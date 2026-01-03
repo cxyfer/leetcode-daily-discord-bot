@@ -98,7 +98,7 @@ class SimilarCog(commands.Cog):
                 self.similar_config.min_similarity,
             )
 
-            embed = await self.create_results_embed(query, results, source_filter)
+            embed = await self.create_results_embed(query, rewritten, results, source_filter)
             await interaction.followup.send(embed=embed, ephemeral=not public)
         except Exception as exc:
             self.logger.error("/similar failed: %s", exc, exc_info=True)
@@ -106,12 +106,14 @@ class SimilarCog(commands.Cog):
                 "搜尋服務暫時不可用，請稍後再試", ephemeral=not public
             )
 
-    async def create_results_embed(self, query: str, results: list, source: str | None):
+    async def create_results_embed(
+        self, query: str, rewritten_query: str, results: list, source: str | None
+    ):
         display_source = source or "all"
         show_source = source is None
         title = f"{FIELD_EMOJIS['search']} 相似題目搜尋結果"
         embed = discord.Embed(title=title, color=DEFAULT_COLOR)
-        embed.description = f"查詢內容：{query}"
+        embed.description = f"**原始查詢**：{query}\n**AI 重寫**：{rewritten_query}"
 
         if not results:
             embed.add_field(
@@ -127,7 +129,7 @@ class SimilarCog(commands.Cog):
             problem_title = result.get("title") or f"Problem {problem_id}"
             difficulty = result.get("difficulty") or "Unknown"
             emoji = (
-                get_difficulty_emoji(difficulty) if result.get("difficulty") else "⚪"
+                get_difficulty_emoji(difficulty) if result.get("difficulty") else "🧩"
             )
             similarity = result.get("similarity", 0)
             link = result.get("link") or ""
