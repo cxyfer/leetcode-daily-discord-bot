@@ -113,11 +113,13 @@ class SimilarCog(commands.Cog):
         show_source = source is None
         title = f"{FIELD_EMOJIS['search']} 相似題目搜尋結果"
         embed = discord.Embed(title=title, color=DEFAULT_COLOR)
-        embed.description = f"**原始查詢**：{query}\n**AI 重寫**：{rewritten_query}"
+        
+        embed.add_field(name="❓ 原始查詢", value=query, inline=False)
+        embed.add_field(name="🤖 LLM 重寫", value=rewritten_query, inline=False)
 
         if not results:
             embed.add_field(
-                name="結果",
+                name="🔍 搜尋結果",
                 value="找不到相似題目，請嘗試更詳細的描述",
                 inline=False,
             )
@@ -137,12 +139,12 @@ class SimilarCog(commands.Cog):
             if show_source:
                 source_tag = f"[{result.get('source', 'unknown')}] "
             if link:
-                line = f"{idx}. {source_tag}{emoji} [{problem_id}. {problem_title}]({link}) · {similarity:.2f}"
+                line = f"{idx}. {emoji} [{problem_id}. {problem_title}]({link}) {source_tag} · {similarity:.2f}"
             else:
-                line = f"{idx}. {source_tag}{emoji} {problem_id}. {problem_title} · {similarity:.2f}"
+                line = f"{idx}. {emoji} {problem_id}. {problem_title} {source_tag} · {similarity:.2f}"
             lines.append(line)
 
-        embed.add_field(name="結果", value="\n".join(lines), inline=False)
+        embed.add_field(name="🔍 搜尋結果", value="\n".join(lines), inline=False)
         embed.set_footer(text=f"Source: {display_source}", icon_url=LEETCODE_LOGO_URL)
         return embed
 
