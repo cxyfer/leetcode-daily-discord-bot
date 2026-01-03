@@ -211,7 +211,7 @@ class EmbeddingStorage:
         where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
         row = self.db.execute(
             f"SELECT COUNT(*) FROM {table}{where_clause}",
-            tuple(params) if params else None,
+            tuple(params) if params else (),
             fetchone=True,
         )
         return int(row[0]) if row else 0

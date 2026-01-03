@@ -27,60 +27,43 @@ def _fetch_problems_with_content_sync(
     source: str,
     filter_pattern: str | None = None,
 ) -> List[Tuple[str, str]]:
+    conditions = ["source = ?", "content IS NOT NULL", "content != ''"]
+    params: list = [source]
     if filter_pattern:
-        rows = db.execute(
-            """
-            SELECT id, content
-            FROM problems
-            WHERE source = ?
-              AND content IS NOT NULL AND content != ''
-              AND id LIKE '%' || ? || '%'
-            ORDER BY id ASC
-            """,
-            (source, filter_pattern),
-            fetchall=True,
-        )
-    else:
-        rows = db.execute(
-            """
-            SELECT id, content
-            FROM problems
-            WHERE source = ?
-              AND content IS NOT NULL AND content != ''
-            ORDER BY id ASC
-            """,
-            (source,),
-            fetchall=True,
-        )
+        conditions.append("id LIKE '%' || ? || '%'")
+        params.append(filter_pattern)
+    where_clause = " AND ".join(conditions)
+    rows = db.execute(
+        f"""
+        SELECT id, content
+        FROM problems
+        WHERE {where_clause}
+        ORDER BY id ASC
+        """,
+        tuple(params),
+        fetchall=True,
+    )
     return [(str(row[0]), row[1]) for row in rows] if rows else []
 
 
 def _count_problems_with_content_sync(
     db: EmbeddingDatabaseManager, source: str, filter_pattern: str | None = None
 ) -> int:
+    conditions = ["source = ?", "content IS NOT NULL", "content != ''"]
+    params: list = [source]
     if filter_pattern:
-        row = db.execute(
-            """
-            SELECT COUNT(*)
-            FROM problems
-            WHERE source = ?
-              AND content IS NOT NULL AND content != ''
-              AND id LIKE '%' || ? || '%'
-            """,
-            (source, filter_pattern),
-            fetchone=True,
-        )
-    else:
-        row = db.execute(
-            """
-            SELECT COUNT(*)
-            FROM problems
-            WHERE source = ?
-              AND content IS NOT NULL AND content != ''
-            """,
-            (source,),
-            fetchone=True,
-        )
+        conditions.append("id LIKE '%' || ? || '%'")
+        params.append(filter_pattern)
+    where_clause = " AND ".join(conditions)
+    row = db.execute(
+        f"""
+        SELECT COUNT(*)
+        FROM problems
+        WHERE {where_clause}
+        """,
+        tuple(params),
+        fetchone=True,
+    )
     return int(row[0]) if row else 0
 
 
