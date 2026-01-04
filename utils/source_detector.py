@@ -8,7 +8,8 @@ LEETCODE_URL_RE = re.compile(
     r"leetcode\.(?:com|cn)/(?:contest/[^/]+/)?problems/([^/?#]+)", re.IGNORECASE
 )
 CODEFORCES_URL_RE = re.compile(
-    r"codeforces\.com/(?:contest/\d+/problem|problemset/problem)/([^/?#]+)", re.IGNORECASE
+    r"codeforces\.com/(?:contest/(\d+)/problem/([A-Z0-9]+)|problemset/problem/(\d+)/([A-Z0-9]+))",
+    re.IGNORECASE
 )
 LUOGU_URL_RE = re.compile(
     r"luogu\.com\.cn/problem/([A-Z0-9_]+)", re.IGNORECASE
@@ -40,7 +41,10 @@ def detect_source(problem_id: str, explicit_source: Optional[str] = None) -> Tup
         return "leetcode", match.group(1)
     match = CODEFORCES_URL_RE.search(pid)
     if match:
-        return "codeforces", match.group(1).upper()
+        # Groups: 1=Contest, 2=Index (type 1) OR 3=Contest, 4=Index (type 2)
+        contest_id = match.group(1) or match.group(3)
+        index = match.group(2) or match.group(4)
+        return "codeforces", f"{contest_id}{index}".upper()
     match = LUOGU_URL_RE.search(pid)
     if match:
         # For Luogu URLs, we check the ID to see if it belongs to another platform
