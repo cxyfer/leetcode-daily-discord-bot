@@ -253,6 +253,21 @@ uv run python atcoder.py --contest abc001
 uv run python atcoder.py --status
 ```
 
+### Codeforces CLI
+
+Fetch Codeforces contests and problem content:
+
+```
+uv run python codeforces.py --sync-problemset
+uv run python codeforces.py --fetch-all --resume
+uv run python codeforces.py --contest 2082
+uv run python codeforces.py --status
+uv run python codeforces.py --fill-missing-content
+uv run python codeforces.py --missing-content-stats
+```
+
+Optional flags: `--include-gym`, `--rate-limit`, `--data-dir`, `--db-path`.
+
 ### Multi-Problem Features
 
 The `/problem` command supports querying multiple problems at once with enhanced customization:

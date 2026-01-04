@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import json
 import os
@@ -11,6 +12,7 @@ import aiohttp
 from bs4 import BeautifulSoup
 
 from utils.database import ProblemsDatabaseManager
+from utils.config import get_config
 from utils.logger import get_leetcode_logger
 
 logger = get_leetcode_logger()
@@ -329,8 +331,10 @@ class CodeforcesClient:
             logger.info("Fetched contest %s: %s problems", contest_id, len(problems))
             return len(problems)
 
-    async def fetch_all_problems(self, resume: bool = True) -> int:
-        contests = await self.fetch_contest_list()
+    async def fetch_all_problems(
+        self, resume: bool = True, include_gym: bool = False
+    ) -> int:
+        contests = await self.fetch_contest_list(include_gym=include_gym)
         progress = self.get_progress() if resume else {"fetched_contests": []}
         fetched = {str(contest_id) for contest_id in progress.get("fetched_contests", [])}
         total = 0
@@ -422,3 +426,84 @@ class CodeforcesClient:
                     tmp_path.unlink()
             except OSError:
                 logger.warning("Failed to cleanup temp progress file: %s", tmp_path)
+
+
+async def main() -> None:
+    parser = argparse.ArgumentParser(description="Codeforces CLI tool")
+    parser.add_argument(
+        "--sync-problemset",
+        action="store_true",
+        help="Sync from Codeforces problemset API",
+    )
+    parser.add_argument("--fetch-all", action="store_true", help="Fetch all contests")
+    parser.add_argument("--resume", action="store_true", help="Resume from progress file")
+    parser.add_argument("--contest", type=int, help="Fetch a single contest by ID")
+    parser.add_argument("--status", action="store_true", help="Show progress status")
+    parser.add_argument(
+        "--fill-missing-content",
+        action="store_true",
+        help="Fetch missing problem content",
+    )
+    parser.add_argument(
+        "--missing-content-stats",
+        action="store_true",
+        help="Show missing content count",
+    )
+    parser.add_argument(
+        "--include-gym",
+        action="store_true",
+        help="Include gym contests in contest list",
+    )
+    parser.add_argument(
+        "--rate-limit",
+        type=float,
+        default=2.0,
+        help="Seconds between requests (default: 2.0)",
+    )
+    parser.add_argument("--data-dir", type=str, default=None, help="Data directory")
+    parser.add_argument("--db-path", type=str, default=None, help="Database path")
+
+    args = parser.parse_args()
+    config = get_config()
+    data_dir = args.data_dir or "data"
+    db_path = args.db_path or config.database_path
+
+    client = CodeforcesClient(
+        data_dir=data_dir,
+        db_path=db_path,
+        rate_limit=args.rate_limit,
+    )
+
+    if not (
+        args.sync_problemset
+        or args.fetch_all
+        or args.contest
+        or args.status
+        or args.fill_missing_content
+        or args.missing_content_stats
+    ):
+        parser.print_help()
+        return
+
+    if args.status:
+        client.show_status()
+
+    if args.sync_problemset:
+        await client.sync_problemset()
+
+    if args.fetch_all:
+        await client.fetch_all_problems(resume=args.resume, include_gym=args.include_gym)
+
+    if args.contest:
+        await client.fetch_single_contest(args.contest)
+
+    if args.fill_missing_content:
+        await client.fill_missing_content()
+
+    if args.missing_content_stats:
+        count = client.problems_db.count_missing_content(source="codeforces")
+        print(f"Missing content: {count}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
