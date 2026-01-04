@@ -296,6 +296,98 @@ class CodeforcesClient:
             logger.warning("Problem statement missing for %s", base_url)
         return content
 
+    async def fetch_content_by_url(
+        self, session: aiohttp.ClientSession, url: str
+    ) -> Optional[str]:
+        separator = "&" if "?" in url else "?"
+        html = await self._fetch_text(session, f"{url}{separator}locale=en", referer=url)
+        if not html:
+            return None
+        if "/enter" in html.lower():
+            logger.warning("Login required while fetching %s", url)
+            return None
+        if self._is_rate_limited(html):
+            logger.warning("Rate limited while fetching %s", url)
+            return None
+        content = self._extract_problem_statement(html)
+        if not content:
+            logger.warning("Problem statement missing for %s", url)
+        return content
+
+    async def fetch_single_contest(self, contest_id: int) -> int:
+        async with aiohttp.ClientSession() as session:
+            problems = await self.fetch_contest_problems(contest_id, session)
+            if not problems:
+                return 0
+            for problem in problems:
+                content = await self.fetch_problem_content(
+                    session, contest_id, problem["problem_index"]
+                )
+                if content:
+                    problem["content"] = content
+                self.problems_db.update_problem(problem)
+            logger.info("Fetched contest %s: %s problems", contest_id, len(problems))
+            return len(problems)
+
+    async def fetch_all_problems(self, resume: bool = True) -> int:
+        contests = await self.fetch_contest_list()
+        progress = self.get_progress() if resume else {"fetched_contests": []}
+        fetched = {str(contest_id) for contest_id in progress.get("fetched_contests", [])}
+        total = 0
+        async with aiohttp.ClientSession() as session:
+            for contest_id in contests:
+                if str(contest_id) in fetched:
+                    continue
+                problems = await self.fetch_contest_problems(contest_id, session)
+                if not problems:
+                    continue
+                for problem in problems:
+                    content = await self.fetch_problem_content(
+                        session, contest_id, problem["problem_index"]
+                    )
+                    if content:
+                        problem["content"] = content
+                    self.problems_db.update_problem(problem)
+                total += len(problems)
+                self.save_progress(contest_id)
+                logger.info("Fetched contest %s: %s problems", contest_id, len(problems))
+        logger.info("Total fetched: %s problems", total)
+        return total
+
+    async def fill_missing_content(self) -> int:
+        missing = self.problems_db.get_problems_missing_content(source="codeforces")
+        if not missing:
+            logger.info("No problems missing content.")
+            return 0
+
+        total = len(missing)
+        filled = 0
+        logger.info("Fetching missing content for %s problems...", total)
+
+        async with aiohttp.ClientSession() as session:
+            for index, (problem_id, link) in enumerate(missing, start=1):
+                content = await self.fetch_content_by_url(session, link)
+                if content:
+                    self.problems_db.update_problem(
+                        {"id": problem_id, "source": "codeforces", "content": content}
+                    )
+                    filled += 1
+                if index % 50 == 0 or index == total:
+                    logger.info("Processed %s/%s, filled %s", index, total, filled)
+        return filled
+
+    def show_status(self) -> None:
+        progress = self.get_progress()
+        fetched = progress.get("fetched_contests", [])
+        missing = self.problems_db.count_missing_content(source="codeforces")
+        logger.info(
+            "Progress: %s contests fetched. last_contest_id=%s last_updated=%s",
+            len(fetched),
+            progress.get("last_contest_id"),
+            progress.get("last_updated"),
+        )
+        logger.info("Missing content: %s", missing)
+
     def get_progress(self) -> dict:
         if not self.progress_file.exists():
             return {"fetched_contests": [], "last_updated": None, "last_contest_id": None}
