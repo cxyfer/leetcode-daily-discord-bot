@@ -2,11 +2,11 @@
 import os
 
 import pytz
-from discord.ext import commands
-from utils.logger import get_scheduler_logger
-
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from discord.ext import commands
+
+from utils.logger import get_scheduler_logger
 
 # Import UI helpers
 from utils.ui_helpers import send_daily_challenge

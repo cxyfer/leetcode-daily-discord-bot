@@ -7,21 +7,22 @@ import discord
 import pytz  # For timezone validation in set_timezone
 from discord import app_commands
 from discord.ext import commands
+
 from utils.logger import get_commands_logger
+from utils.source_detector import detect_source
+from utils.ui_constants import ATCODER_LOGO_URL, LEETCODE_LOGO_URL
 
 # Import UI helpers
 from utils.ui_helpers import (
-    create_problems_overview_embed,
-    create_problems_overview_view,
-    create_submission_embed,
-    create_submission_view,
-    create_settings_embed,
     create_problem_embed,
     create_problem_view,
+    create_problems_overview_embed,
+    create_problems_overview_view,
+    create_settings_embed,
+    create_submission_embed,
+    create_submission_view,
     send_daily_challenge,
 )
-from utils.ui_constants import ATCODER_LOGO_URL, LEETCODE_LOGO_URL
-from utils.source_detector import detect_source
 
 # Default values, similar to how they are defined in bot.py or schedule_manager_cog.py
 # These are used for display in show_settings if a server doesn't have specific settings.

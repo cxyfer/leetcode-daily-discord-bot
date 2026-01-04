@@ -1,13 +1,14 @@
 # tests/test_interaction_handler.py
-import pytest
 import asyncio
-from unittest.mock import MagicMock, AsyncMock
-import discord
-from discord.ext import commands
+import os
 
 # Import the cog we're testing
 import sys
-import os
+from unittest.mock import AsyncMock, MagicMock
+
+import discord
+import pytest
+from discord.ext import commands
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from cogs.interaction_handler_cog import InteractionHandlerCog

@@ -1,11 +1,12 @@
-from abc import ABC, abstractmethod
 import json
+from abc import ABC, abstractmethod
+
 from langchain_core.output_parsers import SimpleJsonOutputParser
 from pydantic import BaseModel
 
 from llms.templates import (
-    TRANSLATION_JSON_PROMPT_TEMPLATE,
     INSPIRE_JSON_PROMPT_TEMPLATE,
+    TRANSLATION_JSON_PROMPT_TEMPLATE,
 )
 from utils.logger import get_llm_logger
 
