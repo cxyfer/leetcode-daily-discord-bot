@@ -105,6 +105,12 @@ def test_detect_source_prefix():
     assert source == "atcoder"
     assert pid == "abc001_a"
 
+def test_detect_source_invalid_prefix():
+    # "invalid" is not a known source, so it should NOT return source="invalid"
+    # It will fall through to default behavior (leetcode, or whatever matches)
+    source, pid = detect_source("invalid:abc")
+    assert source != "invalid"
+
 
 def test_detect_source_explicit_source():
     source, pid = detect_source("123", explicit_source="codeforces")
@@ -146,6 +152,11 @@ def test_detect_source_luogu_ids():
     source, pid = detect_source("UVA100")
     assert source == "luogu"
     assert pid == "UVA100"
+    
+    # Test CF-like ID in Luogu context
+    source, pid = detect_source("CF1234A")
+    assert source == "codeforces"
+    assert pid == "CF1234A"
 
 
 def test_detect_source_unknown_url():
@@ -175,3 +186,13 @@ def test_looks_like_problem_id_detection():
     # Non-IDs
     assert not looks_like_problem_id("two sum")
     assert not looks_like_problem_id("https://google.com")
+    
+    # Negative cases
+    assert not looks_like_problem_id("invalid:abc")
+    assert not looks_like_problem_id("abc:def:ghi") # "abc" is not a valid source
+    
+    # Recursive valid case
+    # "atcoder:..." is valid if "..." is valid. 
+    # "leetcode:123" is valid.
+    # So "atcoder:leetcode:123" should be valid.
+    assert looks_like_problem_id("atcoder:leetcode:123")

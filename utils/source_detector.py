@@ -1,14 +1,17 @@
 import re
 from typing import Optional, Tuple
 
+VALID_PREFIX_SOURCES = {"atcoder", "leetcode", "codeforces", "luogu", "uva", "spoj"}
+
 ATCODER_URL_RE = re.compile(
     r"atcoder\.jp/contests/([^/]+)/tasks/([^/?#]+)", re.IGNORECASE
 )
 LEETCODE_URL_RE = re.compile(
     r"leetcode\.(?:com|cn)/(?:contest/[^/]+/)?problems/([^/?#]+)", re.IGNORECASE
 )
+# Added protocol support and word boundary anchor
 CODEFORCES_URL_RE = re.compile(
-    r"codeforces\.com/(?:contest/(\d+)/problem/([A-Z0-9]+)|problemset/problem/(\d+)/([A-Z0-9]+))",
+    r"\b(?:https?://)?(?:www\.)?codeforces\.com/(?:contest/(\d+)/problem/([A-Z0-9]+)|problemset/problem/(\d+)/([A-Z0-9]+))",
     re.IGNORECASE
 )
 LUOGU_URL_RE = re.compile(
@@ -17,8 +20,16 @@ LUOGU_URL_RE = re.compile(
 
 ATCODER_ID_RE = re.compile(r"^(abc|arc|agc|ahc)\d+_[a-z]\d*$", re.IGNORECASE)
 CF_ID_RE = re.compile(r"^\d+[A-Za-z]$")
-# Luogu supports P, B, U, T (internal), plus externally sourced CF, AT, UVA, SP
-LUOGU_ID_RE = re.compile(r"^([PBTU]\d+|CF[0-9A-Z]+|AT_[a-z0-9_]+|UVA\d+|SP\d+)$", re.IGNORECASE)
+
+# Refined Luogu ID patterns:
+# - CF: CF + digits + letter (e.g. CF1234A)
+# - AT: AT_ + standard AtCoder ID
+# - Internal: P, B, U, T + digits
+# - External: UVA, SP + digits
+LUOGU_ID_RE = re.compile(
+    r"^([PBTU]\d+|CF\d+[A-Z]|AT_(?:abc|arc|agc|ahc)\d+_[a-z]\d*|UVA\d+|SP\d+)$",
+    re.IGNORECASE,
+)
 
 
 def detect_source(problem_id: str, explicit_source: Optional[str] = None) -> Tuple[str, str]:
@@ -52,16 +63,21 @@ def detect_source(problem_id: str, explicit_source: Optional[str] = None) -> Tup
         if luogu_pid.startswith("CF"):
             return "codeforces", luogu_pid
         if luogu_pid.startswith("AT"):
-            return "atcoder", luogu_pid.lower().replace("at_", "")
+            # Correctly remove AT_ prefix case-insensitively
+            # Since luogu_pid is upper case here, we can strip "AT_"
+            if luogu_pid.startswith("AT_"):
+                 return "atcoder", luogu_pid[3:].lower()
+            return "atcoder", luogu_pid.lower()
         return "luogu", luogu_pid
 
     # If it's a URL but not from a recognized platform, return unknown
     if "://" in pid:
         return "unknown", pid
 
-    if ":" in pid:
+    # Prefix detection with validation
+    if pid.count(":") == 1:
         source, raw_id = pid.split(":", 1)
-        if source:
+        if source.lower() in VALID_PREFIX_SOURCES:
             return source.lower(), raw_id
 
     if explicit_source:
@@ -101,10 +117,12 @@ def looks_like_problem_id(problem_id: str) -> bool:
     if "://" in pid:
         return False
 
-    if ":" in pid and len(pid.split(":")) == 2:
-        source, sub_pid = pid.split(":", 1)
-        valid_sources = ["atcoder", "leetcode", "codeforces", "luogu", "uva", "spoj"]
-        return source.lower() in valid_sources and looks_like_problem_id(sub_pid)
+    if ":" in pid:
+        parts = pid.split(":", 1)
+        if len(parts) == 2:
+            source, sub_pid = parts
+            if source.lower() in VALID_PREFIX_SOURCES:
+                return looks_like_problem_id(sub_pid)
     
     if pid.isdigit():
         return True

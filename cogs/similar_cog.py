@@ -112,6 +112,13 @@ class SimilarCog(commands.Cog):
             await interaction.followup.send(
                 "搜尋服務暫時不可用，請稍後再試", ephemeral=not public
             )
+            
+    def _truncate_text(self, text: str, max_length: int = MAX_FIELD_LENGTH) -> str:
+        """Helper to truncate text with ellipsis if it exceeds max_length."""
+        suffix = "..."
+        if len(text) <= max_length:
+            return text
+        return text[: max_length - len(suffix)] + suffix
 
     async def create_results_embed(
         self, query: str, rewritten_query: str, results: list, source: str | None
@@ -122,8 +129,8 @@ class SimilarCog(commands.Cog):
         embed = discord.Embed(title=title, color=DEFAULT_COLOR)
         
         # Truncate content to avoid Discord limits (1024 chars per field value)
-        display_query = (query[:MAX_FIELD_LENGTH-10] + "...") if len(query) > MAX_FIELD_LENGTH-10 else query
-        display_rewritten = (rewritten_query[:MAX_FIELD_LENGTH-10] + "...") if len(rewritten_query) > MAX_FIELD_LENGTH-10 else rewritten_query
+        display_query = self._truncate_text(query)
+        display_rewritten = self._truncate_text(rewritten_query)
 
         embed.add_field(name="❓ 原始查詢", value=display_query, inline=False)
         embed.add_field(name="🤖 AI 重寫", value=display_rewritten, inline=False)
@@ -136,32 +143,66 @@ class SimilarCog(commands.Cog):
             )
             return embed
 
-        chunk_size = PROBLEMS_PER_FIELD
-        for i in range(0, len(results), chunk_size):
-            chunk = results[i : i + chunk_size]
-            lines = []
-            for idx, result in enumerate(chunk, start=i + 1):
-                problem_id = result.get("problem_id")
-                problem_title = result.get("title") or f"Problem {problem_id}"
-                difficulty = result.get("difficulty") or "Unknown"
-                emoji = (
-                    get_difficulty_emoji(difficulty) if result.get("difficulty") else NON_DIFFICULTY_EMOJI
-                )
-                similarity = result.get("similarity", 0)
-                link = result.get("link") or ""
-                source_tag = ""
-                if show_source:
-                    source_tag = f"[{result.get('source', 'unknown')}] "
-                if link:
-                    line = f"{idx}. {emoji} [{problem_id}. {problem_title}]({link}) {source_tag}· {similarity:.2f}"
-                else:
-                    line = f"{idx}. {emoji} {problem_id}. {problem_title} {source_tag}· {similarity:.2f}"
-                lines.append(line)
+        # Build result fields respecting both problem count and Discord's field length limit
+        current_lines: list[str] = []
+        current_length = 0  # total characters in "\n".join(current_lines)
+        start_idx_for_field = 1
+
+        for idx, result in enumerate(results, start=1):
+            problem_id = result.get("problem_id")
+            problem_title = result.get("title") or f"Problem {problem_id}"
+            difficulty = result.get("difficulty") or "Unknown"
+            emoji = (
+                get_difficulty_emoji(difficulty) if result.get("difficulty") else NON_DIFFICULTY_EMOJI
+            )
+            similarity = result.get("similarity", 0)
+            link = result.get("link") or ""
             
-            start_idx = i + 1
-            end_idx = min(i + chunk_size, len(results))
-            field_name = f"🔍 搜尋結果 ({start_idx}-{end_idx})"
-            embed.add_field(name=field_name, value="\n".join(lines), inline=False)
+            source_tag = ""
+            if show_source:
+                source_tag = f"[{result.get('source', 'unknown')}]"
+            
+            source_fragment = f" {source_tag}" if source_tag else ""
+            
+            if link:
+                line = f"{idx}. {emoji} [{problem_id}. {problem_title}]({link}){source_fragment} · {similarity:.2f}"
+            else:
+                line = f"{idx}. {emoji} {problem_id}. {problem_title}{source_fragment} · {similarity:.2f}"
+
+            # Ensure an individual line never exceeds the field limit (minus safety margin)
+            if len(line) > MAX_FIELD_LENGTH:
+                line = self._truncate_text(line)
+
+            # Determine if we need to start a new field before adding this line
+            additional_length = len(line) + (1 if current_lines else 0)  # +1 for newline if not first line
+            exceeds_length = current_length + additional_length > MAX_FIELD_LENGTH
+            exceeds_count = len(current_lines) >= PROBLEMS_PER_FIELD
+
+            if current_lines and (exceeds_length or exceeds_count):
+                end_idx_for_field = idx - 1
+                field_name = f"🔍 搜尋結果 ({start_idx_for_field}-{end_idx_for_field})"
+                embed.add_field(
+                    name=field_name,
+                    value="\n".join(current_lines),
+                    inline=False,
+                )
+                # Start a new field with the current line
+                current_lines = [line]
+                current_length = len(line)
+                start_idx_for_field = idx
+            else:
+                current_lines.append(line)
+                current_length += additional_length
+
+        # Flush any remaining lines into a final field
+        if current_lines:
+            end_idx_for_field = len(results)
+            field_name = f"🔍 搜尋結果 ({start_idx_for_field}-{end_idx_for_field})"
+            embed.add_field(
+                name=field_name,
+                value="\n".join(current_lines),
+                inline=False,
+            )
 
         embed.set_footer(text=f"Source: {display_source}", icon_url=LEETCODE_LOGO_URL)
         return embed
