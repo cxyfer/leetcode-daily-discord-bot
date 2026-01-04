@@ -208,6 +208,33 @@ class CodeforcesClient:
         )
         return problems
 
+    async def fetch_contest_list(self, include_gym: bool = False) -> list[int]:
+        gym_flag = "true" if include_gym else "false"
+        url = f"{self.CONTEST_LIST_API}?gym={gym_flag}"
+        async with aiohttp.ClientSession() as session:
+            payload = await self._fetch_json(session, url)
+        if not payload:
+            return []
+        if payload.get("status") != "OK":
+            logger.warning("Contest list API error: %s", payload.get("comment"))
+            return []
+
+        contests = payload.get("result", [])
+        finished = [contest for contest in contests if contest.get("phase") == "FINISHED"]
+        if not include_gym:
+            finished = [contest for contest in finished if contest.get("type") != "GYM"]
+        contest_ids = [
+            contest.get("id") for contest in finished if contest.get("id") is not None
+        ]
+        contest_ids.sort(reverse=True)
+        logger.info(
+            "Contest list: %s total, %s finished, %s returned",
+            len(contests),
+            len(finished),
+            len(contest_ids),
+        )
+        return contest_ids
+
     def _fix_relative_urls(self, html: str, base_url: str) -> str:
         soup = BeautifulSoup(html, "html.parser")
         for img in soup.find_all("img", src=True):
