@@ -19,7 +19,7 @@ LUOGU_URL_RE = re.compile(
 )
 
 ATCODER_ID_RE = re.compile(r"^(abc|arc|agc|ahc)\d+_[a-z]\d*$", re.IGNORECASE)
-CF_ID_RE = re.compile(r"^\d+[A-Za-z]$")
+CF_ID_RE = re.compile(r"^(?:CF)?\d+[A-Z]\d*$", re.IGNORECASE)
 
 # Refined Luogu ID patterns:
 # - CF: CF + digits + letter (e.g. CF1234A)

@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from utils.source_detector import detect_source, looks_like_problem_id
+from utils.source_detector import CF_ID_RE, detect_source, looks_like_problem_id
 
 
 def test_detect_source_atcoder_url():
@@ -138,6 +138,13 @@ def test_detect_source_codeforces_patterns():
     source, pid = detect_source("1234A")
     assert source == "codeforces"
     assert pid == "1234A"
+
+
+def test_codeforces_id_regex_complex_index():
+    assert CF_ID_RE.match("1999B1")
+    assert CF_ID_RE.match("1000G2")
+    assert CF_ID_RE.match("CF1999B1")
+    assert CF_ID_RE.match("1234A")
 
 
 def test_detect_source_luogu_ids():
