@@ -127,7 +127,10 @@ class InteractionHandlerCog(commands.Cog):
                         # Choose response method based on content length
                         if len(problem_content) < 1900:
                             # Use original method for short content
-                            formatted_content = f"# [{problem_info['id']}. {problem_info['title']}]({problem_info['link']})\n\n{problem_content}"
+                            formatted_content = (
+                                f"# [{problem_info['id']}. {problem_info['title']}]"
+                                f"({problem_info['link']})\n\n{problem_content}"
+                            )
                             response_data = {"content": formatted_content}
                         else:
                             # Use embed for long content
@@ -161,7 +164,8 @@ class InteractionHandlerCog(commands.Cog):
                     len(problem_content) if "problem_content" in locals() else 0
                 )
                 self.logger.info(
-                    f"成功發送題目描述給 @{interaction.user.name}: channel_id={interaction.channel.id}, problem_id={problem_id}, domain={domain}, content_length={content_length}"
+                    f"成功發送題目描述給 @{interaction.user.name}: channel_id={interaction.channel.id}, "
+                    f"problem_id={problem_id}, domain={domain}, content_length={content_length}"
                 )
 
             except discord.errors.InteractionResponded:
@@ -319,7 +323,8 @@ class InteractionHandlerCog(commands.Cog):
 
                             await interaction.followup.send(translation, ephemeral=True)
                             self.logger.info(
-                                f"成功發送LLM翻譯給 @{interaction.user.name}: channel_id={interaction.channel.id}, problem_id={problem_id}, domain={domain}, content_length={len(translation)}"
+                                f"成功發送LLM翻譯給 @{interaction.user.name}: channel_id={interaction.channel.id}, "
+                                f"problem_id={problem_id}, domain={domain}, content_length={len(translation)}"
                             )
                         except Exception as llm_e:
                             self.logger.error(f"LLM 翻譯失敗: {llm_e}", exc_info=True)
@@ -584,7 +589,8 @@ class InteractionHandlerCog(commands.Cog):
                 embed = create_inspiration_embed(inspiration_data, problem_info)
                 await interaction.followup.send(embed=embed, ephemeral=True)
                 self.logger.info(
-                    f"成功發送LLM靈感啟發給 @{interaction.user.name}: channel_id={interaction.channel.id}, problem_id={problem_id}, domain={domain}"
+                    f"成功發送LLM靈感啟發給 @{interaction.user.name}: channel_id={interaction.channel.id}, "
+                    f"problem_id={problem_id}, domain={domain}"
                 )
 
             except discord.errors.InteractionResponded:
@@ -813,7 +819,8 @@ class InteractionHandlerCog(commands.Cog):
                 await interaction.edit_original_response(embed=embed, view=view)
 
                 self.logger.info(
-                    f"使用者 {interaction.user.name} 瀏覽 {username} 的解題紀錄，第 {new_page + 1}/{len(submissions)} 頁"
+                    f"使用者 {interaction.user.name} 瀏覽 {username} 的解題紀錄，"
+                    f"第 {new_page + 1}/{len(submissions)} 頁"
                 )
 
             except Exception as e:

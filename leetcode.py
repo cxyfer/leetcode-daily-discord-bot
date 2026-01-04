@@ -382,7 +382,8 @@ class LeetCodeClient:
         )
         if problem["slug"] and (not problem.get("tags") or not problem.get("content")):
             logger.debug(
-                f"Problem {problem_id_for_log} still not have detail information, fetching problem detail from LeetCode API..."
+                f"Problem {problem_id_for_log} still not have detail information, "
+                "fetching problem detail from LeetCode API..."
             )
             problem_detail = await self.fetch_problem_detail(problem["slug"])
             if problem_detail:
@@ -961,7 +962,8 @@ class LeetCodeClient:
                     weekly_challenges = monthly_data.get("weeklyChallenges", [])
 
                     logger.info(
-                        f"Successfully fetched {len(challenges)} daily challenges and {len(weekly_challenges)} weekly challenges"
+                        f"Successfully fetched {len(challenges)} daily challenges and "
+                        f"{len(weekly_challenges)} weekly challenges"
                     )
 
                     # Format the response data
@@ -1089,7 +1091,8 @@ class LeetCodeClient:
                     continue
 
             logger.info(
-                f"Background task completed: Processed {processed_count}/{len(challenges)} challenges for {year}-{month}"
+                f"Background task completed: Processed {processed_count}/{len(challenges)} "
+                f"challenges for {year}-{month}"
             )
 
         except asyncio.CancelledError:

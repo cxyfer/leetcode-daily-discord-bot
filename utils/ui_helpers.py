@@ -562,7 +562,8 @@ async def send_daily_challenge(
     """Fetches and sends the LeetCode daily challenge."""
     try:
         logger.info(
-            f"Attempting to send daily challenge. Domain: {domain}, Channel: {channel_id}, Interaction: {'Yes' if interaction else 'No'}"
+            f"Attempting to send daily challenge. Domain: {domain}, Channel: {channel_id}, "
+            f"Interaction: {'Yes' if interaction else 'No'}"
         )
 
         current_client = bot.lcus if domain == "com" else bot.lccn
