@@ -192,23 +192,40 @@ class EmbeddingStorage:
             min_similarity,
         )
 
-    def _count_table_sync(self, table: str, source: Optional[str] = None) -> int:
+    def _count_table_sync(
+        self,
+        table: str,
+        source: Optional[str] = None,
+        filter_pattern: Optional[str] = None,
+    ) -> int:
         if table not in ("vec_embeddings", "problem_embeddings"):
             raise ValueError(f"Invalid table name: {table}")
+        conditions = []
+        params: list = []
         if source:
-            row = self.db.execute(
-                f"SELECT COUNT(*) FROM {table} WHERE source = ?",
-                (source,),
-                fetchone=True,
-            )
-        else:
-            row = self.db.execute(f"SELECT COUNT(*) FROM {table}", fetchone=True)
+            conditions.append("source = ?")
+            params.append(source)
+        if filter_pattern:
+            conditions.append("problem_id LIKE '%' || ? || '%'")
+            params.append(filter_pattern)
+        where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
+        row = self.db.execute(
+            f"SELECT COUNT(*) FROM {table}{where_clause}",
+            tuple(params) if params else (),
+            fetchone=True,
+        )
         return int(row[0]) if row else 0
 
-    async def count_embeddings(self, source: Optional[str] = None) -> int:
-        return await asyncio.to_thread(self._count_table_sync, "vec_embeddings", source)
-
-    async def count_metadata(self, source: Optional[str] = None) -> int:
+    async def count_embeddings(
+        self, source: Optional[str] = None, filter_pattern: Optional[str] = None
+    ) -> int:
         return await asyncio.to_thread(
-            self._count_table_sync, "problem_embeddings", source
+            self._count_table_sync, "vec_embeddings", source, filter_pattern
+        )
+
+    async def count_metadata(
+        self, source: Optional[str] = None, filter_pattern: Optional[str] = None
+    ) -> int:
+        return await asyncio.to_thread(
+            self._count_table_sync, "problem_embeddings", source, filter_pattern
         )

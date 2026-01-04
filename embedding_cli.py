@@ -25,30 +25,43 @@ logger = get_core_logger()
 def _fetch_problems_with_content_sync(
     db: EmbeddingDatabaseManager,
     source: str,
+    filter_pattern: str | None = None,
 ) -> List[Tuple[str, str]]:
+    conditions = ["source = ?", "content IS NOT NULL", "content != ''"]
+    params: list = [source]
+    if filter_pattern:
+        conditions.append("id LIKE '%' || ? || '%'")
+        params.append(filter_pattern)
+    where_clause = " AND ".join(conditions)
     rows = db.execute(
-        """
+        f"""
         SELECT id, content
         FROM problems
-        WHERE source = ?
-          AND content IS NOT NULL AND content != ''
+        WHERE {where_clause}
         ORDER BY id ASC
         """,
-        (source,),
+        tuple(params),
         fetchall=True,
     )
     return [(str(row[0]), row[1]) for row in rows] if rows else []
 
 
-def _count_problems_with_content_sync(db: EmbeddingDatabaseManager, source: str) -> int:
+def _count_problems_with_content_sync(
+    db: EmbeddingDatabaseManager, source: str, filter_pattern: str | None = None
+) -> int:
+    conditions = ["source = ?", "content IS NOT NULL", "content != ''"]
+    params: list = [source]
+    if filter_pattern:
+        conditions.append("id LIKE '%' || ? || '%'")
+        params.append(filter_pattern)
+    where_clause = " AND ".join(conditions)
     row = db.execute(
-        """
+        f"""
         SELECT COUNT(*)
         FROM problems
-        WHERE source = ?
-          AND content IS NOT NULL AND content != ''
+        WHERE {where_clause}
         """,
-        (source,),
+        tuple(params),
         fetchone=True,
     )
     return int(row[0]) if row else 0
@@ -82,6 +95,7 @@ async def build_embeddings(
     batch_size: int,
     rebuild: bool,
     dry_run: bool,
+    filter_pattern: str | None = None,
 ) -> None:
     config = get_config()
     embedding_config = config.get_embedding_model_config()
@@ -97,7 +111,7 @@ async def build_embeddings(
         )
 
     total_problems = await asyncio.to_thread(
-        _count_problems_with_content_sync, db, source
+        _count_problems_with_content_sync, db, source, filter_pattern
     )
     existing_metadata = await storage.get_existing_ids(
         source, embedding_config.name, embedding_config.dim
@@ -119,7 +133,9 @@ async def build_embeddings(
     if rewriter is None or generator is None:
         raise ValueError("Embedding generator not initialized")
 
-    problems = await asyncio.to_thread(_fetch_problems_with_content_sync, db, source)
+    problems = await asyncio.to_thread(
+        _fetch_problems_with_content_sync, db, source, filter_pattern
+    )
     pending = [(pid, content) for pid, content in problems if pid not in existing_ids]
 
     if not pending:
@@ -316,7 +332,10 @@ async def query_similar(
 
 
 async def show_stats(
-    db: EmbeddingDatabaseManager, storage: EmbeddingStorage, source: str
+    db: EmbeddingDatabaseManager,
+    storage: EmbeddingStorage,
+    source: str,
+    filter_pattern: str | None = None,
 ) -> None:
     config = get_config()
     embedding_config = config.get_embedding_model_config()
@@ -324,10 +343,10 @@ async def show_stats(
     await _prepare_db(db, embedding_config.dim, rebuild=False)
 
     total_problems = await asyncio.to_thread(
-        _count_problems_with_content_sync, db, source
+        _count_problems_with_content_sync, db, source, filter_pattern
     )
-    total_vectors = await storage.count_embeddings(source)
-    total_metadata = await storage.count_metadata(source)
+    total_vectors = await storage.count_embeddings(source, filter_pattern)
+    total_metadata = await storage.count_metadata(source, filter_pattern)
 
     pending = max(total_problems - total_metadata, 0)
     print("Embedding stats:")
@@ -362,6 +381,9 @@ async def main() -> None:
     parser.add_argument(
         "--batch-size", type=int, help="Embedding batch size", default=None
     )
+    parser.add_argument(
+        "--filter", type=str, help="Filter problems by ID substring", default=None
+    )
 
     args = parser.parse_args()
     config = get_config()
@@ -376,6 +398,7 @@ async def main() -> None:
         else similar_config.min_similarity
     )
     batch_size = args.batch_size or embedding_config.batch_size
+    filter_pattern = args.filter
 
     if not (args.build or args.rebuild or args.query or args.stats):
         parser.print_help()
@@ -400,9 +423,9 @@ async def main() -> None:
                 print("No problems with content found.")
             for src in sources:
                 print(f"Source: {src}")
-                await show_stats(db, storage, src)
+                await show_stats(db, storage, src, filter_pattern)
         else:
-            await show_stats(db, storage, source)
+            await show_stats(db, storage, source, filter_pattern)
 
     if args.query:
         query_source = None if source == "all" else source
@@ -444,6 +467,7 @@ async def main() -> None:
                         batch_size,
                         rebuild=False,
                         dry_run=args.dry_run,
+                        filter_pattern=filter_pattern,
                     )
                 except Exception as exc:
                     logger.error(
@@ -467,6 +491,7 @@ async def main() -> None:
                 batch_size,
                 args.rebuild,
                 args.dry_run,
+                filter_pattern,
             )
 
 
