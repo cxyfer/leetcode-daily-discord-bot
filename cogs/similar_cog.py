@@ -12,7 +12,14 @@ from embeddings import (
 from utils.config import get_config
 from utils.database import EmbeddingDatabaseManager
 from utils.logger import get_commands_logger
-from utils.ui_constants import DEFAULT_COLOR, FIELD_EMOJIS, LEETCODE_LOGO_URL
+from utils.ui_constants import (
+    DEFAULT_COLOR,
+    FIELD_EMOJIS,
+    LEETCODE_LOGO_URL,
+    MAX_FIELD_LENGTH,
+    NON_DIFFICULTY_EMOJI,
+    PROBLEMS_PER_FIELD,
+)
 from utils.ui_helpers import get_difficulty_emoji
 from utils.source_detector import looks_like_problem_id
 
@@ -115,8 +122,8 @@ class SimilarCog(commands.Cog):
         embed = discord.Embed(title=title, color=DEFAULT_COLOR)
         
         # Truncate content to avoid Discord limits (1024 chars per field value)
-        display_query = (query[:1000] + "...") if len(query) > 1000 else query
-        display_rewritten = (rewritten_query[:1000] + "...") if len(rewritten_query) > 1000 else rewritten_query
+        display_query = (query[:MAX_FIELD_LENGTH-10] + "...") if len(query) > MAX_FIELD_LENGTH-10 else query
+        display_rewritten = (rewritten_query[:MAX_FIELD_LENGTH-10] + "...") if len(rewritten_query) > MAX_FIELD_LENGTH-10 else rewritten_query
 
         embed.add_field(name="❓ 原始查詢", value=display_query, inline=False)
         embed.add_field(name="🤖 AI 重寫", value=display_rewritten, inline=False)
@@ -129,7 +136,7 @@ class SimilarCog(commands.Cog):
             )
             return embed
 
-        chunk_size = 5
+        chunk_size = PROBLEMS_PER_FIELD
         for i in range(0, len(results), chunk_size):
             chunk = results[i : i + chunk_size]
             lines = []
@@ -138,7 +145,7 @@ class SimilarCog(commands.Cog):
                 problem_title = result.get("title") or f"Problem {problem_id}"
                 difficulty = result.get("difficulty") or "Unknown"
                 emoji = (
-                    get_difficulty_emoji(difficulty) if result.get("difficulty") else "🧩"
+                    get_difficulty_emoji(difficulty) if result.get("difficulty") else NON_DIFFICULTY_EMOJI
                 )
                 similarity = result.get("similarity", 0)
                 link = result.get("link") or ""
