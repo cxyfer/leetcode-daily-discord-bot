@@ -2,11 +2,13 @@ import asyncio
 import json
 import os
 import time
+from urllib.parse import urljoin
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 import aiohttp
+from bs4 import BeautifulSoup
 
 from utils.database import ProblemsDatabaseManager
 from utils.logger import get_leetcode_logger
@@ -107,7 +109,9 @@ class CodeforcesClient:
 
             if self._is_rate_limited(text):
                 backoff = min(self.max_backoff, self.backoff_base * (2 ** (attempt - 1)))
-                logger.warning("Rate limited by content (%s). Backing off %.1fs", url, backoff)
+                logger.warning(
+                    "Rate limited or login page (%s). Backing off %.1fs", url, backoff
+                )
                 await asyncio.sleep(backoff)
                 continue
             return text
@@ -203,6 +207,44 @@ class CodeforcesClient:
             len(problems) - inserted,
         )
         return problems
+
+    def _fix_relative_urls(self, html: str, base_url: str) -> str:
+        soup = BeautifulSoup(html, "html.parser")
+        for img in soup.find_all("img", src=True):
+            img["src"] = urljoin(base_url, img["src"])
+        for link in soup.find_all("a", href=True):
+            href = link["href"]
+            if href.startswith(("#", "javascript:", "mailto:")):
+                continue
+            link["href"] = urljoin(base_url, href)
+        return str(soup)
+
+    def _extract_problem_statement(self, html: str) -> Optional[str]:
+        soup = BeautifulSoup(html, "html.parser")
+        statement = soup.select_one("div.problem-statement")
+        if not statement:
+            return None
+        return self._fix_relative_urls(str(statement), "https://codeforces.com")
+
+    async def fetch_problem_content(
+        self, session: aiohttp.ClientSession, contest_id: int, index: str
+    ) -> Optional[str]:
+        base_url = self.PROBLEM_URL_TEMPLATE.format(contest_id=contest_id, index=index)
+        referer = f"https://codeforces.com/contest/{contest_id}"
+        html = await self._fetch_text(session, f"{base_url}?locale=en", referer=referer)
+        if not html:
+            logger.warning("Empty content while fetching %s", base_url)
+            return None
+        if "/enter" in html.lower():
+            logger.warning("Login required while fetching %s", base_url)
+            return None
+        if self._is_rate_limited(html):
+            logger.warning("Rate limited while fetching %s", base_url)
+            return None
+        content = self._extract_problem_statement(html)
+        if not content:
+            logger.warning("Problem statement missing for %s", base_url)
+        return content
 
     def get_progress(self) -> dict:
         if not self.progress_file.exists():
