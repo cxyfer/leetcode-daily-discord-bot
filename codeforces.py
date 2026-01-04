@@ -235,6 +235,29 @@ class CodeforcesClient:
         )
         return contest_ids
 
+    async def fetch_contest_problems(
+        self, contest_id: int, session: aiohttp.ClientSession
+    ) -> list[dict]:
+        url = f"{self.CONTEST_STANDINGS_API}?contestId={contest_id}&from=1&count=1"
+        payload = await self._fetch_json(session, url)
+        if not payload:
+            return []
+        if payload.get("status") != "OK":
+            logger.warning(
+                "Contest %s standings API error: %s", contest_id, payload.get("comment")
+            )
+            return []
+
+        problems = (payload.get("result") or {}).get("problems", [])
+        parsed: list[dict] = []
+        for problem in problems:
+            if problem.get("contestId") is None:
+                problem = {**problem, "contestId": contest_id}
+            built = self._build_problem_from_api(problem, {})
+            if built:
+                parsed.append(built)
+        return parsed
+
     def _fix_relative_urls(self, html: str, base_url: str) -> str:
         soup = BeautifulSoup(html, "html.parser")
         for img in soup.find_all("img", src=True):
