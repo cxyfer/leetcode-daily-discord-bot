@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.1.1] - 2026-01-04
+### Added
+- **AI Rewritten Query Display**: `/similar` 指令現在會同時顯示原始查詢與 AI 重寫後的關鍵字，增加搜尋透明度。
+- **Expanded Source Support**: 強化題目偵測邏輯，支援 LeetCode 比賽 (Contest)、Codeforces 與洛谷 (Luogu) 的網址及題目編號格式。
+- **Multi-Platform URL Detection**: 支援包含 UVA、SPOJ 在內的洛谷轉錄題目格式，並優化 Codeforces 的 Contest/Problemset 網址解析。
+
+### Improved
+- **Dynamic Result Batching**: 搜尋結果現在採用字元長度感知的動態分頁機制，嚴格遵守 Discord 1024 字元欄位限制，避免發送失敗。
+- **Increased Search Limit**: 將 `/similar` 的最大搜尋數量 `top_k` 從 10 提升至 20。
+- **UI Polish**: 
+  - 為搜尋結果區段加入 Emoji 標示 (❓, 🤖, 🔍)。
+  - 優化結果清單的格式化，包括來源標籤 (Source tag) 的空格一致性。
+  - 使用全域 UI 常數標準化顯示效果。
+
+### Fixed
+- 修復網址偵測缺失導致部分 LeetCode 連結無法被識別為題目 ID 的問題。
+- 修復無效來源前綴 (Source Prefix) 的驗證邏輯，避免非預期的字串被解析為題目來源。
+- 修正巢狀前綴 (Nested Prefix) 的遞迴處理邏輯。
+
 ## [v1.1.0] - 2026-01-01
 ### Added
 - `/similar` command for semantic similarity search of LeetCode problems using embeddings.
