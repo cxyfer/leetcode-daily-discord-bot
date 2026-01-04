@@ -12,6 +12,7 @@ from embeddings import (
 from utils.config import get_config
 from utils.database import EmbeddingDatabaseManager
 from utils.logger import get_commands_logger
+from utils.source_detector import looks_like_problem_id
 from utils.ui_constants import (
     DEFAULT_COLOR,
     FIELD_EMOJIS,
@@ -21,7 +22,6 @@ from utils.ui_constants import (
     PROBLEMS_PER_FIELD,
 )
 from utils.ui_helpers import get_difficulty_emoji
-from utils.source_detector import looks_like_problem_id
 
 
 class SimilarCog(commands.Cog):
@@ -112,7 +112,7 @@ class SimilarCog(commands.Cog):
             await interaction.followup.send(
                 "搜尋服務暫時不可用，請稍後再試", ephemeral=not public
             )
-            
+
     def _truncate_text(self, text: str, max_length: int = MAX_FIELD_LENGTH) -> str:
         """Helper to truncate text with ellipsis if it exceeds max_length."""
         suffix = "..."
@@ -127,7 +127,7 @@ class SimilarCog(commands.Cog):
         show_source = source is None
         title = f"{FIELD_EMOJIS['search']} 相似題目搜尋結果"
         embed = discord.Embed(title=title, color=DEFAULT_COLOR)
-        
+
         # Truncate content to avoid Discord limits (1024 chars per field value)
         display_query = self._truncate_text(query)
         display_rewritten = self._truncate_text(rewritten_query)
@@ -157,13 +157,13 @@ class SimilarCog(commands.Cog):
             )
             similarity = result.get("similarity", 0)
             link = result.get("link") or ""
-            
+
             source_tag = ""
             if show_source:
                 source_tag = f"[{result.get('source', 'unknown')}]"
-            
+
             source_fragment = f" {source_tag}" if source_tag else ""
-            
+
             if link:
                 line = f"{idx}. {emoji} [{problem_id}. {problem_title}]({link}){source_fragment} · {similarity:.2f}"
             else:

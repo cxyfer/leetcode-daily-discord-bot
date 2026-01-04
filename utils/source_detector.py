@@ -105,11 +105,11 @@ def looks_like_problem_id(problem_id: str) -> bool:
     pid = str(problem_id).strip()
     if not pid:
         return False
-    
+
     # Treat platform URLs as valid problem identifiers
-    if (LEETCODE_URL_RE.search(pid) or 
-        ATCODER_URL_RE.search(pid) or 
-        CODEFORCES_URL_RE.search(pid) or 
+    if (LEETCODE_URL_RE.search(pid) or
+        ATCODER_URL_RE.search(pid) or
+        CODEFORCES_URL_RE.search(pid) or
         LUOGU_URL_RE.search(pid)):
         return True
 
@@ -123,7 +123,7 @@ def looks_like_problem_id(problem_id: str) -> bool:
             source, sub_pid = parts
             if source.lower() in VALID_PREFIX_SOURCES:
                 return looks_like_problem_id(sub_pid)
-    
+
     if pid.isdigit():
         return True
     if ATCODER_ID_RE.match(pid):

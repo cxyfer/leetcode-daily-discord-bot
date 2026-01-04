@@ -1,15 +1,22 @@
-import os
 import asyncio
+import os
+
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-from utils.logger import get_core_logger
-from utils.config import EmbeddingModelConfig, RewriteModelConfig, SimilarConfig, get_config
 
 from leetcode import LeetCodeClient  # html_to_text 會在 cog 中使用
 from llms import GeminiLLM
 from utils import SettingsDatabaseManager
-from utils.database import LLMTranslateDatabaseManager, LLMInspireDatabaseManager
+from utils.config import (
+    EmbeddingModelConfig,
+    RewriteModelConfig,
+    SimilarConfig,
+    get_config,
+)
+from utils.database import LLMInspireDatabaseManager, LLMTranslateDatabaseManager
+from utils.logger import get_core_logger
+
 # from discord.ui import View, Button # Button 和 View 會在 cog 中使用
 
 # Load configuration

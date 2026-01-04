@@ -2,15 +2,16 @@
 Unit tests for monthly daily challenge fetching functionality
 """
 
-import pytest
-import pytest_asyncio
 import asyncio
-import aiohttp
-from unittest.mock import Mock, patch, AsyncMock
 
 # Import the module to test
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, Mock, patch
+
+import aiohttp
+import pytest
+import pytest_asyncio
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
