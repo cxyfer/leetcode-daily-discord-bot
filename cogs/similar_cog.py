@@ -12,7 +12,14 @@ from embeddings import (
 from utils.config import get_config
 from utils.database import EmbeddingDatabaseManager
 from utils.logger import get_commands_logger
-from utils.ui_constants import DEFAULT_COLOR, FIELD_EMOJIS, LEETCODE_LOGO_URL
+from utils.ui_constants import (
+    DEFAULT_COLOR,
+    FIELD_EMOJIS,
+    LEETCODE_LOGO_URL,
+    MAX_FIELD_LENGTH,
+    NON_DIFFICULTY_EMOJI,
+    PROBLEMS_PER_FIELD,
+)
 from utils.ui_helpers import get_difficulty_emoji
 from utils.source_detector import looks_like_problem_id
 
@@ -70,7 +77,7 @@ class SimilarCog(commands.Cog):
             )
             return
 
-        top_k = max(1, min(top_k, 10))
+        top_k = max(1, min(top_k, 20))
         source_input = (source or "").strip().lower()
         source_filter = (
             None if not source_input or source_input == "all" else source_input
@@ -98,49 +105,105 @@ class SimilarCog(commands.Cog):
                 self.similar_config.min_similarity,
             )
 
-            embed = await self.create_results_embed(query, results, source_filter)
+            embed = await self.create_results_embed(query, rewritten, results, source_filter)
             await interaction.followup.send(embed=embed, ephemeral=not public)
         except Exception as exc:
             self.logger.error("/similar failed: %s", exc, exc_info=True)
             await interaction.followup.send(
                 "搜尋服務暫時不可用，請稍後再試", ephemeral=not public
             )
+            
+    def _truncate_text(self, text: str, max_length: int = MAX_FIELD_LENGTH) -> str:
+        """Helper to truncate text with ellipsis if it exceeds max_length."""
+        suffix = "..."
+        if len(text) <= max_length:
+            return text
+        return text[: max_length - len(suffix)] + suffix
 
-    async def create_results_embed(self, query: str, results: list, source: str | None):
+    async def create_results_embed(
+        self, query: str, rewritten_query: str, results: list, source: str | None
+    ):
         display_source = source or "all"
         show_source = source is None
         title = f"{FIELD_EMOJIS['search']} 相似題目搜尋結果"
         embed = discord.Embed(title=title, color=DEFAULT_COLOR)
-        embed.description = f"查詢內容：{query}"
+        
+        # Truncate content to avoid Discord limits (1024 chars per field value)
+        display_query = self._truncate_text(query)
+        display_rewritten = self._truncate_text(rewritten_query)
+
+        embed.add_field(name="❓ 原始查詢", value=display_query, inline=False)
+        embed.add_field(name="🤖 AI 重寫", value=display_rewritten, inline=False)
 
         if not results:
             embed.add_field(
-                name="結果",
+                name="🔍 搜尋結果",
                 value="找不到相似題目，請嘗試更詳細的描述",
                 inline=False,
             )
             return embed
 
-        lines = []
+        # Build result fields respecting both problem count and Discord's field length limit
+        current_lines: list[str] = []
+        current_length = 0  # total characters in "\n".join(current_lines)
+        start_idx_for_field = 1
+
         for idx, result in enumerate(results, start=1):
             problem_id = result.get("problem_id")
             problem_title = result.get("title") or f"Problem {problem_id}"
             difficulty = result.get("difficulty") or "Unknown"
             emoji = (
-                get_difficulty_emoji(difficulty) if result.get("difficulty") else "⚪"
+                get_difficulty_emoji(difficulty) if result.get("difficulty") else NON_DIFFICULTY_EMOJI
             )
             similarity = result.get("similarity", 0)
             link = result.get("link") or ""
+            
             source_tag = ""
             if show_source:
-                source_tag = f"[{result.get('source', 'unknown')}] "
+                source_tag = f"[{result.get('source', 'unknown')}]"
+            
+            source_fragment = f" {source_tag}" if source_tag else ""
+            
             if link:
-                line = f"{idx}. {source_tag}{emoji} [{problem_id}. {problem_title}]({link}) · {similarity:.2f}"
+                line = f"{idx}. {emoji} [{problem_id}. {problem_title}]({link}){source_fragment} · {similarity:.2f}"
             else:
-                line = f"{idx}. {source_tag}{emoji} {problem_id}. {problem_title} · {similarity:.2f}"
-            lines.append(line)
+                line = f"{idx}. {emoji} {problem_id}. {problem_title}{source_fragment} · {similarity:.2f}"
 
-        embed.add_field(name="結果", value="\n".join(lines), inline=False)
+            # Ensure an individual line never exceeds the field limit (minus safety margin)
+            if len(line) > MAX_FIELD_LENGTH:
+                line = self._truncate_text(line)
+
+            # Determine if we need to start a new field before adding this line
+            additional_length = len(line) + (1 if current_lines else 0)  # +1 for newline if not first line
+            exceeds_length = current_length + additional_length > MAX_FIELD_LENGTH
+            exceeds_count = len(current_lines) >= PROBLEMS_PER_FIELD
+
+            if current_lines and (exceeds_length or exceeds_count):
+                end_idx_for_field = idx - 1
+                field_name = f"🔍 搜尋結果 ({start_idx_for_field}-{end_idx_for_field})"
+                embed.add_field(
+                    name=field_name,
+                    value="\n".join(current_lines),
+                    inline=False,
+                )
+                # Start a new field with the current line
+                current_lines = [line]
+                current_length = len(line)
+                start_idx_for_field = idx
+            else:
+                current_lines.append(line)
+                current_length += additional_length
+
+        # Flush any remaining lines into a final field
+        if current_lines:
+            end_idx_for_field = len(results)
+            field_name = f"🔍 搜尋結果 ({start_idx_for_field}-{end_idx_for_field})"
+            embed.add_field(
+                name=field_name,
+                value="\n".join(current_lines),
+                inline=False,
+            )
+
         embed.set_footer(text=f"Source: {display_source}", icon_url=LEETCODE_LOGO_URL)
         return embed
 
