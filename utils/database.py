@@ -367,7 +367,8 @@ class ProblemsDatabaseManager:
             inserted_count = cursor.rowcount
 
             logger.info(
-                f"Batch inserted {inserted_count}/{total_count} problems (ignored {total_count - inserted_count} existing problems)"
+                f"Batch inserted {inserted_count}/{total_count} problems "
+                f"(ignored {total_count - inserted_count} existing problems)"
             )
             return inserted_count
 
@@ -383,7 +384,8 @@ class ProblemsDatabaseManager:
 
         Args:
             problem (dict): problem data, must contain id or slug field for identification
-            force_update (bool, optional): force update all fields. If False, empty values will not overwrite existing data. Default is False.
+            force_update (bool, optional): force update all fields. If False, empty values will not overwrite
+                                       existing data. Default is False.
 
         Returns:
             bool: True if update succeeded, False otherwise
@@ -802,7 +804,8 @@ class LLMInspireDatabaseManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT thinking, traps, algorithms, inspiration, created_at, model_name FROM llm_inspire_results WHERE problem_id = ? AND domain = ?",
+            "SELECT thinking, traps, algorithms, inspiration, created_at, model_name "
+            "FROM llm_inspire_results WHERE problem_id = ? AND domain = ?",
             (problem_id, domain),
         )
         row = cursor.fetchone()
@@ -858,7 +861,8 @@ class LLMInspireDatabaseManager:
 
         cursor.execute(
             """
-        INSERT OR REPLACE INTO llm_inspire_results (problem_id, domain, thinking, traps, algorithms, inspiration, created_at, model_name)
+        INSERT OR REPLACE INTO llm_inspire_results
+        (problem_id, domain, thinking, traps, algorithms, inspiration, created_at, model_name)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
@@ -953,25 +957,10 @@ class DailyChallengeDatabaseManager:
         try:
             cursor.execute(
                 """
-            INSERT INTO daily_challenge (date, domain, id, slug, title, title_cn, difficulty, ac_rate, rating, contest, problem_index, tags, link, category, paid_only, content, content_cn, similar_questions)
+            INSERT INTO daily_challenge
+            (date, domain, id, slug, title, title_cn, difficulty, ac_rate, rating, contest,
+             problem_index, tags, link, category, paid_only, content, content_cn, similar_questions)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(date, domain) DO UPDATE SET
-                id=excluded.id,
-                slug=excluded.slug,
-                title=excluded.title,
-                title_cn=excluded.title_cn,
-                difficulty=excluded.difficulty,
-                ac_rate=excluded.ac_rate,
-                rating=excluded.rating,
-                contest=excluded.contest,
-                problem_index=excluded.problem_index,
-                tags=excluded.tags,
-                link=excluded.link,
-                category=excluded.category,
-                paid_only=excluded.paid_only,
-                content=excluded.content,
-                content_cn=excluded.content_cn,
-                similar_questions=excluded.similar_questions
             """,
                 (
                     daily.get("date"),

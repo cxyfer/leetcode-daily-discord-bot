@@ -47,7 +47,8 @@ class SlashCommandsCog(commands.Cog):
             await schedule_cog.reschedule_daily_challenge(server_id)
         else:
             self.logger.warning(
-                f"ScheduleManagerCog not found during {context} for server {server_id}. Scheduling may not update immediately."
+                f"ScheduleManagerCog not found during {context} for server {server_id}. "
+                "Scheduling may not update immediately."
             )
 
     @app_commands.command(name="daily", description="取得 LeetCode 每日挑戰 (LCUS)")
@@ -257,7 +258,8 @@ class SlashCommandsCog(commands.Cog):
                 )
                 if detected_source == "unknown":
                     await interaction.response.send_message(
-                        f"無法判斷 '{id_str}' 的來源。請使用 source:id 格式（如 atcoder:abc001_a）、題目 URL，或指定 source 參數",
+                        f"無法判斷 '{id_str}' 的來源。請使用 source:id 格式（如 atcoder:abc001_a）、"
+                        "題目 URL，或指定 source 參數",
                         ephemeral=not public,
                     )
                     return
