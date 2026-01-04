@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-import aiohttp
+from curl_cffi.requests import AsyncSession
 from bs4 import BeautifulSoup
 
 from utils.database import ProblemsDatabaseManager
@@ -17,12 +17,14 @@ from utils.logger import get_leetcode_logger
 
 logger = get_leetcode_logger()
 
-USER_AGENT = "LeetCodeDailyDiscordBot/1.0"
+# 使用 curl_cffi 時，盡量減少手動標頭，讓 impersonate 自動處理
 RATE_LIMIT_MARKERS = (
     "too many requests",
     "please wait",
     "captcha",
     "call limit exceeded",
+    "attention required",
+    "cloudflare",
 )
 
 
@@ -37,7 +39,7 @@ class CodeforcesClient:
         self,
         data_dir: str = "data",
         db_path: str = "data/data.db",
-        rate_limit: float = 2.0,
+        rate_limit: float = 3.0,
         max_retries: int = 3,
         backoff_base: float = 2.0,
         max_backoff: float = 60.0,
@@ -50,14 +52,11 @@ class CodeforcesClient:
         self.max_retries = max_retries
         self.backoff_base = backoff_base
         self.max_backoff = max_backoff
-        self._last_request_at = 0.0
+        self._last_request_at = time.monotonic() - rate_limit
 
     def _headers(self, referer: Optional[str] = None) -> dict:
-        headers = {
-            "User-Agent": USER_AGENT,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-        }
+        # curl_cffi 的 impersonate 會處理大部分標頭
+        headers = {}
         if referer:
             headers["Referer"] = referer
         return headers
@@ -72,32 +71,52 @@ class CodeforcesClient:
     def _is_rate_limited(self, html: str) -> bool:
         if not html:
             return False
+        
+        # 如果能找到題目敘述，表示沒有被擋
+        if "div.problem-statement" in html or 'class="problem-statement"' in html:
+            return False
+
         text = html.lower()
-        if "/enter" in text:
+        # 檢查標題是否為 Cloudflare 的特徵
+        if "<title>attention required! | cloudflare</title>" in text:
             return True
-        return any(marker in text for marker in RATE_LIMIT_MARKERS)
+        if "<title>just a moment...</title>" in text:
+            return True
+            
+        # 只有在非常短的頁面中才檢查關鍵字，避免誤判
+        if len(html) < 5000:
+            if "/enter" in text:
+                return True
+            return any(marker in text for marker in RATE_LIMIT_MARKERS)
+            
+        return False
 
     async def _fetch_text(
         self,
-        session: aiohttp.ClientSession,
+        session: AsyncSession,
         url: str,
         referer: Optional[str] = None,
     ) -> Optional[str]:
         for attempt in range(1, self.max_retries + 1):
             await self._throttle()
             try:
-                async with session.get(url, headers=self._headers(referer)) as response:
-                    if response.status in {429, 403, 503}:
-                        backoff = min(
-                            self.max_backoff, self.backoff_base * (2 ** (attempt - 1))
-                        )
-                        logger.warning("Rate limited (%s). Backing off %.1fs", url, backoff)
-                        await asyncio.sleep(backoff)
-                        continue
-                    if response.status >= 400:
-                        logger.warning("HTTP %s while fetching %s", response.status, url)
-                        return None
-                    text = await response.text()
+                headers = self._headers(referer)
+                # 使用 impersonate="chrome124" 模擬真實瀏覽器 TLS 指紋
+                response = await session.get(url, headers=headers, timeout=30)
+                
+                if response.status_code in {429, 403, 503}:
+                    backoff = min(
+                        self.max_backoff, self.backoff_base * (2 ** (attempt - 1))
+                    )
+                    logger.warning("Blocked or Rate limited (%s, status=%s). Backing off %.1fs", url, response.status_code, backoff)
+                    await asyncio.sleep(backoff)
+                    continue
+                
+                if response.status_code >= 400:
+                    logger.warning("HTTP %s while fetching %s", response.status_code, url)
+                    return None
+                
+                text = response.text
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -112,7 +131,7 @@ class CodeforcesClient:
             if self._is_rate_limited(text):
                 backoff = min(self.max_backoff, self.backoff_base * (2 ** (attempt - 1)))
                 logger.warning(
-                    "Rate limited or login page (%s). Backing off %.1fs", url, backoff
+                    "Rate limited page content detected (%s). Backing off %.1fs", url, backoff
                 )
                 await asyncio.sleep(backoff)
                 continue
@@ -120,7 +139,7 @@ class CodeforcesClient:
         return None
 
     async def _fetch_json(
-        self, session: aiohttp.ClientSession, url: str
+        self, session: AsyncSession, url: str
     ) -> Optional[dict]:
         text = await self._fetch_text(session, url)
         if not text:
@@ -182,7 +201,7 @@ class CodeforcesClient:
         return merged
 
     async def sync_problemset(self) -> list[dict]:
-        async with aiohttp.ClientSession() as session:
+        async with AsyncSession(impersonate="chrome124") as session:
             payload = await self._fetch_json(session, self.PROBLEMSET_API)
         if not payload:
             return []
@@ -213,7 +232,7 @@ class CodeforcesClient:
     async def fetch_contest_list(self, include_gym: bool = False) -> list[int]:
         gym_flag = "true" if include_gym else "false"
         url = f"{self.CONTEST_LIST_API}?gym={gym_flag}"
-        async with aiohttp.ClientSession() as session:
+        async with AsyncSession(impersonate="chrome124") as session:
             payload = await self._fetch_json(session, url)
         if not payload:
             return []
@@ -238,7 +257,7 @@ class CodeforcesClient:
         return contest_ids
 
     async def fetch_contest_problems(
-        self, contest_id: int, session: aiohttp.ClientSession
+        self, contest_id: int, session: AsyncSession
     ) -> list[dict]:
         url = f"{self.CONTEST_STANDINGS_API}?contestId={contest_id}&from=1&count=1"
         payload = await self._fetch_json(session, url)
@@ -279,7 +298,7 @@ class CodeforcesClient:
         return self._fix_relative_urls(str(statement), "https://codeforces.com")
 
     async def fetch_problem_content(
-        self, session: aiohttp.ClientSession, contest_id: int, index: str
+        self, session: AsyncSession, contest_id: int, index: str
     ) -> Optional[str]:
         base_url = self.PROBLEM_URL_TEMPLATE.format(contest_id=contest_id, index=index)
         referer = f"https://codeforces.com/contest/{contest_id}"
@@ -287,19 +306,13 @@ class CodeforcesClient:
         if not html:
             logger.warning("Empty content while fetching %s", base_url)
             return None
-        if "/enter" in html.lower():
-            logger.warning("Login required while fetching %s", base_url)
-            return None
-        if self._is_rate_limited(html):
-            logger.warning("Rate limited while fetching %s", base_url)
-            return None
         content = self._extract_problem_statement(html)
         if not content:
             logger.warning("Problem statement missing for %s", base_url)
         return content
 
     async def fetch_content_by_url(
-        self, session: aiohttp.ClientSession, url: str
+        self, session: AsyncSession, url: str
     ) -> Optional[str]:
         separator = "&" if "?" in url else "?"
         html = await self._fetch_text(session, f"{url}{separator}locale=en", referer=url)
@@ -308,16 +321,13 @@ class CodeforcesClient:
         if "/enter" in html.lower():
             logger.warning("Login required while fetching %s", url)
             return None
-        if self._is_rate_limited(html):
-            logger.warning("Rate limited while fetching %s", url)
-            return None
         content = self._extract_problem_statement(html)
         if not content:
             logger.warning("Problem statement missing for %s", url)
         return content
 
     async def fetch_single_contest(self, contest_id: int) -> int:
-        async with aiohttp.ClientSession() as session:
+        async with AsyncSession(impersonate="chrome124") as session:
             problems = await self.fetch_contest_problems(contest_id, session)
             if not problems:
                 return 0
@@ -338,7 +348,7 @@ class CodeforcesClient:
         progress = self.get_progress() if resume else {"fetched_contests": []}
         fetched = {str(contest_id) for contest_id in progress.get("fetched_contests", [])}
         total = 0
-        async with aiohttp.ClientSession() as session:
+        async with AsyncSession(impersonate="chrome124") as session:
             for contest_id in contests:
                 if str(contest_id) in fetched:
                     continue
@@ -368,7 +378,7 @@ class CodeforcesClient:
         filled = 0
         logger.info("Fetching missing content for %s problems...", total)
 
-        async with aiohttp.ClientSession() as session:
+        async with AsyncSession(impersonate="chrome124") as session:
             for index, (problem_id, link) in enumerate(missing, start=1):
                 content = await self.fetch_content_by_url(session, link)
                 if content:
@@ -450,6 +460,11 @@ async def main() -> None:
         help="Show missing content count",
     )
     parser.add_argument(
+        "--missing-problems",
+        action="store_true",
+        help="Print IDs of problems missing content",
+    )
+    parser.add_argument(
         "--include-gym",
         action="store_true",
         help="Include gym contests in contest list",
@@ -481,6 +496,7 @@ async def main() -> None:
         or args.status
         or args.fill_missing_content
         or args.missing_content_stats
+        or args.missing_problems
     ):
         parser.print_help()
         return
@@ -503,6 +519,11 @@ async def main() -> None:
     if args.missing_content_stats:
         count = client.problems_db.count_missing_content(source="codeforces")
         print(f"Missing content: {count}")
+        
+    if args.missing_problems:
+        missing = client.problems_db.get_problems_missing_content(source="codeforces")
+        for problem_id, _ in missing:
+            print(problem_id)
 
 
 if __name__ == "__main__":
