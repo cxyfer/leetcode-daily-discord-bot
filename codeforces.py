@@ -125,6 +125,85 @@ class CodeforcesClient:
             logger.error("Invalid JSON from %s: %s", url, exc)
             return None
 
+    def _build_problem_from_api(self, problem: dict, stats: dict) -> Optional[dict]:
+        contest_id = problem.get("contestId")
+        index = problem.get("index")
+        title = problem.get("name")
+        if contest_id is None or not index or not title:
+            return None
+        slug = f"{contest_id}{index}"
+        return {
+            "id": slug,
+            "source": "codeforces",
+            "slug": slug,
+            "title": title,
+            "title_cn": "",
+            "difficulty": None,
+            "ac_rate": None,
+            "rating": problem.get("rating"),
+            "contest": str(contest_id),
+            "problem_index": index,
+            "tags": problem.get("tags", []),
+            "link": self.PROBLEM_URL_TEMPLATE.format(contest_id=contest_id, index=index),
+            "category": "Algorithms",
+            "paid_only": 0,
+            "content": None,
+            "content_cn": None,
+            "similar_questions": None,
+        }
+
+    def _serialize_tags(self, tags) -> str:
+        if tags is None:
+            return json.dumps([])
+        if isinstance(tags, str):
+            try:
+                json.loads(tags)
+                return tags
+            except json.JSONDecodeError:
+                return json.dumps([tags])
+        return json.dumps(list(tags))
+
+    def _merge_problemset(self, problems: list[dict], stats: list[dict]) -> list[dict]:
+        stats_map = {
+            (item.get("contestId"), item.get("index")): item for item in stats or []
+        }
+        merged: list[dict] = []
+        for problem in problems or []:
+            key = (problem.get("contestId"), problem.get("index"))
+            merged_problem = self._build_problem_from_api(problem, stats_map.get(key, {}))
+            if merged_problem:
+                merged.append(merged_problem)
+        return merged
+
+    async def sync_problemset(self) -> list[dict]:
+        async with aiohttp.ClientSession() as session:
+            payload = await self._fetch_json(session, self.PROBLEMSET_API)
+        if not payload:
+            return []
+        if payload.get("status") != "OK":
+            logger.warning("Problemset API error: %s", payload.get("comment"))
+            return []
+
+        result = payload.get("result") or {}
+        problems = self._merge_problemset(
+            result.get("problems", []), result.get("problemStatistics", [])
+        )
+        if not problems:
+            return []
+
+        problems_for_insert = [
+            {**problem, "tags": self._serialize_tags(problem.get("tags"))}
+            for problem in problems
+        ]
+        inserted = self.problems_db.update_problems(problems_for_insert)
+        logger.info(
+            "Problemset sync: %s problems fetched, %s inserted, %s skipped (existing)",
+            len(problems),
+            inserted,
+            len(problems) - inserted,
+        )
+        return problems
+
     def get_progress(self) -> dict:
         if not self.progress_file.exists():
             return {"fetched_contests": [], "last_updated": None, "last_contest_id": None}
