@@ -227,6 +227,8 @@ Use the CLI to build and maintain the embedding index for `/similar`:
 ```
 uv run python embedding_cli.py --stats
 uv run python embedding_cli.py --build --dry-run
+uv run python embedding_cli.py --build --dry-run --source codeforces
+uv run python embedding_cli.py --build --dry-run --source all
 uv run python embedding_cli.py --build
 uv run python embedding_cli.py --rebuild
 uv run python embedding_cli.py --query "two sum"
