@@ -26,9 +26,7 @@ async def test_sync_problemset_parses_api(tmp_path):
                     "tags": ["math"],
                 }
             ],
-            "problemStatistics": [
-                {"contestId": 2082, "index": "A", "solvedCount": 1000}
-            ],
+            "problemStatistics": [{"contestId": 2082, "index": "A", "solvedCount": 1000}],
         },
     }
     client._fetch_json = AsyncMock(return_value=api_response)
@@ -42,9 +40,7 @@ async def test_sync_problemset_parses_api(tmp_path):
 @pytest.mark.asyncio
 async def test_problemset_api_error_returns_empty(tmp_path):
     client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
-    client._fetch_json = AsyncMock(
-        return_value={"status": "FAILED", "comment": "Call limit exceeded"}
-    )
+    client._fetch_json = AsyncMock(return_value={"status": "FAILED", "comment": "Call limit exceeded"})
 
     problems = await client.sync_problemset()
 
@@ -143,9 +139,7 @@ async def test_fetch_problem_content_extracts_statement(tmp_path):
     """
     client._fetch_text = AsyncMock(return_value=html)
 
-    content = await client.fetch_problem_content(
-        session=object(), contest_id=2082, index="A"
-    )
+    content = await client.fetch_problem_content(session=object(), contest_id=2082, index="A")
 
     assert "https://codeforces.com/predownloaded/test.png" in content
     assert "https://codeforces.com/contest/1234" in content
