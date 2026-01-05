@@ -92,7 +92,7 @@ async def create_problem_embed(
             embed.set_author(name=f"{user.display_name}", icon_url=user.display_avatar.url)
         if message:
             embed.description = message
-        embed.add_field(name="Source", value=source_label, inline=True)
+        embed.add_field(name="Source", value=source_label, inline=False)
         if problem_info.get("difficulty"):
             embed.add_field(
                 name=f"{FIELD_EMOJIS['difficulty']} Difficulty",
