@@ -61,9 +61,7 @@ async def test_fetch_problem_content_prefers_english(tmp_path):
     """
     client._fetch_text = AsyncMock(return_value=html)
 
-    content = await client.fetch_problem_content(
-        session=object(), contest_id="abc001", problem_id="abc001_a"
-    )
+    content = await client.fetch_problem_content(session=object(), contest_id="abc001", problem_id="abc001_a")
 
     assert "lang-en" in content
 
@@ -71,13 +69,11 @@ async def test_fetch_problem_content_prefers_english(tmp_path):
 @pytest.mark.asyncio
 async def test_fetch_problem_content_fallbacks_to_japanese(tmp_path):
     client = AtCoderClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
-    html_en = "<div id=\"task-statement\"></div>"
-    html_ja = "<span class=\"lang-ja\">Japanese</span>"
+    html_en = '<div id="task-statement"></div>'
+    html_ja = '<span class="lang-ja">Japanese</span>'
     client._fetch_text = AsyncMock(side_effect=[html_en, html_ja])
 
-    content = await client.fetch_problem_content(
-        session=object(), contest_id="abc001", problem_id="abc001_a"
-    )
+    content = await client.fetch_problem_content(session=object(), contest_id="abc001", problem_id="abc001_a")
 
     assert "lang-ja" in content
 

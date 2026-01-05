@@ -7,9 +7,7 @@ from utils.source_detector import detect_source, looks_like_problem_id
 
 
 def test_detect_source_atcoder_url():
-    source, pid = detect_source(
-        "https://atcoder.jp/contests/abc001/tasks/abc001_a"
-    )
+    source, pid = detect_source("https://atcoder.jp/contests/abc001/tasks/abc001_a")
     assert source == "atcoder"
     assert pid == "abc001_a"
 
@@ -37,23 +35,17 @@ def test_detect_source_leetcode_contest_url():
 
 def test_detect_source_leetcode_description_url():
     # Description suffix
-    source, pid = detect_source(
-        "https://leetcode.cn/problems/maximum-building-height/description/"
-    )
+    source, pid = detect_source("https://leetcode.cn/problems/maximum-building-height/description/")
     assert source == "leetcode"
     assert pid == "maximum-building-height"
 
 
 def test_detect_source_codeforces_url():
-    source, pid = detect_source(
-        "https://codeforces.com/contest/1234/problem/A"
-    )
+    source, pid = detect_source("https://codeforces.com/contest/1234/problem/A")
     assert source == "codeforces"
     assert pid == "1234A"
 
-    source, pid = detect_source(
-        "https://codeforces.com/problemset/problem/1234/B"
-    )
+    source, pid = detect_source("https://codeforces.com/problemset/problem/1234/B")
     assert source == "codeforces"
     assert pid == "1234B"
 
@@ -104,6 +96,7 @@ def test_detect_source_prefix():
     source, pid = detect_source("atcoder:abc001_a")
     assert source == "atcoder"
     assert pid == "abc001_a"
+
 
 def test_detect_source_invalid_prefix():
     # "invalid" is not a known source, so it should NOT return source="invalid"
@@ -189,7 +182,7 @@ def test_looks_like_problem_id_detection():
 
     # Negative cases
     assert not looks_like_problem_id("invalid:abc")
-    assert not looks_like_problem_id("abc:def:ghi") # "abc" is not a valid source
+    assert not looks_like_problem_id("abc:def:ghi")  # "abc" is not a valid source
 
     # Recursive valid case
     # "atcoder:..." is valid if "..." is valid.

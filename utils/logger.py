@@ -52,9 +52,7 @@ class ColoredFormatter(logging.Formatter):
         # Add color to the level name
         levelname = record.levelname
         if levelname in self.COLORS:
-            record.levelname = (
-                f"{self.COLORS[levelname]}{levelname}{self.COLORS['RESET']}"
-            )
+            record.levelname = f"{self.COLORS[levelname]}{levelname}{self.COLORS['RESET']}"
 
         # Call parent format method
         result = super().format(record)
@@ -121,9 +119,7 @@ class Logger:
 
             config = get_config()
             logger_config = config.get_section("logging")
-            GLOBAL_LOG_LEVEL = _resolve_log_level(
-                logger_config.get("level", "INFO"), logging.INFO
-            )
+            GLOBAL_LOG_LEVEL = _resolve_log_level(logger_config.get("level", "INFO"), logging.INFO)
             GLOBAL_LOG_DIR = logger_config.get("directory", "./logs")
             GLOBAL_MODULE_LEVELS = {
                 module: _resolve_log_level(level, logging.INFO)
@@ -134,8 +130,7 @@ class Logger:
                 import sys
 
                 sys.stderr.write(
-                    "Warning: Failed to load logging config from config.toml, "
-                    f"using defaults. Error: {exc}\n"
+                    f"Warning: Failed to load logging config from config.toml, using defaults. Error: {exc}\n"
                 )
             except Exception:
                 pass
@@ -144,18 +139,12 @@ class Logger:
 
         # Create formatters
         stream_formatter = ColoredFormatter(
-            fmt=(
-                "%(asctime)s | %(levelname)-17s | %(fileloc)-32s | "
-                "%(message)s"
-            ),
+            fmt=("%(asctime)s | %(levelname)-17s | %(fileloc)-32s | %(message)s"),
             datefmt="%Y-%m-%d %H:%M:%S",
         )
 
         file_formatter = logging.Formatter(
-            fmt=(
-                "%(asctime)s | %(levelname)-8s | %(fileloc)-32s | "
-                "%(message)s"
-            ),
+            fmt=("%(asctime)s | %(levelname)-8s | %(fileloc)-32s | %(message)s"),
             datefmt="%Y-%m-%d %H:%M:%S",
         )
 
@@ -165,9 +154,7 @@ class Logger:
 
         # Set up file handler with daily rotating files
         current_date = datetime.now().strftime("%Y-%m-%d")
-        file_handler = logging.FileHandler(
-            filename=f"{GLOBAL_LOG_DIR}/{current_date}.log", encoding="utf-8"
-        )
+        file_handler = logging.FileHandler(filename=f"{GLOBAL_LOG_DIR}/{current_date}.log", encoding="utf-8")
         file_handler.setFormatter(file_formatter)
 
         # Configure root logger

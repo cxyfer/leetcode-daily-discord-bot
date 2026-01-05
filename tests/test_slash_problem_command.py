@@ -114,8 +114,6 @@ async def test_problem_command_atcoder_multiple_sends_without_view():
     assert "view" in kwargs
     assert len(kwargs["view"].children) == 2
     for button in kwargs["view"].children:
-        emoji_value = (
-            button.emoji.name if hasattr(button.emoji, "name") else str(button.emoji)
-        )
+        emoji_value = button.emoji.name if hasattr(button.emoji, "name") else str(button.emoji)
         assert emoji_value == NON_DIFFICULTY_EMOJI
         assert button.custom_id.startswith("problem_detail|atcoder|")

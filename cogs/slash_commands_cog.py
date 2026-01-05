@@ -56,9 +56,7 @@ class SlashCommandsCog(commands.Cog):
         date="查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天，最早為 2020-04-01",
         public="是否公開顯示回覆 (預設為私密回覆)",
     )
-    async def daily_command(
-        self, interaction: discord.Interaction, date: str = None, public: bool = False
-    ):
+    async def daily_command(self, interaction: discord.Interaction, date: str = None, public: bool = False):
         """
         Get LeetCode daily challenge (LCUS)
 
@@ -66,9 +64,7 @@ class SlashCommandsCog(commands.Cog):
             interaction: Discord interaction object
             date: Optional date string in YYYY-MM-DD format. If None, returns today's challenge.
         """
-        await interaction.response.defer(
-            ephemeral=not public
-        )  # Defer as it involves API calls
+        await interaction.response.defer(ephemeral=not public)  # Defer as it involves API calls
 
         if date:
             # Validate date format
@@ -80,15 +76,11 @@ class SlashCommandsCog(commands.Cog):
                 return
 
             try:
-                current_client = (
-                    self.bot.lcus
-                )  # Use LCUS for historical daily challenges
+                current_client = self.bot.lcus  # Use LCUS for historical daily challenges
                 challenge_info = await current_client.get_daily_challenge(date_str=date)
 
                 if not challenge_info:
-                    await interaction.followup.send(
-                        f"找不到 {date} 的每日挑戰資料。", ephemeral=not public
-                    )
+                    await interaction.followup.send(f"找不到 {date} 的每日挑戰資料。", ephemeral=not public)
                     return
 
                 embed = await create_problem_embed(
@@ -98,26 +90,16 @@ class SlashCommandsCog(commands.Cog):
                     is_daily=True,
                     date_str=date,
                 )
-                view = await create_problem_view(
-                    problem_info=challenge_info, bot=self.bot, domain="com"
-                )
+                view = await create_problem_view(problem_info=challenge_info, bot=self.bot, domain="com")
 
-                await interaction.followup.send(
-                    embed=embed, view=view, ephemeral=not public
-                )
-                self.logger.info(
-                    f"Sent daily challenge for {date} to user {interaction.user.name}"
-                )
+                await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
+                self.logger.info(f"Sent daily challenge for {date} to user {interaction.user.name}")
 
             except ValueError as e:
                 await interaction.followup.send(f"日期錯誤：{e}", ephemeral=not public)
             except Exception as e:
-                self.logger.error(
-                    f"Error in daily_command with date {date}: {e}", exc_info=True
-                )
-                await interaction.followup.send(
-                    f"查詢每日挑戰時發生錯誤：{e}", ephemeral=not public
-                )
+                self.logger.error(f"Error in daily_command with date {date}: {e}", exc_info=True)
+                await interaction.followup.send(f"查詢每日挑戰時發生錯誤：{e}", ephemeral=not public)
         else:
             await send_daily_challenge(
                 bot=self.bot,
@@ -131,13 +113,9 @@ class SlashCommandsCog(commands.Cog):
         date="查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天，不填則為今天，最早為 2020-04-01",
         public="是否公開顯示回覆 (預設為私密回覆)",
     )
-    async def daily_cn_command(
-        self, interaction: discord.Interaction, date: str = None, public: bool = False
-    ):
+    async def daily_cn_command(self, interaction: discord.Interaction, date: str = None, public: bool = False):
         """Get LeetCode daily challenge (LCCN)"""
-        await interaction.response.defer(
-            ephemeral=not public
-        )  # Defer as it involves API calls
+        await interaction.response.defer(ephemeral=not public)  # Defer as it involves API calls
 
         if date:
             # Validate date format
@@ -149,15 +127,11 @@ class SlashCommandsCog(commands.Cog):
                 return
 
             try:
-                current_client = (
-                    self.bot.lccn
-                )  # Use LCCN for historical daily challenges
+                current_client = self.bot.lccn  # Use LCCN for historical daily challenges
                 challenge_info = await current_client.get_daily_challenge(date_str=date)
 
                 if not challenge_info:
-                    await interaction.followup.send(
-                        f"找不到 {date} 的每日挑戰資料。", ephemeral=not public
-                    )
+                    await interaction.followup.send(f"找不到 {date} 的每日挑戰資料。", ephemeral=not public)
                     return
 
                 embed = await create_problem_embed(
@@ -167,26 +141,16 @@ class SlashCommandsCog(commands.Cog):
                     is_daily=True,
                     date_str=date,
                 )
-                view = await create_problem_view(
-                    problem_info=challenge_info, bot=self.bot, domain="cn"
-                )
+                view = await create_problem_view(problem_info=challenge_info, bot=self.bot, domain="cn")
 
-                await interaction.followup.send(
-                    embed=embed, view=view, ephemeral=not public
-                )
-                self.logger.info(
-                    f"Sent daily challenge for {date} (CN) to user {interaction.user.name}"
-                )
+                await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
+                self.logger.info(f"Sent daily challenge for {date} (CN) to user {interaction.user.name}")
 
             except ValueError as e:
                 await interaction.followup.send(f"日期錯誤：{e}", ephemeral=not public)
             except Exception as e:
-                self.logger.error(
-                    f"Error in daily_cn_command with date {date}: {e}", exc_info=True
-                )
-                await interaction.followup.send(
-                    f"查詢每日挑戰時發生錯誤：{e}", ephemeral=not public
-                )
+                self.logger.error(f"Error in daily_cn_command with date {date}: {e}", exc_info=True)
+                await interaction.followup.send(f"查詢每日挑戰時發生錯誤：{e}", ephemeral=not public)
         else:
             await send_daily_challenge(
                 bot=self.bot,
@@ -227,23 +191,17 @@ class SlashCommandsCog(commands.Cog):
             source: Optional problem source override
         """
         if domain not in ["com", "cn"]:
-            await interaction.response.send_message(
-                "網域參數只能是 'com' 或 'cn'", ephemeral=not public
-            )
+            await interaction.response.send_message("網域參數只能是 'com' 或 'cn'", ephemeral=not public)
             return
 
         # Validate title length if provided
         if title and len(title) > 100:
-            await interaction.response.send_message(
-                "自定義標題不能超過 100 個字元", ephemeral=not public
-            )
+            await interaction.response.send_message("自定義標題不能超過 100 個字元", ephemeral=not public)
             return
 
         # Validate message length if provided
         if message and len(message) > 500:
-            await interaction.response.send_message(
-                "個人訊息不能超過 500 個字元", ephemeral=not public
-            )
+            await interaction.response.send_message("個人訊息不能超過 500 個字元", ephemeral=not public)
             return
 
         # Parse and validate problem IDs
@@ -253,9 +211,7 @@ class SlashCommandsCog(commands.Cog):
             resolved_problem_ids = []
 
             for id_str in id_strings:
-                detected_source, normalized_id = detect_source(
-                    id_str, explicit_source=source
-                )
+                detected_source, normalized_id = detect_source(id_str, explicit_source=source)
                 if detected_source == "unknown":
                     await interaction.response.send_message(
                         f"無法判斷 '{id_str}' 的來源。請使用 source:id 格式（如 atcoder:abc001_a）、"
@@ -275,9 +231,7 @@ class SlashCommandsCog(commands.Cog):
 
             # Limit number of problems to prevent abuse
             if len(resolved_problem_ids) > 20:
-                await interaction.response.send_message(
-                    "一次最多只能查詢 20 個題目", ephemeral=not public
-                )
+                await interaction.response.send_message("一次最多只能查詢 20 個題目", ephemeral=not public)
                 return
 
         except ValueError:
@@ -297,17 +251,11 @@ class SlashCommandsCog(commands.Cog):
             for detected_source, normalized_id in resolved_problem_ids:
                 if detected_source == "leetcode":
                     if normalized_id.isdigit():
-                        problem_info = await current_client.get_problem(
-                            problem_id=normalized_id
-                        )
+                        problem_info = await current_client.get_problem(problem_id=normalized_id)
                     else:
-                        problem_info = await current_client.get_problem(
-                            slug=normalized_id
-                        )
+                        problem_info = await current_client.get_problem(slug=normalized_id)
                 else:
-                    problem_info = current_client.problems_db.get_problem(
-                        id=normalized_id, source=detected_source
-                    )
+                    problem_info = current_client.problems_db.get_problem(id=normalized_id, source=detected_source)
                 if problem_info:
                     problems.append(problem_info)
                 else:
@@ -339,15 +287,9 @@ class SlashCommandsCog(commands.Cog):
                     title=title,
                     message=message,
                 )
-                view = await create_problem_view(
-                    problem_info=problems[0], bot=self.bot, domain=domain
-                )
-                await interaction.followup.send(
-                    embed=embed, view=view, ephemeral=not public
-                )
-                self.logger.info(
-                    f"Sent single problem {problems[0]['id']} info to user {interaction.user.name}"
-                )
+                view = await create_problem_view(problem_info=problems[0], bot=self.bot, domain=domain)
+                await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
+                self.logger.info(f"Sent single problem {problems[0]['id']} info to user {interaction.user.name}")
                 return
 
             # Multiple problems - show overview with detail buttons
@@ -372,38 +314,24 @@ class SlashCommandsCog(commands.Cog):
                 footer_icon_url=footer_icon_url,
             )
             view = create_problems_overview_view(problems, domain)
-            await interaction.followup.send(
-                embed=embed, view=view, ephemeral=not public
-            )
-            self.logger.info(
-                f"Sent {len(problems)} problems overview to user {interaction.user.name}"
-            )
+            await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
+            self.logger.info(f"Sent {len(problems)} problems overview to user {interaction.user.name}")
 
         except Exception as e:
             self.logger.error(f"Error in problem_command: {e}", exc_info=True)
-            await interaction.followup.send(
-                f"查詢題目時發生錯誤：{e}", ephemeral=not public
-            )
+            await interaction.followup.send(f"查詢題目時發生錯誤：{e}", ephemeral=not public)
 
     @problem_command.autocomplete("domain")
-    async def problem_domain_autocomplete(
-        self, interaction: discord.Interaction, current: str
-    ):
+    async def problem_domain_autocomplete(self, interaction: discord.Interaction, current: str):
         domains = ["com", "cn"]
         return [
-            app_commands.Choice(name=domain, value=domain)
-            for domain in domains
-            if current.lower() in domain.lower()
+            app_commands.Choice(name=domain, value=domain) for domain in domains if current.lower() in domain.lower()
         ]
 
-    @app_commands.command(
-        name="set_channel", description="設定 LeetCode 每日挑戰的發送頻道"
-    )
+    @app_commands.command(name="set_channel", description="設定 LeetCode 每日挑戰的發送頻道")
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def set_channel_command(
-        self, interaction: discord.Interaction, channel: discord.TextChannel
-    ):
+    async def set_channel_command(self, interaction: discord.Interaction, channel: discord.TextChannel):
         """Set the channel for sending the daily LeetCode challenge"""
         server_id = interaction.guild.id
         success = self.bot.db.set_channel(server_id, channel.id)
@@ -412,66 +340,44 @@ class SlashCommandsCog(commands.Cog):
             await interaction.response.send_message(
                 f"LeetCode 每日挑戰頻道已成功設定為 {channel.mention}", ephemeral=True
             )
-            self.logger.info(
-                f"Server {server_id} channel set to {channel.id} by {interaction.user.name}"
-            )
+            self.logger.info(f"Server {server_id} channel set to {channel.id} by {interaction.user.name}")
             # Reschedule after successful update
             await self._reschedule_if_available(server_id, "set_channel")
         else:
             # This case might happen if set_channel itself has internal logic that can fail,
             # or if the initial set_server_settings within set_channel (for a new server) fails.
-            await interaction.response.send_message(
-                "設定頻道時發生錯誤，請稍後再試。", ephemeral=True
-            )
+            await interaction.response.send_message("設定頻道時發生錯誤，請稍後再試。", ephemeral=True)
             self.logger.error(
                 f"Failed to set channel for server {server_id} to {channel.id} by {interaction.user.name}"
             )
 
     @set_channel_command.error
-    async def set_channel_command_error(
-        self, interaction: discord.Interaction, error: app_commands.AppCommandError
-    ):
+    async def set_channel_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message(
-                "您需要「管理伺服器」權限才能設定頻道。", ephemeral=True
-            )
+            await interaction.response.send_message("您需要「管理伺服器」權限才能設定頻道。", ephemeral=True)
         elif isinstance(error, app_commands.NoPrivateMessage):
-            await interaction.response.send_message(
-                "此指令不能在私訊中使用。", ephemeral=True
-            )
+            await interaction.response.send_message("此指令不能在私訊中使用。", ephemeral=True)
         else:
             self.logger.error(f"Error in set_channel_command: {error}", exc_info=True)
-            await interaction.response.send_message(
-                f"設定頻道時發生錯誤: {error}", ephemeral=True
-            )
+            await interaction.response.send_message(f"設定頻道時發生錯誤: {error}", ephemeral=True)
 
-    @app_commands.command(
-        name="set_role", description="設定 LeetCode 每日挑戰要標記的身分組"
-    )
+    @app_commands.command(name="set_role", description="設定 LeetCode 每日挑戰要標記的身分組")
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def set_role_command(
-        self, interaction: discord.Interaction, role: discord.Role
-    ):
+    async def set_role_command(self, interaction: discord.Interaction, role: discord.Role):
         """Set the role to mention for the daily LeetCode challenge"""
         server_id = interaction.guild.id
         # Check if channel is set first, as role is usually set after channel
         settings = self.bot.db.get_server_settings(server_id)
         if not settings or not settings.get("channel_id"):
-            await interaction.response.send_message(
-                "請先使用 `/set_channel` 設定每日挑戰的發送頻道。", ephemeral=True
-            )
+            await interaction.response.send_message("請先使用 `/set_channel` 設定每日挑戰的發送頻道。", ephemeral=True)
             return
 
         success = self.bot.db.set_role(server_id, role.id)
 
         if success:
-            await interaction.response.send_message(
-                f"LeetCode 每日挑戰將成功標記 {role.mention}", ephemeral=True
-            )
-            self.logger.info(
-                f"Server {server_id} role set to {role.id} by {interaction.user.name}"
-            )
+            await interaction.response.send_message(f"LeetCode 每日挑戰將成功標記 {role.mention}", ephemeral=True)
+            self.logger.info(f"Server {server_id} role set to {role.id} by {interaction.user.name}")
             # Reschedule, as role change might affect notifications if the bot logic uses it before sending.
             await self._reschedule_if_available(server_id, "set_role")
         else:
@@ -481,31 +387,19 @@ class SlashCommandsCog(commands.Cog):
                 "設定標記身分組時發生錯誤，請確認頻道是否已設定，或稍後再試。",
                 ephemeral=True,
             )
-            self.logger.error(
-                f"Failed to set role for server {server_id} to {role.id} by {interaction.user.name}"
-            )
+            self.logger.error(f"Failed to set role for server {server_id} to {role.id} by {interaction.user.name}")
 
     @set_role_command.error
-    async def set_role_command_error(
-        self, interaction: discord.Interaction, error: app_commands.AppCommandError
-    ):
+    async def set_role_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message(
-                "您需要「管理伺服器」權限才能設定身分組。", ephemeral=True
-            )
+            await interaction.response.send_message("您需要「管理伺服器」權限才能設定身分組。", ephemeral=True)
         elif isinstance(error, app_commands.NoPrivateMessage):
-            await interaction.response.send_message(
-                "此指令不能在私訊中使用。", ephemeral=True
-            )
+            await interaction.response.send_message("此指令不能在私訊中使用。", ephemeral=True)
         else:
             self.logger.error(f"Error in set_role_command: {error}", exc_info=True)
-            await interaction.response.send_message(
-                f"設定身分組時發生錯誤: {error}", ephemeral=True
-            )
+            await interaction.response.send_message(f"設定身分組時發生錯誤: {error}", ephemeral=True)
 
-    @app_commands.command(
-        name="set_post_time", description="設定 LeetCode 每日挑戰的發送時間 (HH:MM)"
-    )
+    @app_commands.command(name="set_post_time", description="設定 LeetCode 每日挑戰的發送時間 (HH:MM)")
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(manage_guild=True)
     async def set_post_time_command(self, interaction: discord.Interaction, time: str):
@@ -524,20 +418,14 @@ class SlashCommandsCog(commands.Cog):
 
         settings = self.bot.db.get_server_settings(server_id)
         if not settings or not settings.get("channel_id"):
-            await interaction.response.send_message(
-                "請先使用 `/set_channel` 設定每日挑戰的發送頻道。", ephemeral=True
-            )
+            await interaction.response.send_message("請先使用 `/set_channel` 設定每日挑戰的發送頻道。", ephemeral=True)
             return
 
         success = self.bot.db.set_post_time(server_id, time)
 
         if success:
-            await interaction.response.send_message(
-                f"每日挑戰發送時間已成功設定為 {time}", ephemeral=True
-            )
-            self.logger.info(
-                f"Server {server_id} post time set to {time} by {interaction.user.name}"
-            )
+            await interaction.response.send_message(f"每日挑戰發送時間已成功設定為 {time}", ephemeral=True)
+            self.logger.info(f"Server {server_id} post time set to {time} by {interaction.user.name}")
             # Reschedule after successful update
             await self._reschedule_if_available(server_id, "set_post_time")
         else:
@@ -545,36 +433,22 @@ class SlashCommandsCog(commands.Cog):
                 "設定發送時間時發生錯誤，請確認伺服器是否已設定發送頻道，或稍後再試。",
                 ephemeral=True,
             )
-            self.logger.error(
-                f"Failed to set post time for server {server_id} by {interaction.user.name}"
-            )
+            self.logger.error(f"Failed to set post time for server {server_id} by {interaction.user.name}")
 
     @set_post_time_command.error
-    async def set_post_time_command_error(
-        self, interaction: discord.Interaction, error: app_commands.AppCommandError
-    ):
+    async def set_post_time_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message(
-                "您需要「管理伺服器」權限才能設定發送時間。", ephemeral=True
-            )
+            await interaction.response.send_message("您需要「管理伺服器」權限才能設定發送時間。", ephemeral=True)
         elif isinstance(error, app_commands.NoPrivateMessage):
-            await interaction.response.send_message(
-                "此指令不能在私訊中使用。", ephemeral=True
-            )
+            await interaction.response.send_message("此指令不能在私訊中使用。", ephemeral=True)
         else:
             self.logger.error(f"Error in set_post_time_command: {error}", exc_info=True)
-            await interaction.response.send_message(
-                f"設定發送時間時發生錯誤: {error}", ephemeral=True
-            )
+            await interaction.response.send_message(f"設定發送時間時發生錯誤: {error}", ephemeral=True)
 
-    @app_commands.command(
-        name="set_timezone", description="設定 LeetCode 每日挑戰的發送時區"
-    )
+    @app_commands.command(name="set_timezone", description="設定 LeetCode 每日挑戰的發送時區")
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def set_timezone_command(
-        self, interaction: discord.Interaction, timezone: str
-    ):
+    async def set_timezone_command(self, interaction: discord.Interaction, timezone: str):
         """Set the timezone for sending the daily LeetCode challenge"""
         server_id = interaction.guild.id
         try:
@@ -588,20 +462,14 @@ class SlashCommandsCog(commands.Cog):
 
         settings = self.bot.db.get_server_settings(server_id)
         if not settings or not settings.get("channel_id"):
-            await interaction.response.send_message(
-                "請先使用 `/set_channel` 設定每日挑戰的發送頻道。", ephemeral=True
-            )
+            await interaction.response.send_message("請先使用 `/set_channel` 設定每日挑戰的發送頻道。", ephemeral=True)
             return
 
         success = self.bot.db.set_timezone(server_id, timezone)
 
         if success:
-            await interaction.response.send_message(
-                f"每日挑戰發送時區已成功設定為 {timezone}", ephemeral=True
-            )
-            self.logger.info(
-                f"Server {server_id} timezone set to {timezone} by {interaction.user.name}"
-            )
+            await interaction.response.send_message(f"每日挑戰發送時區已成功設定為 {timezone}", ephemeral=True)
+            self.logger.info(f"Server {server_id} timezone set to {timezone} by {interaction.user.name}")
             # Reschedule after successful update
             await self._reschedule_if_available(server_id, "set_timezone")
         else:
@@ -609,31 +477,19 @@ class SlashCommandsCog(commands.Cog):
                 "設定時區時發生錯誤，請確認伺服器是否已設定發送頻道，或稍後再試。",
                 ephemeral=True,
             )
-            self.logger.error(
-                f"Failed to set timezone for server {server_id} by {interaction.user.name}"
-            )
+            self.logger.error(f"Failed to set timezone for server {server_id} by {interaction.user.name}")
 
     @set_timezone_command.error
-    async def set_timezone_command_error(
-        self, interaction: discord.Interaction, error: app_commands.AppCommandError
-    ):
+    async def set_timezone_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message(
-                "您需要「管理伺服器」權限才能設定時區。", ephemeral=True
-            )
+            await interaction.response.send_message("您需要「管理伺服器」權限才能設定時區。", ephemeral=True)
         elif isinstance(error, app_commands.NoPrivateMessage):
-            await interaction.response.send_message(
-                "此指令不能在私訊中使用。", ephemeral=True
-            )
+            await interaction.response.send_message("此指令不能在私訊中使用。", ephemeral=True)
         else:
             self.logger.error(f"Error in set_timezone_command: {error}", exc_info=True)
-            await interaction.response.send_message(
-                f"設定時區時發生錯誤: {error}", ephemeral=True
-            )
+            await interaction.response.send_message(f"設定時區時發生錯誤: {error}", ephemeral=True)
 
-    @app_commands.command(
-        name="show_settings", description="顯示目前伺服器的 LeetCode 挑戰設定"
-    )
+    @app_commands.command(name="show_settings", description="顯示目前伺服器的 LeetCode 挑戰設定")
     @app_commands.guild_only()
     async def show_settings_command(self, interaction: discord.Interaction):
         """Show the current LeetCode challenge settings for the server"""
@@ -660,15 +516,11 @@ class SlashCommandsCog(commands.Cog):
         post_time = settings.get("post_time", DEFAULT_POST_TIME)
         timezone = settings.get("timezone", DEFAULT_TIMEZONE)
 
-        embed = create_settings_embed(
-            interaction.guild.name, channel_mention, role_mention, post_time, timezone
-        )
+        embed = create_settings_embed(interaction.guild.name, channel_mention, role_mention, post_time, timezone)
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @app_commands.command(
-        name="recent", description="查看 LeetCode 使用者的近期解題紀錄 (僅限 LCUS)"
-    )
+    @app_commands.command(name="recent", description="查看 LeetCode 使用者的近期解題紀錄 (僅限 LCUS)")
     @app_commands.describe(
         username="LeetCode 使用者名稱",
         limit="顯示的題目數量 (預設 20，最多 50)",
@@ -691,9 +543,7 @@ class SlashCommandsCog(commands.Cog):
         """
         # Validate limit
         if limit < 1:
-            await interaction.response.send_message(
-                "顯示數量必須至少為 1", ephemeral=not public
-            )
+            await interaction.response.send_message("顯示數量必須至少為 1", ephemeral=not public)
             return
         if limit > 50:
             limit = 50
@@ -702,9 +552,7 @@ class SlashCommandsCog(commands.Cog):
 
         try:
             # Fetch user submissions
-            submissions = await self.bot.lcus.fetch_recent_ac_submissions(
-                username, limit
-            )
+            submissions = await self.bot.lcus.fetch_recent_ac_submissions(username, limit)
 
             if not submissions:
                 await interaction.followup.send(
@@ -717,21 +565,13 @@ class SlashCommandsCog(commands.Cog):
             current_page = 0
 
             # Get detailed info for the first submission
-            first_submission = await self._get_submission_details(
-                submissions[current_page]
-            )
+            first_submission = await self._get_submission_details(submissions[current_page])
             if not first_submission:
-                await interaction.followup.send(
-                    "無法載入題目詳細資訊", ephemeral=not public
-                )
+                await interaction.followup.send("無法載入題目詳細資訊", ephemeral=not public)
                 return
 
-            embed = create_submission_embed(
-                first_submission, current_page, len(submissions), username
-            )
-            view = create_submission_view(
-                first_submission, self.bot, current_page, username, len(submissions)
-            )
+            embed = create_submission_embed(first_submission, current_page, len(submissions), username)
+            view = create_submission_view(first_submission, self.bot, current_page, username, len(submissions))
 
             # Cache submissions in interaction handler for navigation
             interaction_cog = self.bot.get_cog("InteractionHandlerCog")
@@ -743,18 +583,12 @@ class SlashCommandsCog(commands.Cog):
                     limit,
                 )
 
-            await interaction.followup.send(
-                embed=embed, view=view, ephemeral=not public
-            )
-            self.logger.info(
-                f"Sent user submissions for {username} to {interaction.user.name}"
-            )
+            await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
+            self.logger.info(f"Sent user submissions for {username} to {interaction.user.name}")
 
         except Exception as e:
             self.logger.error(f"Error in recent_command: {e}", exc_info=True)
-            await interaction.followup.send(
-                f"查詢解題紀錄時發生錯誤：{e}", ephemeral=not public
-            )
+            await interaction.followup.send(f"查詢解題紀錄時發生錯誤：{e}", ephemeral=not public)
 
     async def _get_submission_details(self, basic_submission: dict) -> dict:
         """Get detailed problem information for a submission"""
@@ -799,18 +633,14 @@ class SlashCommandsCog(commands.Cog):
 
         current_settings = self.bot.db.get_server_settings(server_id)
         if not current_settings or not current_settings.get("channel_id"):
-            await interaction.response.send_message(
-                "此伺服器尚未設定每日挑戰頻道，無需移除。", ephemeral=True
-            )
+            await interaction.response.send_message("此伺服器尚未設定每日挑戰頻道，無需移除。", ephemeral=True)
             return
 
         # Remove all settings for the server
         success = self.bot.db.delete_server_settings(server_id)
 
         if success:
-            self.logger.info(
-                f"Server {server_id} settings removed by {interaction.user.name}"
-            )
+            self.logger.info(f"Server {server_id} settings removed by {interaction.user.name}")
             # Attempt to cancel the scheduled task for this server
             await self._reschedule_if_available(server_id, "remove_server_settings")
 
@@ -818,32 +648,18 @@ class SlashCommandsCog(commands.Cog):
                 "已成功移除此伺服器的每日挑戰所有設定，將不再發送。", ephemeral=True
             )
         else:
-            self.logger.error(
-                f"Failed to remove server {server_id} settings by {interaction.user.name}"
-            )
-            await interaction.response.send_message(
-                "移除頻道設定時發生錯誤，請稍後再試。", ephemeral=True
-            )
+            self.logger.error(f"Failed to remove server {server_id} settings by {interaction.user.name}")
+            await interaction.response.send_message("移除頻道設定時發生錯誤，請稍後再試。", ephemeral=True)
 
     @remove_channel_command.error
-    async def remove_channel_command_error(
-        self, interaction: discord.Interaction, error: app_commands.AppCommandError
-    ):
+    async def remove_channel_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message(
-                "您需要「管理伺服器」權限才能移除頻道設定。", ephemeral=True
-            )
+            await interaction.response.send_message("您需要「管理伺服器」權限才能移除頻道設定。", ephemeral=True)
         elif isinstance(error, app_commands.NoPrivateMessage):
-            await interaction.response.send_message(
-                "此指令不能在私訊中使用。", ephemeral=True
-            )
+            await interaction.response.send_message("此指令不能在私訊中使用。", ephemeral=True)
         else:
-            self.logger.error(
-                f"Error in remove_channel_command: {error}", exc_info=True
-            )
-            await interaction.response.send_message(
-                f"移除頻道設定時發生錯誤: {error}", ephemeral=True
-            )
+            self.logger.error(f"Error in remove_channel_command: {error}", exc_info=True)
+            await interaction.response.send_message(f"移除頻道設定時發生錯誤: {error}", ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
