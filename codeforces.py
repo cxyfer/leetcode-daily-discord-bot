@@ -275,12 +275,82 @@ class CodeforcesClient:
             link["href"] = urljoin(base_url, href)
         return str(soup)
 
+    def _clean_problem_html(self, html: str) -> str:
+        if not html:
+            return ""
+
+        def table_to_markdown(table) -> str:
+            rows = []
+            for tr in table.find_all("tr"):
+                cells = [cell.get_text(" ", strip=True) for cell in tr.find_all(["th", "td"])]
+                if cells:
+                    rows.append(cells)
+            if not rows:
+                return ""
+            width = max(len(row) for row in rows)
+            normalized = [row + [""] * (width - len(row)) for row in rows]
+            header = normalized[0]
+            separator = ["---"] * width
+            lines = [
+                "| " + " | ".join(header) + " |",
+                "| " + " | ".join(separator) + " |",
+            ]
+            for row in normalized[1:]:
+                lines.append("| " + " | ".join(row) + " |")
+            return "\n" + "\n".join(lines) + "\n"
+
+        soup = BeautifulSoup(html, "html.parser")
+
+        # MathJax 必須在移除 script 前處理
+        for script in soup.select("script[type^='math/tex']"):
+            latex = script.get_text().strip()
+            is_display = "mode=display" in (script.get("type") or "")
+            for sibling in (script.find_previous_sibling(), script.find_next_sibling()):
+                if not sibling or not getattr(sibling, "get", None):
+                    continue
+                classes = sibling.get("class") or []
+                if any(cls.startswith("MathJax") for cls in classes):
+                    sibling.decompose()
+            if is_display:
+                script.replace_with(f"\n$$\n{latex}\n$$\n")
+            else:
+                script.replace_with(f"${latex}$")
+
+        for selector in (
+            ".header",
+            ".ojb-overlay",
+            ".html2md-panel",
+            ".likeForm",
+            ".monaco-editor",
+            ".overlay",
+        ):
+            for element in soup.select(selector):
+                element.decompose()
+
+        for tag in soup.select("script, style"):
+            tag.decompose()
+
+        for section in soup.select("div.section-title"):
+            title = section.get_text(strip=True)
+            section.replace_with(f"\n\n## {title}\n")
+
+        for section in soup.select("div.property-title"):
+            title = section.get_text(strip=True)
+            section.replace_with(f"**{title}**: ")
+
+        for table in soup.find_all("table"):
+            markdown = table_to_markdown(table)
+            table.replace_with(markdown)
+
+        return str(soup)
+
     def _extract_problem_statement(self, html: str) -> Optional[str]:
         soup = BeautifulSoup(html, "html.parser")
         statement = soup.select_one("div.problem-statement")
         if not statement:
             return None
-        return self._fix_relative_urls(str(statement), "https://codeforces.com")
+        cleaned = self._clean_problem_html(str(statement))
+        return self._fix_relative_urls(cleaned, "https://codeforces.com")
 
     async def fetch_problem_content(self, session: AsyncSession, contest_id: int, index: str) -> Optional[str]:
         base_url = self.PROBLEM_URL_TEMPLATE.format(contest_id=contest_id, index=index)
