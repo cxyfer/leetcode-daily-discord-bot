@@ -89,9 +89,7 @@ async def create_problem_embed(
             url=problem_info.get("link"),
         )
         if (title or message) and user:
-            embed.set_author(
-                name=f"{user.display_name}", icon_url=user.display_avatar.url
-            )
+            embed.set_author(name=f"{user.display_name}", icon_url=user.display_avatar.url)
         if message:
             embed.description = message
         embed.add_field(name="Source", value=source_label, inline=True)
@@ -122,9 +120,7 @@ async def create_problem_embed(
 
     # Add alternative domain link
     domain_info = DOMAIN_MAPPING[domain]
-    alt_link = problem_info["link"].replace(
-        domain_info["full_name"], domain_info["alt_full_name"]
-    )
+    alt_link = problem_info["link"].replace(domain_info["full_name"], domain_info["alt_full_name"])
     embed.description = f"> Solve on [{domain_info['alt_name']} ({domain_info['alt_full_name']})]({alt_link})."
 
     if message:
@@ -191,35 +187,21 @@ async def create_problem_embed(
     return embed
 
 
-async def create_problem_view(
-    problem_info: Dict[str, Any], bot: Any, domain: str = "com"
-) -> discord.ui.View:
+async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: str = "com") -> discord.ui.View:
     """Create a view with buttons for a problem"""
     view = discord.ui.View(timeout=None)
     source = problem_info.get("source", "leetcode")
     if source == "leetcode":
-        description_prefix = getattr(
-            bot, "LEETCODE_DISCRIPTION_BUTTON_PREFIX", "leetcode_problem_"
-        )
-        translate_prefix = getattr(
-            bot, "LEETCODE_TRANSLATE_BUTTON_PREFIX", "leetcode_translate_"
-        )
-        inspire_prefix = getattr(
-            bot, "LEETCODE_INSPIRE_BUTTON_PREFIX", "leetcode_inspire_"
-        )
+        description_prefix = getattr(bot, "LEETCODE_DISCRIPTION_BUTTON_PREFIX", "leetcode_problem_")
+        translate_prefix = getattr(bot, "LEETCODE_TRANSLATE_BUTTON_PREFIX", "leetcode_translate_")
+        inspire_prefix = getattr(bot, "LEETCODE_INSPIRE_BUTTON_PREFIX", "leetcode_inspire_")
         description_id = f"{description_prefix}{problem_info['id']}_{domain}"
         translate_id = f"{translate_prefix}{problem_info['id']}_{domain}"
         inspire_id = f"{inspire_prefix}{problem_info['id']}_{domain}"
     else:
-        description_prefix = getattr(
-            bot, "ATCODER_DESCRIPTION_BUTTON_PREFIX", "atcoder_problem|"
-        )
-        translate_prefix = getattr(
-            bot, "ATCODER_TRANSLATE_BUTTON_PREFIX", "atcoder_translate|"
-        )
-        inspire_prefix = getattr(
-            bot, "ATCODER_INSPIRE_BUTTON_PREFIX", "atcoder_inspire|"
-        )
+        description_prefix = getattr(bot, "ATCODER_DESCRIPTION_BUTTON_PREFIX", "atcoder_problem|")
+        translate_prefix = getattr(bot, "ATCODER_TRANSLATE_BUTTON_PREFIX", "atcoder_translate|")
+        inspire_prefix = getattr(bot, "ATCODER_INSPIRE_BUTTON_PREFIX", "atcoder_inspire|")
         description_id = f"{description_prefix}{problem_info['id']}"
         translate_id = f"{translate_prefix}{problem_info['id']}"
         inspire_id = f"{inspire_prefix}{problem_info['id']}"
@@ -259,9 +241,7 @@ async def create_problem_view(
     return view
 
 
-def create_submission_embed(
-    submission: Dict[str, Any], page: int, total: int, username: str
-) -> discord.Embed:
+def create_submission_embed(submission: Dict[str, Any], page: int, total: int, username: str) -> discord.Embed:
     """Create an embed for a user submission"""
     embed_color = get_difficulty_color(submission["difficulty"])
 
@@ -294,13 +274,9 @@ def create_submission_embed(
 
     if submission.get("tags"):
         tags_str = ", ".join([f"||`{tag}`||" for tag in submission["tags"]])
-        embed.add_field(
-            name=f"{FIELD_EMOJIS['tags']} Tags", value=tags_str, inline=False
-        )
+        embed.add_field(name=f"{FIELD_EMOJIS['tags']} Tags", value=tags_str, inline=False)
 
-    embed.set_author(
-        name=f"{username}'s Recent Submissions", icon_url=LEETCODE_LOGO_URL
-    )
+    embed.set_author(name=f"{username}'s Recent Submissions", icon_url=LEETCODE_LOGO_URL)
     embed.set_footer(text=f"Problem {page + 1} of {total}")
 
     return embed
@@ -384,11 +360,7 @@ def create_problems_overview_embed(
     footer_icon_url: Optional[str] = LEETCODE_LOGO_URL,
 ) -> discord.Embed:
     """Create an overview embed showing all problems with basic info in user-provided order"""
-    embed_title = (
-        title
-        if title
-        else f"{FIELD_EMOJIS['search']} {source_label} Problems ({len(problems)} found)"
-    )
+    embed_title = title if title else f"{FIELD_EMOJIS['search']} {source_label} Problems ({len(problems)} found)"
 
     embed = discord.Embed(
         title=embed_title,
@@ -412,13 +384,9 @@ def create_problems_overview_embed(
 
             # Create line with hyperlink
             if source == "leetcode":
-                line = (
-                    f"- {emoji} **[{problem['id']}. {problem['title']}]({problem['link']})**"
-                )
+                line = f"- {emoji} **[{problem['id']}. {problem['title']}]({problem['link']})**"
             else:
-                line = (
-                    f"- {emoji} **[{problem['id']}: {problem['title']}]({problem['link']})**"
-                )
+                line = f"- {emoji} **[{problem['id']}: {problem['title']}]({problem['link']})**"
             if problem.get("rating") and problem["rating"] > 0:
                 line += f" {FIELD_EMOJIS['rating']}{round(problem['rating'])}"
 
@@ -451,9 +419,7 @@ def create_problems_overview_embed(
     return embed
 
 
-def create_problems_overview_view(
-    problems: List[Dict[str, Any]], domain: str
-) -> discord.ui.View:
+def create_problems_overview_view(problems: List[Dict[str, Any]], domain: str) -> discord.ui.View:
     """Create a view with buttons for each problem"""
     view = discord.ui.View(timeout=None)
 
@@ -482,9 +448,7 @@ def create_settings_embed(
     timezone: str,
 ) -> discord.Embed:
     """Create an embed for server settings display"""
-    embed = discord.Embed(
-        title=f"{guild_name} 的 LeetCode 挑戰設定", color=DEFAULT_COLOR
-    )
+    embed = discord.Embed(title=f"{guild_name} 的 LeetCode 挑戰設定", color=DEFAULT_COLOR)
 
     embed.add_field(name="發送頻道", value=channel_mention, inline=False)
     embed.add_field(name="標記身分組", value=role_mention, inline=False)
@@ -524,13 +488,9 @@ def create_problem_description_embed(
     return embed
 
 
-def create_inspiration_embed(
-    inspiration_data: Dict[str, Any], problem_info: Dict[str, Any]
-) -> discord.Embed:
+def create_inspiration_embed(inspiration_data: Dict[str, Any], problem_info: Dict[str, Any]) -> discord.Embed:
     """Create an embed for LLM inspiration"""
-    embed = discord.Embed(
-        title=f"{FIELD_EMOJIS['instructions']} 靈感啟發", color=INSPIRATION_COLOR
-    )
+    embed = discord.Embed(title=f"{FIELD_EMOJIS['instructions']} 靈感啟發", color=INSPIRATION_COLOR)
 
     # Add inspiration content fields in fixed order
     for field_key in ["thinking", "traps", "algorithms", "inspiration"]:
@@ -543,9 +503,7 @@ def create_inspiration_embed(
             embed.add_field(name=field_name, value=val_formatted, inline=False)
 
     # Set footer
-    footer_text = inspiration_data.get(
-        "footer", f"Problem {problem_info['id']} 靈感啟發"
-    )
+    footer_text = inspiration_data.get("footer", f"Problem {problem_info['id']} 靈感啟發")
     embed.set_footer(text=footer_text, icon_url=GEMINI_LOGO_URL)
 
     return embed
@@ -572,22 +530,16 @@ async def send_daily_challenge(
         now_utc = datetime.now(pytz.UTC)
         date_str = now_utc.strftime("%Y-%m-%d")
 
-        logger.debug(
-            f"Fetching daily challenge for date: {date_str} (UTC), domain: {domain}"
-        )
+        logger.debug(f"Fetching daily challenge for date: {date_str} (UTC), domain: {domain}")
         challenge_info = await current_client.get_daily_challenge()
 
         if not challenge_info:
             logger.error(f"Failed to get daily challenge info for domain {domain}.")
             if interaction:
-                await interaction.followup.send(
-                    "Could not fetch daily challenge.", ephemeral=ephemeral
-                )
+                await interaction.followup.send("Could not fetch daily challenge.", ephemeral=ephemeral)
             return None
 
-        logger.info(
-            f"Got daily challenge: {challenge_info['id']}. {challenge_info['title']} for domain {domain}"
-        )
+        logger.info(f"Got daily challenge: {challenge_info['id']}. {challenge_info['title']} for domain {domain}")
 
         embed = await create_problem_embed(
             problem_info=challenge_info,
@@ -595,9 +547,7 @@ async def send_daily_challenge(
             domain=domain,
             is_daily=True,
         )
-        view = await create_problem_view(
-            problem_info=challenge_info, bot=bot, domain=domain
-        )
+        view = await create_problem_view(problem_info=challenge_info, bot=bot, domain=domain)
 
         if interaction:
             # If called from a slash command
@@ -614,9 +564,7 @@ async def send_daily_challenge(
                     if role:
                         content_msg = f"{role.mention}"
                     else:
-                        logger.warning(
-                            f"Role ID {role_id} not found in guild {guild.id} for channel {channel_id}."
-                        )
+                        logger.warning(f"Role ID {role_id} not found in guild {guild.id} for channel {channel_id}.")
                 await target_channel.send(
                     content=content_msg if content_msg else None,
                     embed=embed,
@@ -624,13 +572,9 @@ async def send_daily_challenge(
                 )
                 logger.info(f"Sent daily challenge to channel {channel_id}")
             else:
-                logger.error(
-                    f"Could not find channel {channel_id} to send daily challenge."
-                )
+                logger.error(f"Could not find channel {channel_id} to send daily challenge.")
         else:
-            logger.error(
-                "send_daily_challenge called without channel_id or interaction."
-            )
+            logger.error("send_daily_challenge called without channel_id or interaction.")
 
         return challenge_info
 

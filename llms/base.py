@@ -80,14 +80,10 @@ class LLMBase(ABC):
             structured_llm = self.llm.with_structured_output(schema)
             return await structured_llm.ainvoke(prompt)
         except Exception as exc:
-            logger.warning(
-                "Structured output failed: %s", exc, exc_info=True
-            )
+            logger.warning("Structured output failed: %s", exc, exc_info=True)
             return None
 
-    async def translate(
-        self, content: str, target_language: str, from_lang: str = "auto"
-    ) -> str:
+    async def translate(self, content: str, target_language: str, from_lang: str = "auto") -> str:
         """
         Translate the input content to the target language using the LLM.
 

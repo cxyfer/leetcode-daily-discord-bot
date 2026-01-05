@@ -48,9 +48,7 @@ class SimilaritySearcher:
         top_k: int,
         min_similarity: float,
     ) -> List[dict]:
-        results = await self.storage.search_similar(
-            query_embedding, source, top_k, min_similarity
-        )
+        results = await self.storage.search_similar(query_embedding, source, top_k, min_similarity)
         if not results:
             return []
 

@@ -55,15 +55,11 @@ class ScheduleManagerCog(commands.Cog):
         for server_settings in servers:
             server_id = server_settings.get("server_id")
             if not server_id:
-                self.logger.warning(
-                    f"Server settings found with no server_id: {server_settings}"
-                )
+                self.logger.warning(f"Server settings found with no server_id: {server_settings}")
                 continue
 
             if not server_settings.get("channel_id"):
-                self.logger.info(
-                    f"Server {server_id} has no channel_id set, skipping schedule."
-                )
+                self.logger.info(f"Server {server_id} has no channel_id set, skipping schedule.")
                 continue
 
             await self.add_server_schedule(server_settings)
@@ -77,9 +73,7 @@ class ScheduleManagerCog(commands.Cog):
         channel_id = server_settings.get("channel_id")
 
         if not channel_id:
-            self.logger.error(
-                f"Attempted to schedule for server {server_id} but no channel_id was provided."
-            )
+            self.logger.error(f"Attempted to schedule for server {server_id} but no channel_id was provided.")
             return
 
         post_time_str = server_settings.get("post_time", DEFAULT_POST_TIME)
@@ -110,27 +104,17 @@ class ScheduleManagerCog(commands.Cog):
                 name=f"Daily Challenge for Server {server_id}",
             )
 
-            self.logger.info(
-                f"Scheduled daily challenge for server {server_id} at {post_time_str} {timezone_str}"
-            )
+            self.logger.info(f"Scheduled daily challenge for server {server_id} at {post_time_str} {timezone_str}")
 
         except ValueError as e:
-            self.logger.error(
-                f"Server {server_id}: Invalid post_time format '{post_time_str}': {e}"
-            )
+            self.logger.error(f"Server {server_id}: Invalid post_time format '{post_time_str}': {e}")
         except Exception as e:
-            self.logger.error(
-                f"Server {server_id}: Error adding schedule: {e}", exc_info=True
-            )
+            self.logger.error(f"Server {server_id}: Error adding schedule: {e}", exc_info=True)
 
-    async def send_daily_challenge_job(
-        self, server_id: int, channel_id: int, role_id: int = None
-    ):
+    async def send_daily_challenge_job(self, server_id: int, channel_id: int, role_id: int = None):
         """Job function called by APScheduler to send daily challenges"""
         try:
-            self.logger.info(
-                f"APScheduler triggered: Sending daily challenge for server {server_id}"
-            )
+            self.logger.info(f"APScheduler triggered: Sending daily challenge for server {server_id}")
 
             # Send the daily challenge
             challenge_info = await send_daily_challenge(
@@ -144,9 +128,7 @@ class ScheduleManagerCog(commands.Cog):
                     f"Successfully sent daily challenge for server {server_id}: {challenge_info.get('title')}"
                 )
             else:
-                self.logger.warning(
-                    f"Failed to send daily challenge for server {server_id}"
-                )
+                self.logger.warning(f"Failed to send daily challenge for server {server_id}")
 
         except Exception as e:
             self.logger.error(
@@ -169,13 +151,9 @@ class ScheduleManagerCog(commands.Cog):
             server_settings = self.bot.db.get_server_settings(server_id)
             if server_settings and server_settings.get("channel_id"):
                 await self.add_server_schedule(server_settings)
-                self.logger.info(
-                    f"Server {server_id} daily challenge has been rescheduled"
-                )
+                self.logger.info(f"Server {server_id} daily challenge has been rescheduled")
             else:
-                self.logger.info(
-                    f"Server {server_id} has no valid settings, schedule removed"
-                )
+                self.logger.info(f"Server {server_id} has no valid settings, schedule removed")
         else:
             self.logger.info("Rescheduling daily challenges for ALL servers...")
             # Remove all existing jobs

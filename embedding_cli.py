@@ -106,16 +106,10 @@ async def build_embeddings(
         await storage.delete_all_embeddings(source)
 
     if not rebuild and not db.check_dimension_consistency(embedding_config.dim):
-        raise ValueError(
-            "Embedding dimension mismatch. Please run with --rebuild to reset the index."
-        )
+        raise ValueError("Embedding dimension mismatch. Please run with --rebuild to reset the index.")
 
-    total_problems = await asyncio.to_thread(
-        _count_problems_with_content_sync, db, source, filter_pattern
-    )
-    existing_metadata = await storage.get_existing_ids(
-        source, embedding_config.name, embedding_config.dim
-    )
+    total_problems = await asyncio.to_thread(_count_problems_with_content_sync, db, source, filter_pattern)
+    existing_metadata = await storage.get_existing_ids(source, embedding_config.name, embedding_config.dim)
     existing_vectors = await storage.get_existing_vector_ids(source)
     existing_ids = existing_metadata.intersection(existing_vectors)
     pending_count = max(total_problems - len(existing_ids), 0)
@@ -133,9 +127,7 @@ async def build_embeddings(
     if rewriter is None or generator is None:
         raise ValueError("Embedding generator not initialized")
 
-    problems = await asyncio.to_thread(
-        _fetch_problems_with_content_sync, db, source, filter_pattern
-    )
+    problems = await asyncio.to_thread(_fetch_problems_with_content_sync, db, source, filter_pattern)
     pending = [(pid, content) for pid, content in problems if pid not in existing_ids]
 
     if not pending:
@@ -144,9 +136,7 @@ async def build_embeddings(
 
     total_pending = len(pending)
     effective_batch_size = max(1, batch_size or 1)
-    rewrite_workers = max(
-        1, min(getattr(rewriter.model_config, "workers", 1), total_pending)
-    )
+    rewrite_workers = max(1, min(getattr(rewriter.model_config, "workers", 1), total_pending))
     logger.info(
         "Starting rewrite pipeline: %s problems, workers=%s, batch_size=%s",
         total_pending,
@@ -192,9 +182,7 @@ async def build_embeddings(
                     rewrite_queue.task_done()
                     continue
                 if not rewritten or not rewritten.strip():
-                    logger.warning(
-                        "Problem %s skipped: rewrite produced empty content", problem_id
-                    )
+                    logger.warning("Problem %s skipped: rewrite produced empty content", problem_id)
                     async with progress_lock:
                         skipped_count += 1
                         rewritten_count += 1
@@ -223,15 +211,11 @@ async def build_embeddings(
                 buffer.append(item)
                 if len(buffer) >= effective_batch_size:
                     logger.info("Flushing embeddings (%s problems)", len(buffer))
-                    embedded_total += await _flush_embeddings(
-                        buffer, storage, generator, embedding_config, source
-                    )
+                    embedded_total += await _flush_embeddings(buffer, storage, generator, embedding_config, source)
                     buffer.clear()
                 embed_queue.task_done()
             if buffer:
-                embedded_total += await _flush_embeddings(
-                    buffer, storage, generator, embedding_config, source
-                )
+                embedded_total += await _flush_embeddings(buffer, storage, generator, embedding_config, source)
             logger.info("Embedding pipeline complete (%s problems)", embedded_total)
 
         async def _flush_embeddings(
@@ -255,9 +239,7 @@ async def build_embeddings(
                     len(embeddings),
                 )
                 return 0
-            for problem_id, rewritten, embedding in zip(
-                problem_ids, rewritten_texts, embeddings
-            ):
+            for problem_id, rewritten, embedding in zip(problem_ids, rewritten_texts, embeddings):
                 await storage.save_embedding(
                     source,
                     problem_id,
@@ -268,9 +250,7 @@ async def build_embeddings(
                 )
             return len(problem_ids)
 
-        rewrite_tasks = [
-            asyncio.create_task(rewrite_worker(i)) for i in range(rewrite_workers)
-        ]
+        rewrite_tasks = [asyncio.create_task(rewrite_worker(i)) for i in range(rewrite_workers)]
         embed_task = asyncio.create_task(embed_worker())
 
         await rewrite_queue.join()
@@ -302,9 +282,7 @@ async def query_similar(
     await _prepare_db(db, embedding_config.dim, rebuild=False)
 
     if not db.check_dimension_consistency(embedding_config.dim):
-        raise ValueError(
-            "Embedding dimension mismatch. Please run with --rebuild to reset the index."
-        )
+        raise ValueError("Embedding dimension mismatch. Please run with --rebuild to reset the index.")
 
     total_vectors = await storage.count_embeddings(source)
     if total_vectors == 0:
@@ -342,9 +320,7 @@ async def show_stats(
 
     await _prepare_db(db, embedding_config.dim, rebuild=False)
 
-    total_problems = await asyncio.to_thread(
-        _count_problems_with_content_sync, db, source, filter_pattern
-    )
+    total_problems = await asyncio.to_thread(_count_problems_with_content_sync, db, source, filter_pattern)
     total_vectors = await storage.count_embeddings(source, filter_pattern)
     total_metadata = await storage.count_metadata(source, filter_pattern)
 
@@ -355,15 +331,14 @@ async def show_stats(
     print(f"  Vector rows: {total_vectors}")
     print(f"  Pending: {pending}")
 
+
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Embedding CLI tool")
     parser.add_argument("--build", action="store_true", help="Build embeddings")
     parser.add_argument("--rebuild", action="store_true", help="Rebuild embeddings")
     parser.add_argument("--query", type=str, help="Query similar problems")
     parser.add_argument("--stats", action="store_true", help="Show embedding stats")
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Estimate embedding cost"
-    )
+    parser.add_argument("--dry-run", action="store_true", help="Estimate embedding cost")
     # Default source is leetcode; use --source all to process every source.
     parser.add_argument(
         "--source",
@@ -378,12 +353,8 @@ async def main() -> None:
         help="Minimum similarity threshold",
         default=None,
     )
-    parser.add_argument(
-        "--batch-size", type=int, help="Embedding batch size", default=None
-    )
-    parser.add_argument(
-        "--filter", type=str, help="Filter problems by ID substring", default=None
-    )
+    parser.add_argument("--batch-size", type=int, help="Embedding batch size", default=None)
+    parser.add_argument("--filter", type=str, help="Filter problems by ID substring", default=None)
 
     args = parser.parse_args()
     config = get_config()
@@ -392,11 +363,7 @@ async def main() -> None:
 
     source = args.source.strip().lower()
     top_k = args.top_k or similar_config.top_k
-    min_similarity = (
-        args.min_similarity
-        if args.min_similarity is not None
-        else similar_config.min_similarity
-    )
+    min_similarity = args.min_similarity if args.min_similarity is not None else similar_config.min_similarity
     batch_size = args.batch_size or embedding_config.batch_size
     filter_pattern = args.filter
 
@@ -478,9 +445,7 @@ async def main() -> None:
                     )
                     failed_sources.append(src)
             if failed_sources:
-                print(
-                    f"Embedding build completed with failures for: {', '.join(failed_sources)}"
-                )
+                print(f"Embedding build completed with failures for: {', '.join(failed_sources)}")
         else:
             await build_embeddings(
                 db,

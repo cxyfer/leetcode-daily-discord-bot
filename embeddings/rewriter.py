@@ -55,6 +55,7 @@ Input Statement:
 {ORIGINAL}
 """
 
+
 def _resolve_api_key(config: ConfigManager) -> Optional[str]:
     return (
         config.gemini_api_key
@@ -84,9 +85,7 @@ class EmbeddingRewriter:
 
     def _build_generation_config(self):
         try:
-            return types.GenerateContentConfig(
-                temperature=self.model_config.temperature
-            )
+            return types.GenerateContentConfig(temperature=self.model_config.temperature)
         except Exception:  # pragma: no cover - fallback for SDK differences
             return {"temperature": self.model_config.temperature}
 
@@ -130,17 +129,13 @@ class EmbeddingRewriter:
     async def rewrite(self, content: str) -> str:
         return await self.rewrite_with_executor(content, None)
 
-    async def rewrite_with_executor(
-        self, content: str, executor: Optional[Executor]
-    ) -> str:
+    async def rewrite_with_executor(self, content: str, executor: Optional[Executor]) -> str:
         if not content or not content.strip():
             return ""
         prompt = self._build_prompt(content)
         try:
             return await asyncio.wait_for(
-                asyncio.get_running_loop().run_in_executor(
-                    executor, self._rewrite_sync, prompt
-                ),
+                asyncio.get_running_loop().run_in_executor(executor, self._rewrite_sync, prompt),
                 timeout=self.model_config.timeout,
             )
         except asyncio.TimeoutError:
