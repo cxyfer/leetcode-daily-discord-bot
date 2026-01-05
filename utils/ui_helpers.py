@@ -4,6 +4,7 @@
 """
 
 import hashlib
+import json
 import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -108,8 +109,6 @@ async def create_problem_embed(
         if problem_info.get("tags"):
             tags = problem_info["tags"]
             if isinstance(tags, str):
-                import json
-
                 try:
                     tags = json.loads(tags)
                 except (json.JSONDecodeError, TypeError):

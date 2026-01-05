@@ -5,7 +5,7 @@ import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
@@ -17,7 +17,7 @@ from utils.logger import get_leetcode_logger
 
 logger = get_leetcode_logger()
 
-# 使用 curl_cffi 時，盡量減少手動標頭，讓 impersonate 自動處理
+# When using curl_cffi, keep headers minimal and let impersonate handle defaults
 RATE_LIMIT_MARKERS = (
     "too many requests",
     "please wait",
@@ -55,7 +55,7 @@ class CodeforcesClient:
         self._last_request_at = time.monotonic() - rate_limit
 
     def _headers(self, referer: Optional[str] = None) -> dict:
-        # curl_cffi 的 impersonate 會處理大部分標頭
+        # curl_cffi impersonate handles most headers
         headers = {}
         if referer:
             headers["Referer"] = referer
@@ -72,18 +72,18 @@ class CodeforcesClient:
         if not html:
             return False
 
-        # 如果能找到題目敘述，表示沒有被擋
+        # If a problem statement is present, we're likely not blocked
         if "div.problem-statement" in html or 'class="problem-statement"' in html:
             return False
 
         text = html.lower()
-        # 檢查標題是否為 Cloudflare 的特徵
+        # Check for Cloudflare challenge titles
         if "<title>attention required! | cloudflare</title>" in text:
             return True
         if "<title>just a moment...</title>" in text:
             return True
 
-        # 只有在非常短的頁面中才檢查關鍵字，避免誤判
+        # Only scan very short pages for markers to reduce false positives
         if len(html) < 5000:
             if "/enter" in text:
                 return True
@@ -101,7 +101,7 @@ class CodeforcesClient:
             await self._throttle()
             try:
                 headers = self._headers(referer)
-                # 使用 impersonate="chrome124" 模擬真實瀏覽器 TLS 指紋
+                # Use impersonate="chrome124" to mimic real browser TLS fingerprints
                 response = await session.get(url, headers=headers, timeout=30)
 
                 if response.status_code in {429, 403, 503}:
@@ -388,7 +388,7 @@ class CodeforcesClient:
             logger.warning("Failed to read progress file: %s", exc)
             return {"fetched_contests": [], "last_updated": None, "last_contest_id": None}
 
-    def save_progress(self, contest_id: str) -> None:
+    def save_progress(self, contest_id: Union[int, str]) -> None:
         progress = self.get_progress()
         fetched = set(progress.get("fetched_contests", []))
         if contest_id is not None:
@@ -403,7 +403,7 @@ class CodeforcesClient:
                 json.dump(progress, f, indent=2, sort_keys=True)
                 f.flush()
                 os.fsync(f.fileno())
-            # 使用臨時檔原子寫入，避免損壞進度檔
+            # Use temp file for atomic writes to avoid corrupting the progress file
             tmp_path.replace(self.progress_file)
         except Exception as exc:
             logger.warning("Failed to write progress file: %s", exc)

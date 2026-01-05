@@ -370,7 +370,7 @@ class InteractionHandlerCog(commands.Cog):
             self.logger.debug(f"接收到外部來源題目描述按鈕交互: custom_id={custom_id}")
 
             try:
-                parts = custom_id.split("|")
+                parts = custom_id.split("|", 2)
                 if len(parts) < 3:
                     await interaction.response.send_message("無效的題目ID，無法顯示題目描述。", ephemeral=True)
                     return
@@ -436,7 +436,7 @@ class InteractionHandlerCog(commands.Cog):
                 await interaction.response.send_message("LLM 翻譯尚未啟用。", ephemeral=True)
                 return
 
-            parts = custom_id.split("|")
+            parts = custom_id.split("|", 2)
             if len(parts) < 3:
                 await interaction.response.send_message("無效的題目ID，無法顯示翻譯。", ephemeral=True)
                 return
@@ -515,7 +515,7 @@ class InteractionHandlerCog(commands.Cog):
                 await interaction.response.send_message("LLM 靈感啟發尚未啟用。", ephemeral=True)
                 return
 
-            parts = custom_id.split("|")
+            parts = custom_id.split("|", 2)
             if len(parts) < 3:
                 await interaction.response.send_message("無效的題目ID，無法顯示靈感啟發。", ephemeral=True)
                 return
