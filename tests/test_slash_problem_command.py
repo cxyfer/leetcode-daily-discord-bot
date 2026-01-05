@@ -34,9 +34,6 @@ def _make_bot():
     bot.lcus.problems_db = MagicMock()
     bot.llm = MagicMock()
     bot.llm_pro = MagicMock()
-    bot.ATCODER_DESCRIPTION_BUTTON_PREFIX = "atcoder_problem|"
-    bot.ATCODER_TRANSLATE_BUTTON_PREFIX = "atcoder_translate|"
-    bot.ATCODER_INSPIRE_BUTTON_PREFIX = "atcoder_inspire|"
     return bot
 
 
