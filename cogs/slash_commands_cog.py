@@ -161,12 +161,12 @@ class SlashCommandsCog(commands.Cog):
 
     @app_commands.command(name="problem", description="根據題號查詢 LeetCode 題目資訊")
     @app_commands.describe(
-        problem_ids="題目編號或連結，可用逗號分隔 (例如: 1, abc001_a, atcoder:abc001_a)",
-        domain="選擇 LeetCode 網域",
+        problem_ids="題目編號，可用逗號分隔 (例如: 1, abc321_a, 2179A, atcoder:abc321_a, codeforces:2179A)",
+        domain="選擇 LeetCode 網域（已棄用）",
         public="是否公開顯示回覆 (預設為私密回覆)",
         title="自定義標題 (多題模式下替換預設標題，最多 100 個字元)",
         message="可選的個人訊息或備註 (最多 500 個字元)",
-        source="題庫來源 (例如 leetcode/atcoder)，可與 source: 前綴混用",
+        source="題庫來源 (例如 leetcode/atcoder/codeforces)，也可以在題號前加上 source: 前綴",
     )
     async def problem_command(
         self,
