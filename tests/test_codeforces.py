@@ -145,6 +145,72 @@ async def test_fetch_problem_content_extracts_statement(tmp_path):
     assert "https://codeforces.com/contest/1234" in content
 
 
+def test_clean_problem_html_converts_mathjax_inline(tmp_path):
+    client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
+    html = """
+    <span class="MathJax">rendered</span>
+    <script type="math/tex">n \\leq 10^5</script>
+    """
+    cleaned = client._clean_problem_html(html)
+
+    assert "$n \\leq 10^5$" in cleaned
+    assert "MathJax" not in cleaned
+
+
+def test_clean_problem_html_converts_display_math(tmp_path):
+    client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
+    html = """
+    <div class="MathJax_Display">rendered</div>
+    <script type="math/tex; mode=display">\\sum_{i=1}^{n}</script>
+    """
+    cleaned = client._clean_problem_html(html)
+
+    assert "$$" in cleaned
+    assert "\\sum_{i=1}^{n}" in cleaned
+    assert "MathJax" not in cleaned
+
+
+def test_clean_problem_html_removes_header_and_overlay(tmp_path):
+    client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
+    html = """
+    <div class="header">limits</div>
+    <div class="overlay">cover</div>
+    <div>ok</div>
+    """
+    cleaned = client._clean_problem_html(html)
+
+    assert "limits" not in cleaned
+    assert "cover" not in cleaned
+    assert "ok" in cleaned
+
+
+def test_clean_problem_html_converts_section_and_property_titles(tmp_path):
+    client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
+    html = """
+    <div class="section-title">Input</div>
+    <div class="property-title">Time limit</div>
+    """
+    cleaned = client._clean_problem_html(html)
+
+    assert "## Input" in cleaned
+    assert "**Time limit**:" in cleaned
+
+
+def test_clean_problem_html_converts_table(tmp_path):
+    client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
+    html = """
+    <table class="bordertable">
+      <tr><th>A</th><th>B</th></tr>
+      <tr><td>1</td><td>2</td></tr>
+    </table>
+    """
+    cleaned = client._clean_problem_html(html)
+
+    assert "| A | B |" in cleaned
+    assert "| --- | --- |" in cleaned
+    assert "| 1 | 2 |" in cleaned
+
+
 def test_fix_relative_urls(tmp_path):
     client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
     html = '<img src="/predownloaded/test.png"><a href="/contest/1234">Link</a>'
