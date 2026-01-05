@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.1.2] - 2026-01-05
+### Added
+- **Development Dependencies**: Added `ruff` and `pytest` as optional development dependencies.
+- **Ruff Configuration**: Configured `ruff` for linting and formatting with a 120-character line length limit.
+- **Pytest Configuration**: Configured `pytest` with `asyncio` support and coverage reporting.
+- **GitHub Actions CI**: Added a new CI workflow to automatically run `ruff` and `pytest` on push and pull requests.
+- **Developer Documentation**: Added a "Development" section to `README.md` with instructions for environment setup and tool usage.
+
+### Improved
+- **Code Quality**: Applied comprehensive `ruff` formatting and fixed all linting issues across the codebase.
+- **Import Organization**: Standardized import sorting across all Python files.
+
 ## [v1.1.1] - 2026-01-04
 ### Added
 - **AtCoder Platform Support**: Complete integration of AtCoder as a problem source, including fetching, translation, and semantic search.
