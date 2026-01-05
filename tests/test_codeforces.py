@@ -211,6 +211,69 @@ def test_clean_problem_html_converts_table(tmp_path):
     assert "| 1 | 2 |" in cleaned
 
 
+def test_clean_problem_markdown_removes_header_and_overlay(tmp_path):
+    client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
+    html = """
+    <div class="header">limits</div>
+    <div class="ojb-overlay">cover</div>
+    <div class="html2md-panel">panel</div>
+    <div class="likeForm">like</div>
+    <div class="monaco-editor">editor</div>
+    <div class="overlay">cover</div>
+    <div>ok</div>
+    """
+    cleaned = client._clean_problem_markdown(html)
+
+    assert "limits" not in cleaned
+    assert "panel" not in cleaned
+    assert "editor" not in cleaned
+    assert "ok" in cleaned
+
+
+def test_clean_problem_markdown_converts_mathjax_and_normalizes_triple_dollar(tmp_path):
+    client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
+    html = """
+    <span class="MathJax">rendered</span>
+    <span class="MathJax_Preview">preview</span>
+    <div class="MathJax_Display">rendered</div>
+    <script type="math/tex">n \\leq 10^5</script>
+    <script type="math/tex; mode=display">\\sum_{i=1}^{n}</script>
+    <p>$$$a+b$$$</p>
+    """
+    cleaned = client._clean_problem_markdown(html)
+
+    assert "$n \\leq 10^5$" in cleaned
+    assert "$$" in cleaned
+    assert "\\sum_{i=1}^{n}" in cleaned
+    assert "$a+b$" in cleaned
+    assert "$$$" not in cleaned
+    assert "MathJax" not in cleaned
+
+
+def test_clean_problem_markdown_converts_structure_blocks(tmp_path):
+    client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
+    html = """
+    <div class="section-title">Input</div>
+    <div class="property-title">Time limit</div>
+    <div class="sample-tests">
+      <div class="input"><pre>1 2</pre></div>
+    </div>
+    <pre>code line</pre>
+    <table class="bordertable">
+      <tr><th>A</th><th>B</th></tr>
+      <tr><td>1</td><td>2</td></tr>
+    </table>
+    """
+    cleaned = client._clean_problem_markdown(html)
+
+    assert "## Input" in cleaned
+    assert "**Time limit**:" in cleaned
+    assert "```" in cleaned
+    assert "1 2" in cleaned
+    assert "code line" in cleaned
+    assert "| A | B |" in cleaned
+
+
 def test_fix_relative_urls(tmp_path):
     client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
     html = '<img src="/predownloaded/test.png"><a href="/contest/1234">Link</a>'

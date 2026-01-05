@@ -373,7 +373,7 @@ class CodeforcesClient:
             return "\n" + "\n".join(lines) + "\n"
 
         def normalize_math_delimiters(text: str) -> str:
-            return re.sub(r"\$\$\$([\\s\\S]+?)\$\$\$", r"$\\1$", text)
+            return re.sub(r"\$\$\$([\s\S]+?)\$\$\$", r"$\1$", text)
 
         soup = BeautifulSoup(html, "html.parser")
         self._fix_relative_urls_in_soup(soup, base_url)
