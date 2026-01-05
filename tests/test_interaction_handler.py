@@ -1,13 +1,14 @@
 # tests/test_interaction_handler.py
-import pytest
 import asyncio
-from unittest.mock import MagicMock, AsyncMock
-import discord
-from discord.ext import commands
+import os
 
 # Import the cog we're testing
 import sys
-import os
+from unittest.mock import AsyncMock, MagicMock
+
+import discord
+import pytest
+from discord.ext import commands
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from cogs.interaction_handler_cog import InteractionHandlerCog
@@ -55,20 +56,14 @@ class TestInteractionHandler:
         mock_interaction.data = {"custom_id": "leetcode_translate_1234_com"}
 
         # First request should succeed
-        result1 = await cog._handle_duplicate_request(
-            mock_interaction, (123456789, "1234", "translate"), "translate"
-        )
+        result1 = await cog._handle_duplicate_request(mock_interaction, (123456789, "1234", "translate"), "translate")
         assert result1 is False  # Not a duplicate
         assert (123456789, "1234", "translate") in cog.ongoing_llm_requests
 
         # Second request should be blocked
-        result2 = await cog._handle_duplicate_request(
-            mock_interaction, (123456789, "1234", "translate"), "translate"
-        )
+        result2 = await cog._handle_duplicate_request(mock_interaction, (123456789, "1234", "translate"), "translate")
         assert result2 is True  # Is a duplicate
-        mock_interaction.response.send_message.assert_called_with(
-            "正在處理您的翻譯請求，請稍候...", ephemeral=True
-        )
+        mock_interaction.response.send_message.assert_called_with("正在處理您的翻譯請求，請稍候...", ephemeral=True)
 
     @pytest.mark.asyncio
     async def test_duplicate_request_prevention_inspire(self, cog, mock_interaction):
@@ -77,20 +72,14 @@ class TestInteractionHandler:
         mock_interaction.data = {"custom_id": "leetcode_inspire_1234_com"}
 
         # First request should succeed
-        result1 = await cog._handle_duplicate_request(
-            mock_interaction, (123456789, "1234", "inspire"), "inspire"
-        )
+        result1 = await cog._handle_duplicate_request(mock_interaction, (123456789, "1234", "inspire"), "inspire")
         assert result1 is False  # Not a duplicate
         assert (123456789, "1234", "inspire") in cog.ongoing_llm_requests
 
         # Second request should be blocked
-        result2 = await cog._handle_duplicate_request(
-            mock_interaction, (123456789, "1234", "inspire"), "inspire"
-        )
+        result2 = await cog._handle_duplicate_request(mock_interaction, (123456789, "1234", "inspire"), "inspire")
         assert result2 is True  # Is a duplicate
-        mock_interaction.response.send_message.assert_called_with(
-            "正在處理您的靈感啟發請求，請稍候...", ephemeral=True
-        )
+        mock_interaction.response.send_message.assert_called_with("正在處理您的靈感啟發請求，請稍候...", ephemeral=True)
 
     @pytest.mark.asyncio
     async def test_cleanup_request(self, cog):
@@ -114,9 +103,7 @@ class TestInteractionHandler:
         results = []
 
         async def make_request():
-            result = await cog._handle_duplicate_request(
-                mock_interaction, request_key, "translate"
-            )
+            result = await cog._handle_duplicate_request(mock_interaction, request_key, "translate")
             results.append(result)
 
         # Run 10 concurrent requests
@@ -132,9 +119,7 @@ class TestInteractionHandler:
         assert request_key in cog.ongoing_llm_requests
 
     @pytest.mark.asyncio
-    async def test_different_users_can_request_same_problem(
-        self, cog, mock_interaction
-    ):
+    async def test_different_users_can_request_same_problem(self, cog, mock_interaction):
         """Test that different users can request the same problem simultaneously"""
         # User 1
         interaction1 = AsyncMock(spec=discord.Interaction)
@@ -165,12 +150,8 @@ class TestInteractionHandler:
         key1 = (123456789, "1234", "translate")
         key2 = (123456789, "5678", "translate")
 
-        result1 = await cog._handle_duplicate_request(
-            mock_interaction, key1, "translate"
-        )
-        result2 = await cog._handle_duplicate_request(
-            mock_interaction, key2, "translate"
-        )
+        result1 = await cog._handle_duplicate_request(mock_interaction, key1, "translate")
+        result2 = await cog._handle_duplicate_request(mock_interaction, key2, "translate")
 
         # Both should succeed as they are different problems
         assert result1 is False
@@ -224,10 +205,7 @@ class TestInteractionHandler:
         cog.ongoing_llm_requests_lock = TrackedLock(original_lock)
 
         # Run concurrent requests
-        tasks = [
-            cog._handle_duplicate_request(mock_interaction, request_key, "translate")
-            for _ in range(5)
-        ]
+        tasks = [cog._handle_duplicate_request(mock_interaction, request_key, "translate") for _ in range(5)]
         await asyncio.gather(*tasks)
 
         # Only one check should have found the set empty

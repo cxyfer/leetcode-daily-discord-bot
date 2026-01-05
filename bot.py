@@ -1,15 +1,22 @@
-import os
 import asyncio
+import os
+
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-from utils.logger import get_core_logger
-from utils.config import EmbeddingModelConfig, RewriteModelConfig, SimilarConfig, get_config
 
 from leetcode import LeetCodeClient  # html_to_text 會在 cog 中使用
 from llms import GeminiLLM
 from utils import SettingsDatabaseManager
-from utils.database import LLMTranslateDatabaseManager, LLMInspireDatabaseManager
+from utils.config import (
+    EmbeddingModelConfig,
+    RewriteModelConfig,
+    SimilarConfig,
+    get_config,
+)
+from utils.database import LLMInspireDatabaseManager, LLMTranslateDatabaseManager
+from utils.logger import get_core_logger
+
 # from discord.ui import View, Button # Button 和 View 會在 cog 中使用
 
 # Load configuration
@@ -159,9 +166,7 @@ try:
         )
         logger.info("LLM models initialized successfully")
     else:
-        logger.warning(
-            "Google Gemini API key not configured, LLM features will be disabled"
-        )
+        logger.warning("Google Gemini API key not configured, LLM features will be disabled")
         llm = None
         llm_pro = None
 except Exception as e:
@@ -200,9 +205,7 @@ async def on_ready():
         await schedule_cog.initialize_schedules()
         bot.logger.info("APScheduler daily challenge scheduling initiated.")
     else:
-        bot.logger.warning(
-            "ScheduleManagerCog not found. Daily challenges will not be scheduled automatically."
-        )
+        bot.logger.warning("ScheduleManagerCog not found. Daily challenges will not be scheduled automatically.")
 
     bot.logger.info("Bot is ready and operational!")
 
@@ -223,9 +226,7 @@ async def load(ctx, extension):
         bot.logger.info(f"Loaded extension cogs.{extension} by command.")
     except Exception as e:
         await ctx.send(f"Error loading `{extension}`: {e}")
-        bot.logger.error(
-            f"Error loading extension cogs.{extension}: {e}", exc_info=True
-        )
+        bot.logger.error(f"Error loading extension cogs.{extension}: {e}", exc_info=True)
 
 
 @bot.command()
@@ -237,9 +238,7 @@ async def unload(ctx, extension):
         bot.logger.info(f"Unloaded extension cogs.{extension} by command.")
     except Exception as e:
         await ctx.send(f"Error unloading `{extension}`: {e}")
-        bot.logger.error(
-            f"Error unloading extension cogs.{extension}: {e}", exc_info=True
-        )
+        bot.logger.error(f"Error unloading extension cogs.{extension}: {e}", exc_info=True)
 
 
 @bot.command()
@@ -251,9 +250,7 @@ async def reload(ctx, extension):
         bot.logger.info(f"Reloaded extension cogs.{extension} by command.")
     except Exception as e:
         await ctx.send(f"Error reloading `{extension}`: {e}")
-        bot.logger.error(
-            f"Error reloading extension cogs.{extension}: {e}", exc_info=True
-        )
+        bot.logger.error(f"Error reloading extension cogs.{extension}: {e}", exc_info=True)
 
 
 async def load_extensions():
@@ -262,16 +259,12 @@ async def load_extensions():
         bot.logger.info("Created cogs directory.")
 
     for filename in os.listdir("./cogs"):
-        if filename.endswith(".py") and not filename.startswith(
-            "_"
-        ):  # 忽略如 __init__.py
+        if filename.endswith(".py") and not filename.startswith("_"):  # 忽略如 __init__.py
             try:
                 await bot.load_extension(f"cogs.{filename[:-3]}")
                 bot.logger.info(f"Successfully loaded extension: cogs.{filename[:-3]}")
             except Exception as e:
-                bot.logger.error(
-                    f"Failed to load extension cogs.{filename[:-3]}: {e}", exc_info=True
-                )
+                bot.logger.error(f"Failed to load extension cogs.{filename[:-3]}: {e}", exc_info=True)
 
 
 async def main():

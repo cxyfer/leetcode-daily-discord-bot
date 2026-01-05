@@ -1,11 +1,12 @@
-from abc import ABC, abstractmethod
 import json
+from abc import ABC, abstractmethod
+
 from langchain_core.output_parsers import SimpleJsonOutputParser
 from pydantic import BaseModel
 
 from llms.templates import (
-    TRANSLATION_JSON_PROMPT_TEMPLATE,
     INSPIRE_JSON_PROMPT_TEMPLATE,
+    TRANSLATION_JSON_PROMPT_TEMPLATE,
 )
 from utils.logger import get_llm_logger
 
@@ -79,14 +80,10 @@ class LLMBase(ABC):
             structured_llm = self.llm.with_structured_output(schema)
             return await structured_llm.ainvoke(prompt)
         except Exception as exc:
-            logger.warning(
-                "Structured output failed: %s", exc, exc_info=True
-            )
+            logger.warning("Structured output failed: %s", exc, exc_info=True)
             return None
 
-    async def translate(
-        self, content: str, target_language: str, from_lang: str = "auto"
-    ) -> str:
+    async def translate(self, content: str, target_language: str, from_lang: str = "auto") -> str:
         """
         Translate the input content to the target language using the LLM.
 

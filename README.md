@@ -346,6 +346,41 @@ When querying multiple problems, the bot displays:
 
 See [CHANGELOG.md](CHANGELOG.md) for versioned release notes and history.
 
+## 🛠️ Development
+
+### Setup Development Environment
+
+This project uses [uv](https://github.com/astral-sh/uv) for dependency management. To set up the development environment with all dev tools:
+
+```bash
+uv sync --extra dev
+```
+
+### Code Quality and Testing
+
+We use `ruff` for linting and formatting, and `pytest` for testing.
+
+#### Linting and Formatting
+```bash
+# Check for linting issues
+uv run ruff check .
+
+# Fix linting issues automatically
+uv run ruff check --fix .
+
+# Format code
+uv run ruff format .
+```
+
+#### Running Tests
+```bash
+# Run all tests with coverage report
+uv run pytest
+
+# Run specific test file
+uv run pytest tests/test_source_detector.py
+```
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.

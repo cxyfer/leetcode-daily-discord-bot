@@ -6,13 +6,18 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from .base import LLMBase, TranslationOutput, InspireOutput  # As a module
+    from .base import InspireOutput, LLMBase, TranslationOutput  # As a module
 except ImportError:
-    from llms.base import LLMBase, TranslationOutput, InspireOutput  # When executed directly
+    from llms.base import (  # When executed directly
+        InspireOutput,
+        LLMBase,
+        TranslationOutput,
+    )
 
 from google import genai
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
+
 from utils.logger import get_llm_logger
 
 logger = get_llm_logger()

@@ -23,7 +23,8 @@ logger = get_llm_logger()
 
 REWRITE_PROMPT = """Role: Competitive Programming Problem Simplifier
 
-Task: Rewrite the given problem statement into its core algorithmic essence. The output must be concise, self-contained, and immediately understandable without referencing the original.
+Task: Rewrite the given problem statement into its core algorithmic essence. The output must be concise,
+self-contained, and immediately understandable without referencing the original.
 
 Instructions:
 
@@ -36,7 +37,8 @@ Instructions:
     *   The core problem definition and objective.
 
 3.  **HTML Processing**:
-    *   Extract text content from semantic tags like `<span data-keyword="...">` (e.g., `<span data-keyword="binary-array">binary array</span>` → "binary array").
+    *   Extract text content from semantic tags like `<span data-keyword="...">`
+        (e.g., `<span data-keyword="binary-array">binary array</span>` → "binary array").
     *   Convert mathematical HTML to MathJax:
         *   `<sup>` → `^{{}}` (e.g., `10<sup>9</sup>` → $10^9$)
         *   `<sub>` → `_{{}}` (e.g., `a<sub>i</sub>` → $a_i$)
@@ -52,6 +54,7 @@ Instructions:
 Input Statement:
 {ORIGINAL}
 """
+
 
 def _resolve_api_key(config: ConfigManager) -> Optional[str]:
     return (
@@ -82,9 +85,7 @@ class EmbeddingRewriter:
 
     def _build_generation_config(self):
         try:
-            return types.GenerateContentConfig(
-                temperature=self.model_config.temperature
-            )
+            return types.GenerateContentConfig(temperature=self.model_config.temperature)
         except Exception:  # pragma: no cover - fallback for SDK differences
             return {"temperature": self.model_config.temperature}
 
@@ -128,17 +129,13 @@ class EmbeddingRewriter:
     async def rewrite(self, content: str) -> str:
         return await self.rewrite_with_executor(content, None)
 
-    async def rewrite_with_executor(
-        self, content: str, executor: Optional[Executor]
-    ) -> str:
+    async def rewrite_with_executor(self, content: str, executor: Optional[Executor]) -> str:
         if not content or not content.strip():
             return ""
         prompt = self._build_prompt(content)
         try:
             return await asyncio.wait_for(
-                asyncio.get_running_loop().run_in_executor(
-                    executor, self._rewrite_sync, prompt
-                ),
+                asyncio.get_running_loop().run_in_executor(executor, self._rewrite_sync, prompt),
                 timeout=self.model_config.timeout,
             )
         except asyncio.TimeoutError:

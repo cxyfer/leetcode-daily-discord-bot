@@ -42,9 +42,7 @@ class EmbeddingStorage:
         }
 
     async def get_embedding_meta(self, source: str, problem_id: str) -> Optional[dict]:
-        return await asyncio.to_thread(
-            self._get_embedding_meta_sync, source, problem_id
-        )
+        return await asyncio.to_thread(self._get_embedding_meta_sync, source, problem_id)
 
     def _get_existing_ids_sync(self, source: str, model: str, dim: int) -> set[str]:
         rows = self.db.execute(
@@ -216,16 +214,8 @@ class EmbeddingStorage:
         )
         return int(row[0]) if row else 0
 
-    async def count_embeddings(
-        self, source: Optional[str] = None, filter_pattern: Optional[str] = None
-    ) -> int:
-        return await asyncio.to_thread(
-            self._count_table_sync, "vec_embeddings", source, filter_pattern
-        )
+    async def count_embeddings(self, source: Optional[str] = None, filter_pattern: Optional[str] = None) -> int:
+        return await asyncio.to_thread(self._count_table_sync, "vec_embeddings", source, filter_pattern)
 
-    async def count_metadata(
-        self, source: Optional[str] = None, filter_pattern: Optional[str] = None
-    ) -> int:
-        return await asyncio.to_thread(
-            self._count_table_sync, "problem_embeddings", source, filter_pattern
-        )
+    async def count_metadata(self, source: Optional[str] = None, filter_pattern: Optional[str] = None) -> int:
+        return await asyncio.to_thread(self._count_table_sync, "problem_embeddings", source, filter_pattern)

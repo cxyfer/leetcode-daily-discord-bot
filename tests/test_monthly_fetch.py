@@ -2,15 +2,16 @@
 Unit tests for monthly daily challenge fetching functionality
 """
 
-import pytest
-import pytest_asyncio
 import asyncio
-import aiohttp
-from unittest.mock import Mock, patch, AsyncMock
 
 # Import the module to test
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, Mock, patch
+
+import aiohttp
+import pytest
+import pytest_asyncio
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -66,9 +67,7 @@ class TestMonthlyFetch:
         # Mock the HTTP request
         with patch("aiohttp.ClientSession.post") as mock_post:
             mock_post.return_value.__aenter__.return_value.status = 200
-            mock_post.return_value.__aenter__.return_value.json = AsyncMock(
-                return_value=mock_response
-            )
+            mock_post.return_value.__aenter__.return_value.json = AsyncMock(return_value=mock_response)
 
             result = await client.fetch_monthly_daily_challenges(2025, 1)
 
@@ -82,9 +81,7 @@ class TestMonthlyFetch:
     async def test_fetch_monthly_daily_challenges_network_error(self, client):
         """Test handling of network errors"""
         with patch("aiohttp.ClientSession.post") as mock_post:
-            mock_post.return_value.__aenter__.side_effect = aiohttp.ClientError(
-                "Network error"
-            )
+            mock_post.return_value.__aenter__.side_effect = aiohttp.ClientError("Network error")
 
             result = await client.fetch_monthly_daily_challenges(2025, 1)
 
@@ -97,9 +94,7 @@ class TestMonthlyFetch:
 
         with patch("aiohttp.ClientSession.post") as mock_post:
             mock_post.return_value.__aenter__.return_value.status = 200
-            mock_post.return_value.__aenter__.return_value.json = AsyncMock(
-                return_value=mock_response
-            )
+            mock_post.return_value.__aenter__.return_value.json = AsyncMock(return_value=mock_response)
 
             result = await client.fetch_monthly_daily_challenges(2025, 1)
 
@@ -115,14 +110,8 @@ class TestMonthlyFetch:
         client.fetch_daily_challenge = AsyncMock(return_value=None)
 
         # Mock fetch_monthly_daily_challenges
-        mock_monthly_data = {
-            "challenges": [
-                {"date": "2025-01-15", "question_id": "123", "slug": "test-problem"}
-            ]
-        }
-        client.fetch_monthly_daily_challenges = AsyncMock(
-            return_value=mock_monthly_data
-        )
+        mock_monthly_data = {"challenges": [{"date": "2025-01-15", "question_id": "123", "slug": "test-problem"}]}
+        client.fetch_monthly_daily_challenges = AsyncMock(return_value=mock_monthly_data)
 
         # Mock get_problem
         mock_problem = {
@@ -182,9 +171,7 @@ class TestMonthlyFetch:
         with patch("leetcode.get_config") as mock_config:
             mock_config.return_value.get.return_value = 0.01  # Short delay for testing
 
-            await client._process_remaining_monthly_challenges(
-                challenges, "com", "2025", "01"
-            )
+            await client._process_remaining_monthly_challenges(challenges, "com", "2025", "01")
 
         # Verify all challenges were processed
         assert client.daily_db.update_daily.call_count == 2
@@ -220,9 +207,7 @@ class TestMonthlyFetch:
         with patch("leetcode.get_config") as mock_config:
             mock_config.return_value.get.return_value = 0.01
 
-            await client._process_remaining_monthly_challenges(
-                challenges, "com", "2025", "01"
-            )
+            await client._process_remaining_monthly_challenges(challenges, "com", "2025", "01")
 
         # Verify no updates were made due to errors
         assert client.daily_db.update_daily.call_count == 0
@@ -239,18 +224,13 @@ class TestMonthlyFetch:
         client.get_problem = mock_get_problem
 
         with pytest.raises(asyncio.CancelledError):
-            await client._process_remaining_monthly_challenges(
-                challenges, "com", "2025", "01"
-            )
+            await client._process_remaining_monthly_challenges(challenges, "com", "2025", "01")
 
     @pytest.mark.asyncio
     async def test_concurrent_fetch_limit(self, client):
         """Test that semaphore limits concurrent API requests"""
         # Create many challenges to test concurrency
-        challenges = [
-            {"date": f"2025-01-{i:02d}", "question_id": str(i), "slug": f"problem-{i}"}
-            for i in range(1, 11)
-        ]
+        challenges = [{"date": f"2025-01-{i:02d}", "question_id": str(i), "slug": f"problem-{i}"} for i in range(1, 11)]
 
         # Track concurrent calls
         concurrent_calls = 0
@@ -270,9 +250,7 @@ class TestMonthlyFetch:
         with patch("leetcode.get_config") as mock_config:
             mock_config.return_value.get.return_value = 0.01
 
-            await client._process_remaining_monthly_challenges(
-                challenges, "com", "2025", "01"
-            )
+            await client._process_remaining_monthly_challenges(challenges, "com", "2025", "01")
 
         # Verify semaphore limited concurrent calls to 5
         assert max_concurrent <= 5
@@ -357,9 +335,7 @@ class TestMonthlyFetch:
         # Mock the HTTP request
         with patch("aiohttp.ClientSession.post") as mock_post:
             mock_post.return_value.__aenter__.return_value.status = 200
-            mock_post.return_value.__aenter__.return_value.json = AsyncMock(
-                return_value=mock_response
-            )
+            mock_post.return_value.__aenter__.return_value.json = AsyncMock(return_value=mock_response)
 
             result = await client.fetch_monthly_daily_challenges(2025, 1)
 

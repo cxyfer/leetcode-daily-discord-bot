@@ -3,20 +3,14 @@ from typing import Optional, Tuple
 
 VALID_PREFIX_SOURCES = {"atcoder", "leetcode", "codeforces", "luogu", "uva", "spoj"}
 
-ATCODER_URL_RE = re.compile(
-    r"atcoder\.jp/contests/([^/]+)/tasks/([^/?#]+)", re.IGNORECASE
-)
-LEETCODE_URL_RE = re.compile(
-    r"leetcode\.(?:com|cn)/(?:contest/[^/]+/)?problems/([^/?#]+)", re.IGNORECASE
-)
+ATCODER_URL_RE = re.compile(r"atcoder\.jp/contests/([^/]+)/tasks/([^/?#]+)", re.IGNORECASE)
+LEETCODE_URL_RE = re.compile(r"leetcode\.(?:com|cn)/(?:contest/[^/]+/)?problems/([^/?#]+)", re.IGNORECASE)
 # Added protocol support and word boundary anchor
 CODEFORCES_URL_RE = re.compile(
     r"\b(?:https?://)?(?:www\.)?codeforces\.com/(?:contest/(\d+)/problem/([A-Z0-9]+)|problemset/problem/(\d+)/([A-Z0-9]+))",
-    re.IGNORECASE
+    re.IGNORECASE,
 )
-LUOGU_URL_RE = re.compile(
-    r"luogu\.com\.cn/problem/([A-Z0-9_]+)", re.IGNORECASE
-)
+LUOGU_URL_RE = re.compile(r"luogu\.com\.cn/problem/([A-Z0-9_]+)", re.IGNORECASE)
 
 ATCODER_ID_RE = re.compile(r"^(abc|arc|agc|ahc)\d+_[a-z]\d*$", re.IGNORECASE)
 CF_ID_RE = re.compile(r"^(?:CF)?\d+[A-Z]\d*$", re.IGNORECASE)
@@ -66,7 +60,7 @@ def detect_source(problem_id: str, explicit_source: Optional[str] = None) -> Tup
             # Correctly remove AT_ prefix case-insensitively
             # Since luogu_pid is upper case here, we can strip "AT_"
             if luogu_pid.startswith("AT_"):
-                 return "atcoder", luogu_pid[3:].lower()
+                return "atcoder", luogu_pid[3:].lower()
             return "atcoder", luogu_pid.lower()
         return "luogu", luogu_pid
 
@@ -105,12 +99,14 @@ def looks_like_problem_id(problem_id: str) -> bool:
     pid = str(problem_id).strip()
     if not pid:
         return False
-    
+
     # Treat platform URLs as valid problem identifiers
-    if (LEETCODE_URL_RE.search(pid) or 
-        ATCODER_URL_RE.search(pid) or 
-        CODEFORCES_URL_RE.search(pid) or 
-        LUOGU_URL_RE.search(pid)):
+    if (
+        LEETCODE_URL_RE.search(pid)
+        or ATCODER_URL_RE.search(pid)
+        or CODEFORCES_URL_RE.search(pid)
+        or LUOGU_URL_RE.search(pid)
+    ):
         return True
 
     # If it's a URL but not from a recognized platform, it doesn't look like a problem ID
@@ -123,7 +119,7 @@ def looks_like_problem_id(problem_id: str) -> bool:
             source, sub_pid = parts
             if source.lower() in VALID_PREFIX_SOURCES:
                 return looks_like_problem_id(sub_pid)
-    
+
     if pid.isdigit():
         return True
     if ATCODER_ID_RE.match(pid):

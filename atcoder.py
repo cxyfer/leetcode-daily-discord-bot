@@ -144,9 +144,7 @@ class AtCoderClient:
                     "contest": contest_id,
                     "problem_index": index_text,
                     "tags": None,
-                    "link": self.PROBLEM_URL_TEMPLATE.format(
-                        contest_id=contest_id, problem_id=problem_id
-                    ),
+                    "link": self.PROBLEM_URL_TEMPLATE.format(contest_id=contest_id, problem_id=problem_id),
                     "category": "Algorithms",
                     "paid_only": 0,
                     "content": None,
@@ -201,9 +199,7 @@ class AtCoderClient:
             "contest": contest_id,
             "problem_index": item.get("problem_index"),
             "tags": None,
-            "link": self.PROBLEM_URL_TEMPLATE.format(
-                contest_id=contest_id, problem_id=problem_id
-            ),
+            "link": self.PROBLEM_URL_TEMPLATE.format(contest_id=contest_id, problem_id=problem_id),
             "category": "Algorithms",
             "paid_only": 0,
             "content": None,
@@ -254,9 +250,7 @@ class AtCoderClient:
         logger.info("Fetched %s contests", len(contests))
         return contests
 
-    async def fetch_contest_problems(
-        self, contest_id: str, session: aiohttp.ClientSession
-    ) -> list[dict]:
+    async def fetch_contest_problems(self, contest_id: str, session: aiohttp.ClientSession) -> list[dict]:
         url = self.CONTEST_TASKS_URL_TEMPLATE.format(contest_id=contest_id)
         contest_url = f"https://atcoder.jp/contests/{contest_id}"
         html = await self._fetch_text(session, url, referer=contest_url)
@@ -267,9 +261,7 @@ class AtCoderClient:
     async def fetch_problem_content(
         self, session: aiohttp.ClientSession, contest_id: str, problem_id: str
     ) -> Optional[str]:
-        base_url = self.PROBLEM_URL_TEMPLATE.format(
-            contest_id=contest_id, problem_id=problem_id
-        )
+        base_url = self.PROBLEM_URL_TEMPLATE.format(contest_id=contest_id, problem_id=problem_id)
         referer = self.CONTEST_TASKS_URL_TEMPLATE.format(contest_id=contest_id)
         html = await self._fetch_text(session, f"{base_url}?lang=en", referer=referer)
         if not html:
@@ -288,9 +280,7 @@ class AtCoderClient:
             return None
         return self._extract_statement(html, prefer_lang="ja")
 
-    async def fetch_content_by_url(
-        self, session: aiohttp.ClientSession, url: str
-    ) -> Optional[str]:
+    async def fetch_content_by_url(self, session: aiohttp.ClientSession, url: str) -> Optional[str]:
         """Fetch problem content directly from URL."""
         html = await self._fetch_text(session, f"{url}?lang=en")
         if not html:
@@ -335,9 +325,7 @@ class AtCoderClient:
             if not problems:
                 return 0
             for problem in problems:
-                content = await self.fetch_problem_content(
-                    session, contest_id, problem["id"]
-                )
+                content = await self.fetch_problem_content(session, contest_id, problem["id"])
                 if content:
                     problem["content"] = content
                 self.problems_db.update_problem(problem)
@@ -356,9 +344,7 @@ class AtCoderClient:
                 if not problems:
                     continue
                 for problem in problems:
-                    content = await self.fetch_problem_content(
-                        session, contest_id, problem["id"]
-                    )
+                    content = await self.fetch_problem_content(session, contest_id, problem["id"])
                     if content:
                         problem["content"] = content
                     self.problems_db.update_problem(problem)
@@ -392,11 +378,13 @@ class AtCoderClient:
             for index, (problem_id, link) in enumerate(missing, start=1):
                 content = await self.fetch_content_by_url(session, link)
                 if content:
-                    self.problems_db.update_problem({
-                        "id": problem_id,
-                        "source": "atcoder",
-                        "content": content,
-                    })
+                    self.problems_db.update_problem(
+                        {
+                            "id": problem_id,
+                            "source": "atcoder",
+                            "content": content,
+                        }
+                    )
                     filled += 1
                 if index % 50 == 0 or index == total:
                     logger.info("Processed %s/%s, filled %s", index, total, filled)

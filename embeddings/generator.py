@@ -39,9 +39,7 @@ def _is_retryable_api_error(exc: Exception) -> bool:
 class EmbeddingGenerator:
     def __init__(self, config: ConfigManager | None = None):
         self.config = config or get_config()
-        self.model_config: EmbeddingModelConfig = (
-            self.config.get_embedding_model_config()
-        )
+        self.model_config: EmbeddingModelConfig = self.config.get_embedding_model_config()
         api_key = _resolve_api_key(self.config)
         if not api_key:
             raise ValueError("Gemini API key not configured")
