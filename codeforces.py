@@ -3,16 +3,16 @@ import asyncio
 import json
 import os
 import time
-from urllib.parse import urljoin
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urljoin
 
-from curl_cffi.requests import AsyncSession
 from bs4 import BeautifulSoup
+from curl_cffi.requests import AsyncSession
 
-from utils.database import ProblemsDatabaseManager
 from utils.config import get_config
+from utils.database import ProblemsDatabaseManager
 from utils.logger import get_leetcode_logger
 
 logger = get_leetcode_logger()
@@ -71,7 +71,7 @@ class CodeforcesClient:
     def _is_rate_limited(self, html: str) -> bool:
         if not html:
             return False
-        
+
         # 如果能找到題目敘述，表示沒有被擋
         if "div.problem-statement" in html or 'class="problem-statement"' in html:
             return False
@@ -82,13 +82,13 @@ class CodeforcesClient:
             return True
         if "<title>just a moment...</title>" in text:
             return True
-            
+
         # 只有在非常短的頁面中才檢查關鍵字，避免誤判
         if len(html) < 5000:
             if "/enter" in text:
                 return True
             return any(marker in text for marker in RATE_LIMIT_MARKERS)
-            
+
         return False
 
     async def _fetch_text(
@@ -103,19 +103,24 @@ class CodeforcesClient:
                 headers = self._headers(referer)
                 # 使用 impersonate="chrome124" 模擬真實瀏覽器 TLS 指紋
                 response = await session.get(url, headers=headers, timeout=30)
-                
+
                 if response.status_code in {429, 403, 503}:
                     backoff = min(
                         self.max_backoff, self.backoff_base * (2 ** (attempt - 1))
                     )
-                    logger.warning("Blocked or Rate limited (%s, status=%s). Backing off %.1fs", url, response.status_code, backoff)
+                    logger.warning(
+                        "Blocked or Rate limited (%s, status=%s). Backing off %.1fs",
+                        url,
+                        response.status_code,
+                        backoff,
+                    )
                     await asyncio.sleep(backoff)
                     continue
-                
+
                 if response.status_code >= 400:
                     logger.warning("HTTP %s while fetching %s", response.status_code, url)
                     return None
-                
+
                 text = response.text
             except asyncio.CancelledError:
                 raise
@@ -519,7 +524,7 @@ async def main() -> None:
     if args.missing_content_stats:
         count = client.problems_db.count_missing_content(source="codeforces")
         print(f"Missing content: {count}")
-        
+
     if args.missing_problems:
         missing = client.problems_db.get_problems_missing_content(source="codeforces")
         for problem_id, _ in missing:
