@@ -149,7 +149,7 @@ class CodeforcesClient:
             logger.error("Invalid JSON from %s: %s", url, exc)
             return None
 
-    def _build_problem_from_api(self, problem: dict, stats: dict) -> Optional[dict]:
+    def _build_problem_from_api(self, problem: dict, stats: dict, contest_name: Optional[str] = None) -> Optional[dict]:
         contest_id = problem.get("contestId")
         index = problem.get("index")
         title = problem.get("name")
@@ -165,7 +165,7 @@ class CodeforcesClient:
             "difficulty": None,
             "ac_rate": None,
             "rating": problem.get("rating"),
-            "contest": str(contest_id),
+            "contest": contest_name if contest_name else str(contest_id),
             "problem_index": index,
             "tags": problem.get("tags", []),
             "link": self.PROBLEM_URL_TEMPLATE.format(contest_id=contest_id, index=index),
@@ -250,12 +250,16 @@ class CodeforcesClient:
             logger.warning("Contest %s standings API error: %s", contest_id, payload.get("comment"))
             return []
 
-        problems = (payload.get("result") or {}).get("problems", [])
+        result = payload.get("result") or {}
+        problems = result.get("problems", [])
+        contest_info = result.get("contest", {})
+        contest_name = contest_info.get("name")
+
         parsed: list[dict] = []
         for problem in problems:
             if problem.get("contestId") is None:
                 problem = {**problem, "contestId": contest_id}
-            built = self._build_problem_from_api(problem, {})
+            built = self._build_problem_from_api(problem, {}, contest_name=contest_name)
             if built:
                 parsed.append(built)
         return parsed
