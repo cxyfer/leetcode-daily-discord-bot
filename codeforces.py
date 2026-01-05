@@ -572,7 +572,9 @@ class CodeforcesClient:
         updated = 0
         total = len(problems)
         for problem_id, content in problems:
-            cleaned = self._clean_problem_html(content)
+            if not content:
+                continue
+            cleaned = self._clean_problem_markdown(content)
             if cleaned and cleaned != content:
                 self.problems_db.update_problem(
                     {"id": problem_id, "source": "codeforces", "content": cleaned}
