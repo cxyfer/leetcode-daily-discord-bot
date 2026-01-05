@@ -1071,6 +1071,28 @@ def html_to_text(html):
         raw_text = re.sub(r"\s*\^\s*", "^", raw_text)
         return raw_text
 
+    def latex_to_plain(latex: str) -> str:
+        text = replace_latex_tokens(latex)
+        text = re.sub(r"\s+", " ", text).strip()
+        text = re.sub(r"_\{([^{}]+)\}", r"_\1", text)
+        text = re.sub(r"\^\{([^{}]+)\}", r"^\1", text)
+        text = text.replace("{", "").replace("}", "")
+        return text.strip()
+
+    def convert_latex_delimiters(raw_text: str) -> str:
+        def display_repl(match: re.Match) -> str:
+            return latex_to_plain(match.group(1))
+
+        raw_text = re.sub(r"\$\$\s*(.+?)\s*\$\$", display_repl, raw_text, flags=re.DOTALL)
+
+        def inline_repl(match: re.Match) -> str:
+            content = match.group(1)
+            if not re.search(r"[\\^_]", content):
+                return match.group(0)
+            return latex_to_plain(content)
+
+        return re.sub(r"\$(.+?)\$", inline_repl, raw_text)
+
     soup = BeautifulSoup(html, "html.parser")
     for sup in soup.find_all("sup"):
         sup.replace_with("^" + sup.get_text())
@@ -1110,6 +1132,7 @@ def html_to_text(html):
         p.insert_before("\n\n")
 
     text = soup.get_text()
+    text = convert_latex_delimiters(text)
     text = replace_latex_tokens(text)
 
     for idx, content in enumerate(code_blocks):
