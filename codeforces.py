@@ -105,9 +105,7 @@ class CodeforcesClient:
                 response = await session.get(url, headers=headers, timeout=30)
 
                 if response.status_code in {429, 403, 503}:
-                    backoff = min(
-                        self.max_backoff, self.backoff_base * (2 ** (attempt - 1))
-                    )
+                    backoff = min(self.max_backoff, self.backoff_base * (2 ** (attempt - 1)))
                     logger.warning(
                         "Blocked or Rate limited (%s, status=%s). Backing off %.1fs",
                         url,
@@ -135,17 +133,13 @@ class CodeforcesClient:
 
             if self._is_rate_limited(text):
                 backoff = min(self.max_backoff, self.backoff_base * (2 ** (attempt - 1)))
-                logger.warning(
-                    "Rate limited page content detected (%s). Backing off %.1fs", url, backoff
-                )
+                logger.warning("Rate limited page content detected (%s). Backing off %.1fs", url, backoff)
                 await asyncio.sleep(backoff)
                 continue
             return text
         return None
 
-    async def _fetch_json(
-        self, session: AsyncSession, url: str
-    ) -> Optional[dict]:
+    async def _fetch_json(self, session: AsyncSession, url: str) -> Optional[dict]:
         text = await self._fetch_text(session, url)
         if not text:
             return None
@@ -194,9 +188,7 @@ class CodeforcesClient:
         return json.dumps(list(tags))
 
     def _merge_problemset(self, problems: list[dict], stats: list[dict]) -> list[dict]:
-        stats_map = {
-            (item.get("contestId"), item.get("index")): item for item in stats or []
-        }
+        stats_map = {(item.get("contestId"), item.get("index")): item for item in stats or []}
         merged: list[dict] = []
         for problem in problems or []:
             key = (problem.get("contestId"), problem.get("index"))
@@ -215,16 +207,11 @@ class CodeforcesClient:
             return []
 
         result = payload.get("result") or {}
-        problems = self._merge_problemset(
-            result.get("problems", []), result.get("problemStatistics", [])
-        )
+        problems = self._merge_problemset(result.get("problems", []), result.get("problemStatistics", []))
         if not problems:
             return []
 
-        problems_for_insert = [
-            {**problem, "tags": self._serialize_tags(problem.get("tags"))}
-            for problem in problems
-        ]
+        problems_for_insert = [{**problem, "tags": self._serialize_tags(problem.get("tags"))} for problem in problems]
         inserted = self.problems_db.update_problems(problems_for_insert)
         logger.info(
             "Problemset sync: %s problems fetched, %s inserted, %s skipped (existing)",
@@ -247,31 +234,20 @@ class CodeforcesClient:
 
         contests = payload.get("result", [])
         finished = [contest for contest in contests if contest.get("phase") == "FINISHED"]
+        filtered = finished
         if not include_gym:
-            finished = [contest for contest in finished if contest.get("type") != "GYM"]
-        contest_ids = [
-            contest.get("id") for contest in finished if contest.get("id") is not None
-        ]
+            filtered = [contest for contest in finished if contest.get("type") != "GYM"]
+        contest_ids = [contest.get("id") for contest in filtered if contest.get("id") is not None]
         contest_ids.sort(reverse=True)
-        logger.info(
-            "Contest list: %s total, %s finished, %s returned",
-            len(contests),
-            len(finished),
-            len(contest_ids),
-        )
         return contest_ids
 
-    async def fetch_contest_problems(
-        self, contest_id: int, session: AsyncSession
-    ) -> list[dict]:
+    async def fetch_contest_problems(self, contest_id: int, session: AsyncSession) -> list[dict]:
         url = f"{self.CONTEST_STANDINGS_API}?contestId={contest_id}&from=1&count=1"
         payload = await self._fetch_json(session, url)
         if not payload:
             return []
         if payload.get("status") != "OK":
-            logger.warning(
-                "Contest %s standings API error: %s", contest_id, payload.get("comment")
-            )
+            logger.warning("Contest %s standings API error: %s", contest_id, payload.get("comment"))
             return []
 
         problems = (payload.get("result") or {}).get("problems", [])
@@ -302,9 +278,7 @@ class CodeforcesClient:
             return None
         return self._fix_relative_urls(str(statement), "https://codeforces.com")
 
-    async def fetch_problem_content(
-        self, session: AsyncSession, contest_id: int, index: str
-    ) -> Optional[str]:
+    async def fetch_problem_content(self, session: AsyncSession, contest_id: int, index: str) -> Optional[str]:
         base_url = self.PROBLEM_URL_TEMPLATE.format(contest_id=contest_id, index=index)
         referer = f"https://codeforces.com/contest/{contest_id}"
         html = await self._fetch_text(session, f"{base_url}?locale=en", referer=referer)
@@ -316,9 +290,7 @@ class CodeforcesClient:
             logger.warning("Problem statement missing for %s", base_url)
         return content
 
-    async def fetch_content_by_url(
-        self, session: AsyncSession, url: str
-    ) -> Optional[str]:
+    async def fetch_content_by_url(self, session: AsyncSession, url: str) -> Optional[str]:
         separator = "&" if "?" in url else "?"
         html = await self._fetch_text(session, f"{url}{separator}locale=en", referer=url)
         if not html:
@@ -337,21 +309,24 @@ class CodeforcesClient:
             if not problems:
                 return 0
             for problem in problems:
-                content = await self.fetch_problem_content(
-                    session, contest_id, problem["problem_index"]
-                )
+                content = await self.fetch_problem_content(session, contest_id, problem["problem_index"])
                 if content:
                     problem["content"] = content
                 self.problems_db.update_problem(problem)
             logger.info("Fetched contest %s: %s problems", contest_id, len(problems))
             return len(problems)
 
-    async def fetch_all_problems(
-        self, resume: bool = True, include_gym: bool = False
-    ) -> int:
+    async def fetch_all_problems(self, resume: bool = True, include_gym: bool = False) -> int:
         contests = await self.fetch_contest_list(include_gym=include_gym)
         progress = self.get_progress() if resume else {"fetched_contests": []}
         fetched = {str(contest_id) for contest_id in progress.get("fetched_contests", [])}
+        remaining = [c for c in contests if str(c) not in fetched]
+        logger.info(
+            "Contest list: %s available, %s fetched, %s remaining",
+            len(contests),
+            len(fetched),
+            len(remaining),
+        )
         total = 0
         async with AsyncSession(impersonate="chrome124") as session:
             for contest_id in contests:
@@ -361,9 +336,7 @@ class CodeforcesClient:
                 if not problems:
                     continue
                 for problem in problems:
-                    content = await self.fetch_problem_content(
-                        session, contest_id, problem["problem_index"]
-                    )
+                    content = await self.fetch_problem_content(session, contest_id, problem["problem_index"])
                     if content:
                         problem["content"] = content
                     self.problems_db.update_problem(problem)
@@ -387,9 +360,7 @@ class CodeforcesClient:
             for index, (problem_id, link) in enumerate(missing, start=1):
                 content = await self.fetch_content_by_url(session, link)
                 if content:
-                    self.problems_db.update_problem(
-                        {"id": problem_id, "source": "codeforces", "content": content}
-                    )
+                    self.problems_db.update_problem({"id": problem_id, "source": "codeforces", "content": content})
                     filled += 1
                 if index % 50 == 0 or index == total:
                     logger.info("Processed %s/%s, filled %s", index, total, filled)
