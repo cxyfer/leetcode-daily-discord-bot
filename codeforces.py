@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -266,6 +267,10 @@ class CodeforcesClient:
 
     def _fix_relative_urls(self, html: str, base_url: str) -> str:
         soup = BeautifulSoup(html, "html.parser")
+        self._fix_relative_urls_in_soup(soup, base_url)
+        return str(soup)
+
+    def _fix_relative_urls_in_soup(self, soup: BeautifulSoup, base_url: str) -> None:
         for img in soup.find_all("img", src=True):
             img["src"] = urljoin(base_url, img["src"])
         for link in soup.find_all("a", href=True):
@@ -273,7 +278,6 @@ class CodeforcesClient:
             if href.startswith(("#", "javascript:", "mailto:")):
                 continue
             link["href"] = urljoin(base_url, href)
-        return str(soup)
 
     def _clean_problem_html(self, html: str) -> str:
         if not html:
@@ -344,13 +348,132 @@ class CodeforcesClient:
 
         return str(soup)
 
+    def _clean_problem_markdown(self, html: str, base_url: str = "https://codeforces.com") -> str:
+        if not html:
+            return ""
+
+        def table_to_markdown(table) -> str:
+            rows = []
+            for tr in table.find_all("tr"):
+                cells = [cell.get_text(" ", strip=True) for cell in tr.find_all(["th", "td"])]
+                if cells:
+                    rows.append(cells)
+            if not rows:
+                return ""
+            width = max(len(row) for row in rows)
+            normalized = [row + [""] * (width - len(row)) for row in rows]
+            header = normalized[0]
+            separator = ["---"] * width
+            lines = [
+                "| " + " | ".join(header) + " |",
+                "| " + " | ".join(separator) + " |",
+            ]
+            for row in normalized[1:]:
+                lines.append("| " + " | ".join(row) + " |")
+            return "\n" + "\n".join(lines) + "\n"
+
+        def normalize_math_delimiters(text: str) -> str:
+            return re.sub(r"\$\$\$([\\s\\S]+?)\$\$\$", r"$\\1$", text)
+
+        soup = BeautifulSoup(html, "html.parser")
+        self._fix_relative_urls_in_soup(soup, base_url)
+
+        # MathJax 必須在移除 script 前處理
+        for script in soup.select("script[type^='math/tex']"):
+            latex = script.get_text().strip()
+            is_display = "mode=display" in (script.get("type") or "")
+            for sibling in (script.find_previous_sibling(), script.find_next_sibling()):
+                if not sibling or not getattr(sibling, "get", None):
+                    continue
+                classes = sibling.get("class") or []
+                if any(cls.startswith("MathJax") for cls in classes):
+                    sibling.decompose()
+            if is_display:
+                script.replace_with(f"\n$$\n{latex}\n$$\n")
+            else:
+                script.replace_with(f"${latex}$")
+
+        for tag in soup.select("span.MathJax, span.MathJax_Preview, div.MathJax_Display"):
+            tag.decompose()
+
+        for selector in (
+            ".header",
+            ".ojb-overlay",
+            ".html2md-panel",
+            ".likeForm",
+            ".monaco-editor",
+            ".overlay",
+        ):
+            for element in soup.select(selector):
+                element.decompose()
+
+        for tag in soup.select("script, style"):
+            tag.decompose()
+
+        for sample in soup.select("div.sample-tests"):
+            text = sample.get_text("\n", strip=True)
+            if text:
+                sample.replace_with(f"\n\n```\n{text}\n```\n\n")
+            else:
+                sample.decompose()
+
+        for pre in soup.find_all("pre"):
+            code = pre.get_text("\n").strip("\n")
+            pre.replace_with(f"\n\n```\n{code}\n```\n\n")
+
+        for section in soup.select("div.section-title"):
+            title = section.get_text(strip=True)
+            section.replace_with(f"\n\n## {title}\n")
+
+        for section in soup.select("div.property-title"):
+            title = section.get_text(strip=True)
+            section.replace_with(f"**{title}**: ")
+
+        for span in soup.select("span.tex-font-style-bf"):
+            text = span.get_text(strip=True)
+            span.replace_with(f"**{text}**")
+
+        for deleted in soup.find_all("del"):
+            deleted.replace_with(f"~~{deleted.get_text()}~~")
+
+        for strong in soup.find_all("strong"):
+            strong.replace_with(f"**{strong.get_text()}**")
+        for em in soup.find_all("em"):
+            em.replace_with(f"*{em.get_text()}*")
+        for code in soup.find_all("code"):
+            code.replace_with(f"`{code.get_text()}`")
+
+        for img in soup.find_all("img", src=True):
+            alt = img.get("alt") or ""
+            img.replace_with(f"![{alt}]({img['src']})")
+        for link in soup.find_all("a", href=True):
+            text = link.get_text(strip=True) or link["href"]
+            link.replace_with(f"[{text}]({link['href']})")
+
+        for table in soup.find_all("table"):
+            markdown = table_to_markdown(table)
+            if markdown:
+                table.replace_with(markdown)
+            else:
+                table.decompose()
+
+        for br in soup.find_all("br"):
+            br.replace_with("\n")
+
+        text = soup.get_text("\n")
+        text = normalize_math_delimiters(text)
+        lines = [line.rstrip() for line in text.splitlines()]
+        text = "\n".join(lines)
+        while "\n\n\n" in text:
+            text = text.replace("\n\n\n", "\n\n")
+        return text.strip()
+
     def _extract_problem_statement(self, html: str) -> Optional[str]:
         soup = BeautifulSoup(html, "html.parser")
         statement = soup.select_one("div.problem-statement")
         if not statement:
             return None
-        cleaned = self._clean_problem_html(str(statement))
-        return self._fix_relative_urls(cleaned, "https://codeforces.com")
+        return self._clean_problem_markdown(str(statement), base_url="https://codeforces.com")
 
     async def fetch_problem_content(self, session: AsyncSession, contest_id: int, index: str) -> Optional[str]:
         base_url = self.PROBLEM_URL_TEMPLATE.format(contest_id=contest_id, index=index)
