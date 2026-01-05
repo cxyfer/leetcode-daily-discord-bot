@@ -67,3 +67,22 @@ def test_html_to_text_display_math():
 
     assert "sum_i=1^n" in output
     assert "$$" not in output
+
+
+def test_html_to_text_markdown_preserves_blocks_and_headers():
+    markdown = """
+    ## Input
+
+    ```text
+    $notlatex$
+    ```
+
+    Inline $x \\leq y$.
+    """
+
+    output = html_to_text(markdown)
+
+    assert "## Input" in output
+    assert "```text" in output
+    assert "$notlatex$" in output
+    assert "x <= y" in output

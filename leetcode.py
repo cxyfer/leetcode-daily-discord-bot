@@ -1079,7 +1079,7 @@ def html_to_text(html):
         text = text.replace("{", "").replace("}", "")
         return text.strip()
 
-    def convert_latex_delimiters(raw_text: str) -> str:
+    def convert_latex_delimiters(raw_text: str, inline_strict: bool = False) -> str:
         def display_repl(match: re.Match) -> str:
             return latex_to_plain(match.group(1))
 
@@ -1087,11 +1087,48 @@ def html_to_text(html):
 
         def inline_repl(match: re.Match) -> str:
             content = match.group(1)
-            if not re.search(r"[\\^_]", content):
+            if not inline_strict and not re.search(r"[\\^_]", content):
                 return match.group(0)
             return latex_to_plain(content)
 
-        return re.sub(r"\$(.+?)\$", inline_repl, raw_text)
+        return re.sub(r"(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)", inline_repl, raw_text)
+
+    def normalize_math_delimiters(raw_text: str) -> str:
+        return re.sub(r"\$\$\$([\s\S]+?)\$\$\$", r"$\1$", raw_text)
+
+    def is_probably_html(raw_text: str) -> bool:
+        return bool(re.search(r"</?[a-z][^>]*>", raw_text))
+
+    def extract_markdown_blocks(raw_text: str, pattern: str, token_prefix: str):
+        blocks = []
+
+        def repl(match: re.Match) -> str:
+            blocks.append(match.group(0))
+            return f"__{token_prefix}_{len(blocks) - 1}__"
+
+        return re.sub(pattern, repl, raw_text, flags=re.DOTALL), blocks
+
+    def restore_markdown_blocks(raw_text: str, blocks: list[str], token_prefix: str) -> str:
+        for idx, block in enumerate(blocks):
+            raw_text = raw_text.replace(f"__{token_prefix}_{idx}__", block)
+        return raw_text
+
+    def markdown_to_text(raw_text: str) -> str:
+        text = normalize_math_delimiters(raw_text)
+        text, fenced_blocks = extract_markdown_blocks(text, r"```[\s\S]*?```", "MD_CODE_BLOCK")
+        text, inline_blocks = extract_markdown_blocks(text, r"`[^`]+`", "MD_INLINE_CODE")
+        text = convert_latex_delimiters(text, inline_strict=True)
+        text = replace_latex_tokens(text)
+        text = restore_markdown_blocks(text, inline_blocks, "MD_INLINE_CODE")
+        text = restore_markdown_blocks(text, fenced_blocks, "MD_CODE_BLOCK")
+        lines = [line.rstrip() for line in text.splitlines()]
+        text = "\n".join(lines)
+        while "\n\n\n" in text:
+            text = text.replace("\n\n\n", "\n\n")
+        return text.strip()
+
+    if not is_probably_html(html):
+        return markdown_to_text(html)
 
     soup = BeautifulSoup(html, "html.parser")
     for sup in soup.find_all("sup"):
