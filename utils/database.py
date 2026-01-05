@@ -475,6 +475,25 @@ class ProblemsDatabaseManager:
             return problem
         return None
 
+    def get_problem_contents(self, source: str) -> list[tuple[str, str]]:
+        """Get (id, content) pairs for problems with content."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, content
+            FROM problems
+            WHERE source = ?
+              AND content IS NOT NULL
+              AND content != ''
+            ORDER BY id ASC
+            """,
+            (source,),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [(str(row[0]), row[1]) for row in rows] if rows else []
+
     def get_problem_ids_missing_content(self, source="leetcode"):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()

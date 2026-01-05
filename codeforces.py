@@ -440,6 +440,24 @@ class CodeforcesClient:
                     logger.info("Processed %s/%s, filled %s", index, total, filled)
         return filled
 
+    async def reprocess_content(self) -> int:
+        problems = self.problems_db.get_problem_contents(source="codeforces")
+        if not problems:
+            logger.info("No Codeforces problems to reprocess.")
+            return 0
+
+        updated = 0
+        total = len(problems)
+        for problem_id, content in problems:
+            cleaned = self._clean_problem_html(content)
+            if cleaned and cleaned != content:
+                self.problems_db.update_problem(
+                    {"id": problem_id, "source": "codeforces", "content": cleaned}
+                )
+                updated += 1
+        logger.info("Reprocessed %s/%s Codeforces problems", updated, total)
+        return updated
+
     def show_status(self) -> None:
         progress = self.get_progress()
         fetched = progress.get("fetched_contests", [])
@@ -515,6 +533,11 @@ async def main() -> None:
         help="Print IDs of problems missing content",
     )
     parser.add_argument(
+        "--reprocess-content",
+        action="store_true",
+        help="Reprocess Codeforces problem content with new cleaning rules",
+    )
+    parser.add_argument(
         "--include-gym",
         action="store_true",
         help="Include gym contests in contest list",
@@ -547,6 +570,7 @@ async def main() -> None:
         or args.fill_missing_content
         or args.missing_content_stats
         or args.missing_problems
+        or args.reprocess_content
     ):
         parser.print_help()
         return
@@ -574,6 +598,10 @@ async def main() -> None:
         missing = client.problems_db.get_problems_missing_content(source="codeforces")
         for problem_id, _ in missing:
             print(problem_id)
+
+    if args.reprocess_content:
+        updated = await client.reprocess_content()
+        print(f"Reprocessed content: {updated}")
 
 
 if __name__ == "__main__":
