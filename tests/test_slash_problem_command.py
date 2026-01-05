@@ -34,9 +34,6 @@ def _make_bot():
     bot.lcus.problems_db = MagicMock()
     bot.llm = MagicMock()
     bot.llm_pro = MagicMock()
-    bot.ATCODER_DESCRIPTION_BUTTON_PREFIX = "atcoder_problem|"
-    bot.ATCODER_TRANSLATE_BUTTON_PREFIX = "atcoder_translate|"
-    bot.ATCODER_INSPIRE_BUTTON_PREFIX = "atcoder_inspire|"
     return bot
 
 
@@ -84,7 +81,7 @@ async def test_problem_command_atcoder_single_sends_without_view():
     _, kwargs = interaction.followup.send.call_args
     assert "view" in kwargs
     assert len(kwargs["view"].children) == 3
-    assert kwargs["view"].children[0].custom_id.startswith("atcoder_problem|")
+    assert kwargs["view"].children[0].custom_id.startswith("ext_problem|atcoder|")
 
 
 @pytest.mark.asyncio

@@ -227,6 +227,8 @@ Use the CLI to build and maintain the embedding index for `/similar`:
 ```
 uv run python embedding_cli.py --stats
 uv run python embedding_cli.py --build --dry-run
+uv run python embedding_cli.py --build --dry-run --source codeforces
+uv run python embedding_cli.py --build --dry-run --source all
 uv run python embedding_cli.py --build
 uv run python embedding_cli.py --rebuild
 uv run python embedding_cli.py --query "two sum"
@@ -252,6 +254,21 @@ uv run python atcoder.py --fetch-all --resume
 uv run python atcoder.py --contest abc001
 uv run python atcoder.py --status
 ```
+
+### Codeforces CLI
+
+Fetch Codeforces contests and problem content:
+
+```
+uv run python codeforces.py --sync-problemset
+uv run python codeforces.py --fetch-all --resume
+uv run python codeforces.py --contest 2082
+uv run python codeforces.py --status
+uv run python codeforces.py --fill-missing-content
+uv run python codeforces.py --missing-content-stats
+```
+
+Optional flags: `--include-gym`, `--rate-limit`, `--data-dir`, `--db-path`.
 
 ### Multi-Problem Features
 

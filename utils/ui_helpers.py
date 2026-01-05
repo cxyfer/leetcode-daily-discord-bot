@@ -4,6 +4,7 @@
 """
 
 import hashlib
+import json
 import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -92,13 +93,33 @@ async def create_problem_embed(
             embed.set_author(name=f"{user.display_name}", icon_url=user.display_avatar.url)
         if message:
             embed.description = message
-        embed.add_field(name="Source", value=source_label, inline=True)
+        embed.add_field(name="Source", value=source_label, inline=False)
         if problem_info.get("difficulty"):
             embed.add_field(
                 name=f"{FIELD_EMOJIS['difficulty']} Difficulty",
                 value=f"**{problem_info['difficulty']}**",
                 inline=True,
             )
+        if problem_info.get("rating") and round(problem_info["rating"]) > 0:
+            embed.add_field(
+                name=f"{FIELD_EMOJIS['rating']} Rating",
+                value=f"**{round(problem_info['rating'])}**",
+                inline=True,
+            )
+        if problem_info.get("tags"):
+            tags = problem_info["tags"]
+            if isinstance(tags, str):
+                try:
+                    tags = json.loads(tags)
+                except (json.JSONDecodeError, TypeError):
+                    tags = [tags] if tags else []
+            if tags:
+                tags_str = ", ".join([f"||`{tag}`||" for tag in tags])
+                embed.add_field(
+                    name=f"{FIELD_EMOJIS['tags']} Tags",
+                    value=tags_str,
+                    inline=False,
+                )
         footer_icon_url = ATCODER_LOGO_URL if source == "atcoder" else None
         if footer_icon_url:
             embed.set_footer(text=f"{source_label} Problem", icon_url=footer_icon_url)
@@ -199,12 +220,10 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
         translate_id = f"{translate_prefix}{problem_info['id']}_{domain}"
         inspire_id = f"{inspire_prefix}{problem_info['id']}_{domain}"
     else:
-        description_prefix = getattr(bot, "ATCODER_DESCRIPTION_BUTTON_PREFIX", "atcoder_problem|")
-        translate_prefix = getattr(bot, "ATCODER_TRANSLATE_BUTTON_PREFIX", "atcoder_translate|")
-        inspire_prefix = getattr(bot, "ATCODER_INSPIRE_BUTTON_PREFIX", "atcoder_inspire|")
-        description_id = f"{description_prefix}{problem_info['id']}"
-        translate_id = f"{translate_prefix}{problem_info['id']}"
-        inspire_id = f"{inspire_prefix}{problem_info['id']}"
+        # Use generic prefix with source info: ext_problem|{source}|{problem_id}
+        description_id = f"ext_problem|{source}|{problem_info['id']}"
+        translate_id = f"ext_translate|{source}|{problem_info['id']}"
+        inspire_id = f"ext_inspire|{source}|{problem_info['id']}"
 
     # Description button
     view.add_item(

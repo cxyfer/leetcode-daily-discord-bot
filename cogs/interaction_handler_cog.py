@@ -85,9 +85,6 @@ class InteractionHandlerCog(commands.Cog):
             return
 
         custom_id = interaction.data.get("custom_id", "")
-        atcoder_description_prefix = getattr(self.bot, "ATCODER_DESCRIPTION_BUTTON_PREFIX", "atcoder_problem|")
-        atcoder_translate_prefix = getattr(self.bot, "ATCODER_TRANSLATE_BUTTON_PREFIX", "atcoder_translate|")
-        atcoder_inspire_prefix = getattr(self.bot, "ATCODER_INSPIRE_BUTTON_PREFIX", "atcoder_inspire|")
 
         def format_inspire_field(val):
             if isinstance(val, list):
@@ -161,58 +158,6 @@ class InteractionHandlerCog(commands.Cog):
                         await interaction.followup.send(f"顯示題目時發生錯誤：{str(e)}", ephemeral=True)
                     except:  # noqa
                         pass
-
-        # Button for displaying AtCoder problem description
-        elif custom_id.startswith(atcoder_description_prefix):
-            self.logger.debug(f"接收到AtCoder按鈕交互: custom_id={custom_id}")
-
-            try:
-                problem_id = custom_id[len(atcoder_description_prefix) :]
-                if not problem_id:
-                    await interaction.response.send_message("無效的題目ID，無法顯示題目描述。", ephemeral=True)
-                    return
-
-                await interaction.response.defer(ephemeral=True)
-
-                problem_info = self.bot.lcus.problems_db.get_problem(id=problem_id, source="atcoder")
-                if not problem_info or not problem_info.get("content"):
-                    await interaction.followup.send("無法獲取題目描述，請前往 AtCoder 網站查看。", ephemeral=True)
-                    return
-
-                problem_content = html_to_text(problem_info["content"])
-                if len(problem_content) < 1900:
-                    formatted_content = (
-                        f"# [{problem_info['id']}: {problem_info['title']}]({problem_info['link']})"
-                        f"\n\n{problem_content}"
-                    )
-                    response_data = {"content": formatted_content}
-                else:
-                    if len(problem_content) > 4000:
-                        problem_content = problem_content[:4000] + "...\n(內容已截斷，請前往 AtCoder 網站查看完整題目)"
-                    problem_info_with_desc = problem_info.copy()
-                    problem_info_with_desc["description"] = problem_content
-                    embed = create_problem_description_embed(problem_info_with_desc, domain="com", source="atcoder")
-                    response_data = {
-                        "content": "由於題目內容過長，使用嵌入式訊息的方式顯示。",
-                        "embed": embed,
-                    }
-
-                await interaction.followup.send(ephemeral=True, **response_data)
-                self.logger.info(
-                    "成功發送 AtCoder 題目描述給 @%s: problem_id=%s, content_length=%s",
-                    interaction.user.name,
-                    problem_id,
-                    len(problem_content),
-                )
-
-            except discord.errors.InteractionResponded:
-                await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
-            except Exception as e:
-                self.logger.error(f"處理AtCoder描述按鈕交互時發生錯誤: {e}", exc_info=True)
-                try:
-                    await interaction.followup.send(f"顯示題目時發生錯誤：{str(e)}", ephemeral=True)
-                except Exception:  # noqa
-                    pass
 
         # Button for LLM translation
         elif custom_id.startswith(self.bot.LEETCODE_TRANSLATE_BUTTON_PREFIX):
@@ -297,77 +242,6 @@ class InteractionHandlerCog(commands.Cog):
                     pass
             finally:
                 # Remove from ongoing requests
-                await self._cleanup_request(request_key)
-
-        # Button for AtCoder LLM translation
-        elif custom_id.startswith(atcoder_translate_prefix):
-            self.logger.debug(f"接收到AtCoder LLM翻譯按鈕交互: custom_id={custom_id}")
-            if not self.bot.llm:
-                await interaction.response.send_message("LLM 翻譯尚未啟用。", ephemeral=True)
-                return
-
-            problem_id = custom_id[len(atcoder_translate_prefix) :]
-            if not problem_id:
-                await interaction.response.send_message("無效的題目ID，無法顯示翻譯。", ephemeral=True)
-                return
-
-            request_key = (interaction.user.id, problem_id, "translate")
-            if await self._handle_duplicate_request(interaction, request_key, "translate"):
-                return
-
-            try:
-                await interaction.response.defer(ephemeral=True)
-
-                translation_data = self.bot.llm_translate_db.get_translation(problem_id, "atcoder")
-                if translation_data:
-                    translation = translation_data["translation"]
-                    model_name = translation_data.get("model_name", "Unknown Model")
-
-                    if translation and model_name:
-                        footer_text = f"\n\n✨ 由 `{model_name}` 提供翻譯"
-                        if len(translation) + len(footer_text) > 2000:
-                            translation = translation[: 2000 - len(footer_text)]
-                        translation += footer_text
-
-                    await interaction.followup.send(translation, ephemeral=True)
-                    return
-
-                problem_info = self.bot.lcus.problems_db.get_problem(id=problem_id, source="atcoder")
-                if not problem_info or not problem_info.get("content"):
-                    await interaction.followup.send(
-                        "無法獲取題目描述，請前往 AtCoder 網站查看。",
-                        ephemeral=True,
-                    )
-                    return
-
-                problem_content_text = html_to_text(problem_info["content"])
-                translation = await self.bot.llm.translate(problem_content_text, "zh-TW")
-                model_name = getattr(self.bot.llm, "model_name", "Unknown Model")
-
-                footer_text = f"\n\n✨ 由 `{model_name}` 提供翻譯"
-                max_length = 2000 - len(footer_text)
-                if len(translation) > max_length:
-                    translation = translation[: max_length - 10] + "...\n(翻譯內容已截斷)"
-
-                self.bot.llm_translate_db.save_translation(problem_id, "atcoder", translation, model_name)
-                translation += footer_text
-                await interaction.followup.send(translation, ephemeral=True)
-                self.logger.info(
-                    "成功發送 AtCoder LLM 翻譯給 @%s: problem_id=%s, content_length=%s",
-                    interaction.user.name,
-                    problem_id,
-                    len(translation),
-                )
-
-            except discord.errors.InteractionResponded:
-                await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
-            except Exception as e:
-                self.logger.error(f"處理AtCoder LLM翻譯按鈕交互時發生錯誤: {e}", exc_info=True)
-                try:
-                    await interaction.followup.send(f"LLM 翻譯時發生錯誤：{str(e)}", ephemeral=True)
-                except Exception:  # noqa
-                    pass
-            finally:
                 await self._cleanup_request(request_key)
 
         # Button for LLM inspire
@@ -491,14 +365,163 @@ class InteractionHandlerCog(commands.Cog):
                 # Remove from ongoing requests
                 await self._cleanup_request(request_key)
 
-        # Button for AtCoder LLM inspire
-        elif custom_id.startswith(atcoder_inspire_prefix):
-            self.logger.debug(f"接收到AtCoder 靈感啟發按鈕交互: custom_id={custom_id}")
+        # Button for displaying external source problem description (atcoder, codeforces, etc.)
+        elif custom_id.startswith("ext_problem|"):
+            self.logger.debug(f"接收到外部來源題目描述按鈕交互: custom_id={custom_id}")
+
+            try:
+                parts = custom_id.split("|", 2)
+                if len(parts) < 3:
+                    await interaction.response.send_message("無效的題目ID，無法顯示題目描述。", ephemeral=True)
+                    return
+                source = parts[1]
+                problem_id = parts[2]
+
+                if not problem_id:
+                    await interaction.response.send_message("無效的題目ID，無法顯示題目描述。", ephemeral=True)
+                    return
+
+                await interaction.response.defer(ephemeral=True)
+
+                problem_info = self.bot.lcus.problems_db.get_problem(id=problem_id, source=source)
+                source_label = source.capitalize()
+                if not problem_info or not problem_info.get("content"):
+                    await interaction.followup.send(
+                        f"無法獲取題目描述，請前往 {source_label} 網站查看。", ephemeral=True
+                    )
+                    return
+
+                problem_content = html_to_text(problem_info["content"])
+                if len(problem_content) < 1900:
+                    formatted_content = (
+                        f"# [{problem_info['id']}: {problem_info['title']}]({problem_info['link']})"
+                        f"\n\n{problem_content}"
+                    )
+                    response_data = {"content": formatted_content}
+                else:
+                    if len(problem_content) > 4000:
+                        problem_content = (
+                            problem_content[:4000] + f"...\n(內容已截斷，請前往 {source_label} 網站查看完整題目)"
+                        )
+                    problem_info_with_desc = problem_info.copy()
+                    problem_info_with_desc["description"] = problem_content
+                    embed = create_problem_description_embed(problem_info_with_desc, domain="com", source=source)
+                    response_data = {
+                        "content": "由於題目內容過長，使用嵌入式訊息的方式顯示。",
+                        "embed": embed,
+                    }
+
+                await interaction.followup.send(ephemeral=True, **response_data)
+                self.logger.info(
+                    "成功發送 %s 題目描述給 @%s: problem_id=%s, content_length=%s",
+                    source_label,
+                    interaction.user.name,
+                    problem_id,
+                    len(problem_content),
+                )
+
+            except discord.errors.InteractionResponded:
+                await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
+            except Exception as e:
+                self.logger.error(f"處理外部來源描述按鈕交互時發生錯誤: {e}", exc_info=True)
+                try:
+                    await interaction.followup.send(f"顯示題目時發生錯誤：{str(e)}", ephemeral=True)
+                except Exception:  # noqa
+                    pass
+
+        # Button for external source LLM translation
+        elif custom_id.startswith("ext_translate|"):
+            self.logger.debug(f"接收到外部來源 LLM翻譯按鈕交互: custom_id={custom_id}")
+            if not self.bot.llm:
+                await interaction.response.send_message("LLM 翻譯尚未啟用。", ephemeral=True)
+                return
+
+            parts = custom_id.split("|", 2)
+            if len(parts) < 3:
+                await interaction.response.send_message("無效的題目ID，無法顯示翻譯。", ephemeral=True)
+                return
+            source = parts[1]
+            problem_id = parts[2]
+
+            if not problem_id:
+                await interaction.response.send_message("無效的題目ID，無法顯示翻譯。", ephemeral=True)
+                return
+
+            request_key = (interaction.user.id, problem_id, "translate")
+            if await self._handle_duplicate_request(interaction, request_key, "translate"):
+                return
+
+            try:
+                await interaction.response.defer(ephemeral=True)
+                source_label = source.capitalize()
+
+                translation_data = self.bot.llm_translate_db.get_translation(problem_id, source)
+                if translation_data:
+                    translation = translation_data["translation"]
+                    model_name = translation_data.get("model_name", "Unknown Model")
+
+                    if translation and model_name:
+                        footer_text = f"\n\n✨ 由 `{model_name}` 提供翻譯"
+                        if len(translation) + len(footer_text) > 2000:
+                            translation = translation[: 2000 - len(footer_text)]
+                        translation += footer_text
+
+                    await interaction.followup.send(translation, ephemeral=True)
+                    return
+
+                problem_info = self.bot.lcus.problems_db.get_problem(id=problem_id, source=source)
+                if not problem_info or not problem_info.get("content"):
+                    await interaction.followup.send(
+                        f"無法獲取題目描述，請前往 {source_label} 網站查看。",
+                        ephemeral=True,
+                    )
+                    return
+
+                problem_content_text = html_to_text(problem_info["content"])
+                translation = await self.bot.llm.translate(problem_content_text, "zh-TW")
+                model_name = getattr(self.bot.llm, "model_name", "Unknown Model")
+
+                footer_text = f"\n\n✨ 由 `{model_name}` 提供翻譯"
+                max_length = 2000 - len(footer_text)
+                if len(translation) > max_length:
+                    translation = translation[: max_length - 10] + "...\n(翻譯內容已截斷)"
+
+                self.bot.llm_translate_db.save_translation(problem_id, source, translation, model_name)
+                translation += footer_text
+                await interaction.followup.send(translation, ephemeral=True)
+                self.logger.info(
+                    "成功發送 %s LLM 翻譯給 @%s: problem_id=%s, content_length=%s",
+                    source_label,
+                    interaction.user.name,
+                    problem_id,
+                    len(translation),
+                )
+
+            except discord.errors.InteractionResponded:
+                await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
+            except Exception as e:
+                self.logger.error(f"處理外部來源 LLM翻譯按鈕交互時發生錯誤: {e}", exc_info=True)
+                try:
+                    await interaction.followup.send(f"LLM 翻譯時發生錯誤：{str(e)}", ephemeral=True)
+                except Exception:  # noqa
+                    pass
+            finally:
+                await self._cleanup_request(request_key)
+
+        # Button for external source LLM inspire
+        elif custom_id.startswith("ext_inspire|"):
+            self.logger.debug(f"接收到外部來源靈感啟發按鈕交互: custom_id={custom_id}")
             if not self.bot.llm_pro:
                 await interaction.response.send_message("LLM 靈感啟發尚未啟用。", ephemeral=True)
                 return
 
-            problem_id = custom_id[len(atcoder_inspire_prefix) :]
+            parts = custom_id.split("|", 2)
+            if len(parts) < 3:
+                await interaction.response.send_message("無效的題目ID，無法顯示靈感啟發。", ephemeral=True)
+                return
+            source = parts[1]
+            problem_id = parts[2]
+
             if not problem_id:
                 await interaction.response.send_message("無效的題目ID，無法顯示靈感啟發。", ephemeral=True)
                 return
@@ -509,11 +532,12 @@ class InteractionHandlerCog(commands.Cog):
 
             try:
                 await interaction.response.defer(ephemeral=True)
+                source_label = source.capitalize()
 
-                inspire_result_data = self.bot.llm_inspire_db.get_inspire(problem_id, "atcoder")
+                inspire_result_data = self.bot.llm_inspire_db.get_inspire(problem_id, source)
                 model_name = "Unknown Model"
 
-                problem_info = self.bot.lcus.problems_db.get_problem(id=problem_id, source="atcoder")
+                problem_info = self.bot.lcus.problems_db.get_problem(id=problem_id, source=source)
                 if not problem_info or not problem_info.get("content"):
                     await interaction.followup.send("無法獲取題目資訊。", ephemeral=True)
                     return
@@ -548,7 +572,7 @@ class InteractionHandlerCog(commands.Cog):
 
                     self.bot.llm_inspire_db.save_inspire(
                         problem_id,
-                        "atcoder",
+                        source,
                         db_thinking,
                         db_traps,
                         db_algorithms,
@@ -561,7 +585,8 @@ class InteractionHandlerCog(commands.Cog):
                 embed = create_inspiration_embed(inspiration_data, problem_info)
                 await interaction.followup.send(embed=embed, ephemeral=True)
                 self.logger.info(
-                    "成功發送 AtCoder LLM 靈感給 @%s: problem_id=%s",
+                    "成功發送 %s LLM 靈感給 @%s: problem_id=%s",
+                    source_label,
                     interaction.user.name,
                     problem_id,
                 )
@@ -569,7 +594,7 @@ class InteractionHandlerCog(commands.Cog):
             except discord.errors.InteractionResponded:
                 await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
             except Exception as e:
-                self.logger.error(f"處理AtCoder LLM靈感按鈕交互時發生錯誤: {e}", exc_info=True)
+                self.logger.error(f"處理外部來源 LLM靈感按鈕交互時發生錯誤: {e}", exc_info=True)
                 try:
                     await interaction.followup.send(f"LLM 靈感啟發時發生錯誤：{str(e)}", ephemeral=True)
                 except Exception:  # noqa
