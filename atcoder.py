@@ -5,6 +5,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urljoin
 
 import aiohttp
 from bs4 import BeautifulSoup
@@ -155,19 +156,116 @@ class AtCoderClient:
             seen.add(problem_id)
         return problems
 
+    def _fix_relative_urls_in_soup(self, soup: BeautifulSoup, base_url: str) -> None:
+        for img in soup.find_all("img", src=True):
+            img["src"] = urljoin(base_url, img["src"])
+        for link in soup.find_all("a", href=True):
+            href = link["href"]
+            if href.startswith(("#", "javascript:", "mailto:")):
+                continue
+            link["href"] = urljoin(base_url, href)
+
+    def _clean_problem_markdown(self, html: str, base_url: str = "https://atcoder.jp") -> str:
+        if not html:
+            return ""
+
+        def table_to_markdown(table) -> str:
+            rows = []
+            for tr in table.find_all("tr"):
+                cells = [cell.get_text(" ", strip=True) for cell in tr.find_all(["th", "td"])]
+                if cells:
+                    rows.append(cells)
+            if not rows:
+                return ""
+            width = max(len(row) for row in rows)
+            normalized = [row + [""] * (width - len(row)) for row in rows]
+            header = normalized[0]
+            separator = ["---"] * width
+            lines = [
+                "| " + " | ".join(header) + " |",
+                "| " + " | ".join(separator) + " |",
+            ]
+            for row in normalized[1:]:
+                lines.append("| " + " | ".join(row) + " |")
+            return "\n" + "\n".join(lines) + "\n"
+
+        def normalize_preformatted(pre) -> str:
+            raw_lines = [line.rstrip() for line in pre.get_text().splitlines()]
+            while raw_lines and not raw_lines[0].strip():
+                raw_lines.pop(0)
+            while raw_lines and not raw_lines[-1].strip():
+                raw_lines.pop()
+            indents = [len(line) - len(line.lstrip()) for line in raw_lines if line.strip()]
+            min_indent = min(indents) if indents else 0
+            return "\n".join(line[min_indent:] for line in raw_lines)
+
+        soup = BeautifulSoup(html, "html.parser")
+        self._fix_relative_urls_in_soup(soup, base_url)
+
+        for section in soup.find_all(["h2", "h3"]):
+            title = section.get_text(strip=True)
+            section.replace_with(f"\n\n## {title}\n")
+
+        for hr in soup.find_all("hr"):
+            hr.replace_with("\n\n")
+
+        for li in soup.find_all("li"):
+            li.insert_before("- ")
+
+        for var in soup.find_all("var"):
+            text = var.get_text(strip=True)
+            var.replace_with(f"${text}$")
+
+        for strong in soup.find_all("strong"):
+            strong.replace_with(f"**{strong.get_text()}**")
+        for em in soup.find_all("em"):
+            em.replace_with(f"*{em.get_text()}*")
+        for code in soup.find_all("code"):
+            code.replace_with(f"`{code.get_text()}`")
+
+        for pre in soup.find_all("pre"):
+            content = normalize_preformatted(pre)
+            pre.replace_with(f"\n\n```\n{content}\n```\n\n")
+
+        for img in soup.find_all("img", src=True):
+            alt = img.get("alt") or ""
+            img.replace_with(f"![{alt}]({img['src']})")
+        for link in soup.find_all("a", href=True):
+            text = link.get_text(strip=True) or link["href"]
+            link.replace_with(f"[{text}]({link['href']})")
+
+        for table in soup.find_all("table"):
+            markdown = table_to_markdown(table)
+            if markdown:
+                table.replace_with(markdown)
+            else:
+                table.decompose()
+
+        for br in soup.find_all("br"):
+            br.replace_with("\n")
+        for p in soup.find_all("p"):
+            p.insert_before("\n\n")
+
+        text = soup.get_text("\n")
+        lines = [line.rstrip() for line in text.splitlines()]
+        text = "\n".join(lines)
+        while "\n\n\n" in text:
+            text = text.replace("\n\n\n", "\n\n")
+        return text.strip()
+
     def _extract_statement(self, html: str, prefer_lang: str) -> Optional[str]:
         soup = BeautifulSoup(html, "html.parser")
         lang_selector = f"span.lang-{prefer_lang}"
         statement = soup.select_one(lang_selector)
         if statement:
-            return str(statement)
+            return self._clean_problem_markdown(str(statement))
         if prefer_lang != "en":
             fallback = soup.select_one("span.lang-ja")
             if fallback:
-                return str(fallback)
+                return self._clean_problem_markdown(str(fallback))
             container = soup.find(id="task-statement")
             if container:
-                return str(container)
+                return self._clean_problem_markdown(str(container))
         return None
 
     def _is_permission_denied(self, html: str) -> bool:

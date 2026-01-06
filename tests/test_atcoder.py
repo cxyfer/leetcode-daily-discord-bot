@@ -63,7 +63,8 @@ async def test_fetch_problem_content_prefers_english(tmp_path):
 
     content = await client.fetch_problem_content(session=object(), contest_id="abc001", problem_id="abc001_a")
 
-    assert "lang-en" in content
+    assert "English" in content
+    assert "lang-en" not in content
 
 
 @pytest.mark.asyncio
@@ -75,7 +76,8 @@ async def test_fetch_problem_content_fallbacks_to_japanese(tmp_path):
 
     content = await client.fetch_problem_content(session=object(), contest_id="abc001", problem_id="abc001_a")
 
-    assert "lang-ja" in content
+    assert "Japanese" in content
+    assert "lang-ja" not in content
 
 
 def test_progress_file_roundtrip(tmp_path):
