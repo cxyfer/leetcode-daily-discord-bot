@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.1.3] - 2026-01-06
+### Added
+- **Codeforces Platform Support**: Complete integration of Codeforces as a problem source with problemset sync, contest list, standings parsing, and problem content fetching. (#18)
+- **Codeforces in `/problem` Command**: Integrated Codeforces problems into the `/problem` command with tags and rating display. (#18)
+- **Cloudflare Bypass**: Use `curl_cffi` to bypass Cloudflare protection for Codeforces requests. (#18)
+- **Content Reprocessing CLI**: Added `--reprocess-content` CLI flag for AtCoder and Codeforces clients to batch reprocess stored content. (#19)
+- **Batch Update API**: Added `batch_update_content()` method with tuple return for error detection and incremental flush. (#19)
+- **Shared HTML Utilities**: Extracted `normalize_math_delimiters()` to shared `html_converter` module. (#19)
+
+### Improved
+- **HTML-to-Markdown Pipeline**: Implemented comprehensive HTML-to-Markdown conversion for Codeforces and AtCoder problem content. (#19)
+- **Memory Efficiency**: Optimized `reprocess_content()` with incremental batch flush to reduce memory peak. (#19)
+- **Progress Logging**: Added progress logging every 50 items during content reprocessing. (#19)
+- **Embed UI**: Enhanced embed UI to show Source field as standalone row. (#18)
+
+### Fixed
+- **LaTeX Delimiters**: Normalized triple dollar (`$$$`) LaTeX delimiters to single dollar (`$`). (#19)
+- **Relative URLs**: Fixed relative URL conversion to absolute URLs in problem content. (#19)
+
 ## [v1.1.2] - 2026-01-05
 ### Added
 - **Development Dependencies**: Added `ruff` and `pytest` as optional development dependencies.
