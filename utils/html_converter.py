@@ -29,6 +29,11 @@ def normalize_newlines(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text)
 
 
+def normalize_math_delimiters(text: str) -> str:
+    """Convert triple dollar LaTeX delimiters to single dollar."""
+    return re.sub(r"\$\$\$([\s\S]+?)\$\$\$", r"$\1$", text)
+
+
 def fix_relative_urls_in_soup(soup: BeautifulSoup, base_url: str) -> None:
     for img in soup.find_all("img", src=True):
         img["src"] = urljoin(base_url, img["src"])

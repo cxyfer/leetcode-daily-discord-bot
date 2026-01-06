@@ -494,6 +494,47 @@ class ProblemsDatabaseManager:
         conn.close()
         return [(str(row[0]), row[1]) for row in rows] if rows else []
 
+    def batch_update_content(
+        self, updates: list[tuple[str, str, str]], batch_size: int = 100
+    ) -> tuple[int, bool]:
+        """
+        Batch update problem content.
+
+        Args:
+            updates: List of (content, source, id) tuples
+            batch_size: Number of updates per transaction
+
+        Returns:
+            Tuple of (rows_updated, success). If success is False, some
+            updates may have failed and the caller should consider retrying.
+        """
+        if not updates:
+            return 0, True
+
+        if batch_size < 1:
+            batch_size = 100
+
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        total_updated = 0
+
+        try:
+            for i in range(0, len(updates), batch_size):
+                batch = updates[i : i + batch_size]
+                cursor.executemany(
+                    "UPDATE problems SET content = ? WHERE source = ? AND id = ?",
+                    batch,
+                )
+                total_updated += cursor.rowcount
+                conn.commit()
+            return total_updated, True
+        except Exception as e:
+            logger.error("Error batch updating content: %s", e)
+            conn.rollback()
+            return total_updated, False
+        finally:
+            conn.close()
+
     def get_problem_ids_missing_content(self, source="leetcode"):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()

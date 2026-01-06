@@ -5,7 +5,12 @@ from bs4 import BeautifulSoup
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from utils.html_converter import fix_relative_urls_in_soup, normalize_newlines, table_to_markdown
+from utils.html_converter import (
+    fix_relative_urls_in_soup,
+    normalize_math_delimiters,
+    normalize_newlines,
+    table_to_markdown,
+)
 
 
 def test_table_to_markdown_basic():
@@ -98,3 +103,15 @@ def test_fix_relative_urls_in_soup_protocol_relative():
 
     img = soup.find("img")
     assert img["src"] == "https://cdn.example.com/img.png"
+
+
+def test_normalize_math_delimiters_triple_to_single():
+    text = "The value is $$$x + y$$$."
+    result = normalize_math_delimiters(text)
+    assert result == "The value is $x + y$."
+
+
+def test_normalize_math_delimiters_preserves_double():
+    text = "Display: $$x^2$$"
+    result = normalize_math_delimiters(text)
+    assert result == "Display: $$x^2$$"

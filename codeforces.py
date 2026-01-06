@@ -13,7 +13,12 @@ from curl_cffi.requests import AsyncSession
 
 from utils.config import get_config
 from utils.database import ProblemsDatabaseManager
-from utils.html_converter import fix_relative_urls_in_soup, normalize_newlines, table_to_markdown
+from utils.html_converter import (
+    fix_relative_urls_in_soup,
+    normalize_math_delimiters,
+    normalize_newlines,
+    table_to_markdown,
+)
 from utils.logger import get_leetcode_logger
 
 logger = get_leetcode_logger()
@@ -274,9 +279,6 @@ class CodeforcesClient:
         if not html:
             return ""
 
-        def normalize_math_delimiters(text: str) -> str:
-            return re.sub(r"\$\$\$([\s\S]+?)\$\$\$", r"$\1$", text)
-
         soup = BeautifulSoup(html, "html.parser")
         fix_relative_urls_in_soup(soup, base_url)
 
@@ -469,17 +471,41 @@ class CodeforcesClient:
             logger.info("No Codeforces problems to reprocess.")
             return 0
 
-        updated = 0
         total = len(problems)
-        for problem_id, content in problems:
+        logger.info("Reprocessing content for %s Codeforces problems...", total)
+
+        updates: list[tuple[str, str, str]] = []
+        total_updated = 0
+        failed = False
+        batch_size = 100
+
+        for index, (problem_id, content) in enumerate(problems, start=1):
             if not content:
                 continue
             cleaned = self._clean_problem_markdown(content)
-            if cleaned and cleaned != content:
-                self.problems_db.update_problem({"id": problem_id, "source": "codeforces", "content": cleaned})
-                updated += 1
-        logger.info("Reprocessed %s/%s Codeforces problems", updated, total)
-        return updated
+            if cleaned != content:
+                updates.append((cleaned, "codeforces", problem_id))
+
+            if len(updates) >= batch_size:
+                count, ok = self.problems_db.batch_update_content(updates)
+                total_updated += count
+                if not ok:
+                    failed = True
+                updates.clear()
+
+            if index % 50 == 0 or index == total:
+                logger.info("Processed %s/%s, updated so far: %s", index, total, total_updated)
+
+        if updates:
+            count, ok = self.problems_db.batch_update_content(updates)
+            total_updated += count
+            if not ok:
+                failed = True
+
+        if failed:
+            logger.warning("Some updates failed during reprocessing")
+        logger.info("Reprocessed %s/%s Codeforces problems", total_updated, total)
+        return total_updated
 
     def show_status(self) -> None:
         progress = self.get_progress()

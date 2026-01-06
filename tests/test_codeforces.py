@@ -273,3 +273,28 @@ def test_batch_insert_tags_roundtrip(tmp_path):
     problem = db.get_problem(id="2082A", source="codeforces")
     assert isinstance(problem["tags"], list)
     assert problem["tags"] == ["math", "dp"]
+
+
+@pytest.mark.asyncio
+async def test_reprocess_content_updates_changed_content(tmp_path):
+    db = ProblemsDatabaseManager(str(tmp_path / "db.sqlite"))
+    db.update_problem({"id": "1A", "source": "codeforces", "slug": "1A", "content": "<p>$$$x$$$</p>"})
+    db.update_problem({"id": "2A", "source": "codeforces", "slug": "2A", "content": "<p>unchanged</p>"})
+
+    client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
+    updated = await client.reprocess_content()
+
+    assert updated >= 1
+    problem = db.get_problem(id="1A", source="codeforces")
+    assert "$x$" in problem["content"]
+
+
+@pytest.mark.asyncio
+async def test_reprocess_content_skips_empty(tmp_path):
+    db = ProblemsDatabaseManager(str(tmp_path / "db.sqlite"))
+    db.update_problem({"id": "1A", "source": "codeforces", "slug": "1A", "content": ""})
+
+    client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
+    updated = await client.reprocess_content()
+
+    assert updated == 0

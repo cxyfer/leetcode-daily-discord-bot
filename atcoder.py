@@ -465,17 +465,41 @@ class AtCoderClient:
             logger.info("No AtCoder problems to reprocess.")
             return 0
 
-        updated = 0
         total = len(problems)
-        for problem_id, content in problems:
+        logger.info("Reprocessing content for %s AtCoder problems...", total)
+
+        updates: list[tuple[str, str, str]] = []
+        total_updated = 0
+        failed = False
+        batch_size = 100
+
+        for index, (problem_id, content) in enumerate(problems, start=1):
             if not content:
                 continue
             cleaned = self._clean_problem_markdown(content)
-            if cleaned and cleaned != content:
-                self.problems_db.update_problem({"id": problem_id, "source": "atcoder", "content": cleaned})
-                updated += 1
-        logger.info("Reprocessed %s/%s AtCoder problems", updated, total)
-        return updated
+            if cleaned != content:
+                updates.append((cleaned, "atcoder", problem_id))
+
+            if len(updates) >= batch_size:
+                count, ok = self.problems_db.batch_update_content(updates)
+                total_updated += count
+                if not ok:
+                    failed = True
+                updates.clear()
+
+            if index % 50 == 0 or index == total:
+                logger.info("Processed %s/%s, updated so far: %s", index, total, total_updated)
+
+        if updates:
+            count, ok = self.problems_db.batch_update_content(updates)
+            total_updated += count
+            if not ok:
+                failed = True
+
+        if failed:
+            logger.warning("Some updates failed during reprocessing")
+        logger.info("Reprocessed %s/%s AtCoder problems", total_updated, total)
+        return total_updated
 
 
 async def main() -> None:

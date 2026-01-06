@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 
 from utils.config import get_config
 from utils.database import DailyChallengeDatabaseManager, ProblemsDatabaseManager
+from utils.html_converter import normalize_math_delimiters
 from utils.logger import get_leetcode_logger
 
 # Set up logging
@@ -1092,9 +1093,6 @@ def html_to_text(html):
             return latex_to_plain(content)
 
         return re.sub(r"(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)", inline_repl, raw_text)
-
-    def normalize_math_delimiters(raw_text: str) -> str:
-        return re.sub(r"\$\$\$([\s\S]+?)\$\$\$", r"$\1$", raw_text)
 
     def is_probably_html(raw_text: str) -> bool:
         return bool(re.search(r"</?[a-z][^>]*>", raw_text))
