@@ -490,6 +490,26 @@ class AtCoderClient:
         logger.info("Filled %s/%s problems", filled, total)
         return filled
 
+    async def reprocess_content(self) -> int:
+        problems = self.problems_db.get_problem_contents(source="atcoder")
+        if not problems:
+            logger.info("No AtCoder problems to reprocess.")
+            return 0
+
+        updated = 0
+        total = len(problems)
+        for problem_id, content in problems:
+            if not content:
+                continue
+            cleaned = self._clean_problem_markdown(content)
+            if cleaned and cleaned != content:
+                self.problems_db.update_problem(
+                    {"id": problem_id, "source": "atcoder", "content": cleaned}
+                )
+                updated += 1
+        logger.info("Reprocessed %s/%s AtCoder problems", updated, total)
+        return updated
+
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description="AtCoder CLI tool")
@@ -508,6 +528,11 @@ async def main() -> None:
         "--missing-content-stats",
         action="store_true",
         help="Show missing content count",
+    )
+    parser.add_argument(
+        "--reprocess-content",
+        action="store_true",
+        help="Reprocess AtCoder problem content with new cleaning rules",
     )
     parser.add_argument("--rate-limit", type=float, default=1.0, help="Rate limit in seconds")
     parser.add_argument("--data-dir", type=str, default=None, help="Data directory")
@@ -532,6 +557,7 @@ async def main() -> None:
         or args.status
         or args.fill_missing_content
         or args.missing_content_stats
+        or args.reprocess_content
     ):
         parser.print_help()
         return
@@ -554,6 +580,10 @@ async def main() -> None:
     if args.missing_content_stats:
         count = client.problems_db.count_missing_content(source="atcoder")
         print(f"Missing content: {count}")
+
+    if args.reprocess_content:
+        updated = await client.reprocess_content()
+        print(f"Reprocessed content: {updated}")
 
 
 if __name__ == "__main__":
