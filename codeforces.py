@@ -576,9 +576,7 @@ class CodeforcesClient:
                 continue
             cleaned = self._clean_problem_markdown(content)
             if cleaned and cleaned != content:
-                self.problems_db.update_problem(
-                    {"id": problem_id, "source": "codeforces", "content": cleaned}
-                )
+                self.problems_db.update_problem({"id": problem_id, "source": "codeforces", "content": cleaned})
                 updated += 1
         logger.info("Reprocessed %s/%s Codeforces problems", updated, total)
         return updated

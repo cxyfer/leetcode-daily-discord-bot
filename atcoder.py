@@ -504,9 +504,7 @@ class AtCoderClient:
                 continue
             cleaned = self._clean_problem_markdown(content)
             if cleaned and cleaned != content:
-                self.problems_db.update_problem(
-                    {"id": problem_id, "source": "atcoder", "content": cleaned}
-                )
+                self.problems_db.update_problem({"id": problem_id, "source": "atcoder", "content": cleaned})
                 updated += 1
         logger.info("Reprocessed %s/%s AtCoder problems", updated, total)
         return updated
