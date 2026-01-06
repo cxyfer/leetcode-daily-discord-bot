@@ -7,13 +7,13 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Union
-from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 from curl_cffi.requests import AsyncSession
 
 from utils.config import get_config
 from utils.database import ProblemsDatabaseManager
+from utils.html_converter import fix_relative_urls_in_soup, normalize_newlines, table_to_markdown
 from utils.logger import get_leetcode_logger
 
 logger = get_leetcode_logger()
@@ -267,116 +267,18 @@ class CodeforcesClient:
 
     def _fix_relative_urls(self, html: str, base_url: str) -> str:
         soup = BeautifulSoup(html, "html.parser")
-        self._fix_relative_urls_in_soup(soup, base_url)
-        return str(soup)
-
-    def _fix_relative_urls_in_soup(self, soup: BeautifulSoup, base_url: str) -> None:
-        for img in soup.find_all("img", src=True):
-            img["src"] = urljoin(base_url, img["src"])
-        for link in soup.find_all("a", href=True):
-            href = link["href"]
-            if href.startswith(("#", "javascript:", "mailto:")):
-                continue
-            link["href"] = urljoin(base_url, href)
-
-    def _clean_problem_html(self, html: str) -> str:
-        if not html:
-            return ""
-
-        def table_to_markdown(table) -> str:
-            rows = []
-            for tr in table.find_all("tr"):
-                cells = [cell.get_text(" ", strip=True) for cell in tr.find_all(["th", "td"])]
-                if cells:
-                    rows.append(cells)
-            if not rows:
-                return ""
-            width = max(len(row) for row in rows)
-            normalized = [row + [""] * (width - len(row)) for row in rows]
-            header = normalized[0]
-            separator = ["---"] * width
-            lines = [
-                "| " + " | ".join(header) + " |",
-                "| " + " | ".join(separator) + " |",
-            ]
-            for row in normalized[1:]:
-                lines.append("| " + " | ".join(row) + " |")
-            return "\n" + "\n".join(lines) + "\n"
-
-        soup = BeautifulSoup(html, "html.parser")
-
-        # MathJax 必須在移除 script 前處理
-        for script in soup.select("script[type^='math/tex']"):
-            latex = script.get_text().strip()
-            is_display = "mode=display" in (script.get("type") or "")
-            for sibling in (script.find_previous_sibling(), script.find_next_sibling()):
-                if not sibling or not getattr(sibling, "get", None):
-                    continue
-                classes = sibling.get("class") or []
-                if any(cls.startswith("MathJax") for cls in classes):
-                    sibling.decompose()
-            if is_display:
-                script.replace_with(f"\n$$\n{latex}\n$$\n")
-            else:
-                script.replace_with(f"${latex}$")
-
-        for selector in (
-            ".header",
-            ".ojb-overlay",
-            ".html2md-panel",
-            ".likeForm",
-            ".monaco-editor",
-            ".overlay",
-        ):
-            for element in soup.select(selector):
-                element.decompose()
-
-        for tag in soup.select("script, style"):
-            tag.decompose()
-
-        for section in soup.select("div.section-title"):
-            title = section.get_text(strip=True)
-            section.replace_with(f"\n\n## {title}\n")
-
-        for section in soup.select("div.property-title"):
-            title = section.get_text(strip=True)
-            section.replace_with(f"**{title}**: ")
-
-        for table in soup.find_all("table"):
-            markdown = table_to_markdown(table)
-            table.replace_with(markdown)
-
+        fix_relative_urls_in_soup(soup, base_url)
         return str(soup)
 
     def _clean_problem_markdown(self, html: str, base_url: str = "https://codeforces.com") -> str:
         if not html:
             return ""
 
-        def table_to_markdown(table) -> str:
-            rows = []
-            for tr in table.find_all("tr"):
-                cells = [cell.get_text(" ", strip=True) for cell in tr.find_all(["th", "td"])]
-                if cells:
-                    rows.append(cells)
-            if not rows:
-                return ""
-            width = max(len(row) for row in rows)
-            normalized = [row + [""] * (width - len(row)) for row in rows]
-            header = normalized[0]
-            separator = ["---"] * width
-            lines = [
-                "| " + " | ".join(header) + " |",
-                "| " + " | ".join(separator) + " |",
-            ]
-            for row in normalized[1:]:
-                lines.append("| " + " | ".join(row) + " |")
-            return "\n" + "\n".join(lines) + "\n"
-
         def normalize_math_delimiters(text: str) -> str:
             return re.sub(r"\$\$\$([\s\S]+?)\$\$\$", r"$\1$", text)
 
         soup = BeautifulSoup(html, "html.parser")
-        self._fix_relative_urls_in_soup(soup, base_url)
+        fix_relative_urls_in_soup(soup, base_url)
 
         # MathJax 必須在移除 script 前處理
         for script in soup.select("script[type^='math/tex']"):
@@ -464,9 +366,7 @@ class CodeforcesClient:
         text = normalize_math_delimiters(text)
         lines = [line.rstrip() for line in text.splitlines()]
         text = "\n".join(lines)
-        while "\n\n\n" in text:
-            text = text.replace("\n\n\n", "\n\n")
-        return text.strip()
+        return normalize_newlines(text).strip()
 
     def _extract_problem_statement(self, html: str) -> Optional[str]:
         soup = BeautifulSoup(html, "html.parser")
