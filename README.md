@@ -266,6 +266,7 @@ uv run python codeforces.py --contest 2082
 uv run python codeforces.py --status
 uv run python codeforces.py --fill-missing-content
 uv run python codeforces.py --missing-content-stats
+uv run python codeforces.py --reprocess-content
 ```
 
 Optional flags: `--include-gym`, `--rate-limit`, `--data-dir`, `--db-path`.

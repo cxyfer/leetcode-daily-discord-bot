@@ -145,6 +145,69 @@ async def test_fetch_problem_content_extracts_statement(tmp_path):
     assert "https://codeforces.com/contest/1234" in content
 
 
+def test_clean_problem_markdown_removes_header_and_overlay(tmp_path):
+    client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
+    html = """
+    <div class="header">limits</div>
+    <div class="ojb-overlay">cover</div>
+    <div class="html2md-panel">panel</div>
+    <div class="likeForm">like</div>
+    <div class="monaco-editor">editor</div>
+    <div class="overlay">cover</div>
+    <div>ok</div>
+    """
+    cleaned = client._clean_problem_markdown(html)
+
+    assert "limits" not in cleaned
+    assert "panel" not in cleaned
+    assert "editor" not in cleaned
+    assert "ok" in cleaned
+
+
+def test_clean_problem_markdown_converts_mathjax_and_normalizes_triple_dollar(tmp_path):
+    client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
+    html = """
+    <span class="MathJax">rendered</span>
+    <span class="MathJax_Preview">preview</span>
+    <div class="MathJax_Display">rendered</div>
+    <script type="math/tex">n \\leq 10^5</script>
+    <script type="math/tex; mode=display">\\sum_{i=1}^{n}</script>
+    <p>$$$a+b$$$</p>
+    """
+    cleaned = client._clean_problem_markdown(html)
+
+    assert "$n \\leq 10^5$" in cleaned
+    assert "$$" in cleaned
+    assert "\\sum_{i=1}^{n}" in cleaned
+    assert "$a+b$" in cleaned
+    assert "$$$" not in cleaned
+    assert "MathJax" not in cleaned
+
+
+def test_clean_problem_markdown_converts_structure_blocks(tmp_path):
+    client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
+    html = """
+    <div class="section-title">Input</div>
+    <div class="property-title">Time limit</div>
+    <div class="sample-tests">
+      <div class="input"><pre>1 2</pre></div>
+    </div>
+    <pre>code line</pre>
+    <table class="bordertable">
+      <tr><th>A</th><th>B</th></tr>
+      <tr><td>1</td><td>2</td></tr>
+    </table>
+    """
+    cleaned = client._clean_problem_markdown(html)
+
+    assert "## Input" in cleaned
+    assert "**Time limit**:" in cleaned
+    assert "```" in cleaned
+    assert "1 2" in cleaned
+    assert "code line" in cleaned
+    assert "| A | B |" in cleaned
+
+
 def test_fix_relative_urls(tmp_path):
     client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
     html = '<img src="/predownloaded/test.png"><a href="/contest/1234">Link</a>'
@@ -210,3 +273,28 @@ def test_batch_insert_tags_roundtrip(tmp_path):
     problem = db.get_problem(id="2082A", source="codeforces")
     assert isinstance(problem["tags"], list)
     assert problem["tags"] == ["math", "dp"]
+
+
+@pytest.mark.asyncio
+async def test_reprocess_content_updates_changed_content(tmp_path):
+    db = ProblemsDatabaseManager(str(tmp_path / "db.sqlite"))
+    db.update_problem({"id": "1A", "source": "codeforces", "slug": "1A", "content": "<p>$$$x$$$</p>"})
+    db.update_problem({"id": "2A", "source": "codeforces", "slug": "2A", "content": "<p>unchanged</p>"})
+
+    client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
+    updated = await client.reprocess_content()
+
+    assert updated >= 1
+    problem = db.get_problem(id="1A", source="codeforces")
+    assert "$x$" in problem["content"]
+
+
+@pytest.mark.asyncio
+async def test_reprocess_content_skips_empty(tmp_path):
+    db = ProblemsDatabaseManager(str(tmp_path / "db.sqlite"))
+    db.update_problem({"id": "1A", "source": "codeforces", "slug": "1A", "content": ""})
+
+    client = CodeforcesClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
+    updated = await client.reprocess_content()
+
+    assert updated == 0

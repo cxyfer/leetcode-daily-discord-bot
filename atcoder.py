@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 
 from utils.config import get_config
 from utils.database import ProblemsDatabaseManager
+from utils.html_converter import fix_relative_urls_in_soup, normalize_newlines, table_to_markdown
 from utils.logger import get_leetcode_logger
 
 logger = get_leetcode_logger()
@@ -155,19 +156,85 @@ class AtCoderClient:
             seen.add(problem_id)
         return problems
 
+    def _clean_problem_markdown(self, html: str, base_url: str = "https://atcoder.jp") -> str:
+        if not html:
+            return ""
+
+        def normalize_preformatted(pre) -> str:
+            raw_lines = [line.rstrip() for line in pre.get_text().splitlines()]
+            while raw_lines and not raw_lines[0].strip():
+                raw_lines.pop(0)
+            while raw_lines and not raw_lines[-1].strip():
+                raw_lines.pop()
+            indents = [len(line) - len(line.lstrip()) for line in raw_lines if line.strip()]
+            min_indent = min(indents) if indents else 0
+            return "\n".join(line[min_indent:] for line in raw_lines)
+
+        soup = BeautifulSoup(html, "html.parser")
+        fix_relative_urls_in_soup(soup, base_url)
+
+        for section in soup.find_all(["h2", "h3"]):
+            title = section.get_text(strip=True)
+            section.replace_with(f"\n\n## {title}\n")
+
+        for hr in soup.find_all("hr"):
+            hr.replace_with("\n\n")
+
+        for tag in soup.find_all(["var", "strong", "em", "code"]):
+            if tag.name == "var":
+                tag.replace_with(f"${tag.get_text(strip=True)}$")
+            elif tag.name == "strong":
+                tag.replace_with(f"**{tag.get_text()}**")
+            elif tag.name == "em":
+                tag.replace_with(f"*{tag.get_text()}*")
+            elif tag.name == "code":
+                tag.replace_with(f"`{tag.get_text()}`")
+
+        for li in soup.find_all("li"):
+            item_text = li.get_text(" ", strip=True)
+            li.replace_with(f"\n- {item_text}")
+
+        for pre in soup.find_all("pre"):
+            content = normalize_preformatted(pre)
+            pre.replace_with(f"\n\n```\n{content}\n```\n\n")
+
+        for img in soup.find_all("img", src=True):
+            alt = img.get("alt") or ""
+            img.replace_with(f"![{alt}]({img['src']})")
+        for link in soup.find_all("a", href=True):
+            text = link.get_text(strip=True) or link["href"]
+            link.replace_with(f"[{text}]({link['href']})")
+
+        for table in soup.find_all("table"):
+            markdown = table_to_markdown(table)
+            if markdown:
+                table.replace_with(markdown)
+            else:
+                table.decompose()
+
+        for br in soup.find_all("br"):
+            br.replace_with("\n")
+        for p in soup.find_all("p"):
+            p.insert_before("\n\n")
+
+        text = soup.get_text()
+        lines = [line.rstrip() for line in text.splitlines()]
+        text = "\n".join(lines)
+        return normalize_newlines(text).strip()
+
     def _extract_statement(self, html: str, prefer_lang: str) -> Optional[str]:
         soup = BeautifulSoup(html, "html.parser")
         lang_selector = f"span.lang-{prefer_lang}"
         statement = soup.select_one(lang_selector)
         if statement:
-            return str(statement)
+            return self._clean_problem_markdown(str(statement))
         if prefer_lang != "en":
             fallback = soup.select_one("span.lang-ja")
             if fallback:
-                return str(fallback)
+                return self._clean_problem_markdown(str(fallback))
             container = soup.find(id="task-statement")
             if container:
-                return str(container)
+                return self._clean_problem_markdown(str(container))
         return None
 
     def _is_permission_denied(self, html: str) -> bool:
@@ -392,6 +459,48 @@ class AtCoderClient:
         logger.info("Filled %s/%s problems", filled, total)
         return filled
 
+    async def reprocess_content(self) -> int:
+        problems = self.problems_db.get_problem_contents(source="atcoder")
+        if not problems:
+            logger.info("No AtCoder problems to reprocess.")
+            return 0
+
+        total = len(problems)
+        logger.info("Reprocessing content for %s AtCoder problems...", total)
+
+        updates: list[tuple[str, str, str]] = []
+        total_updated = 0
+        failed = False
+        batch_size = 100
+
+        for index, (problem_id, content) in enumerate(problems, start=1):
+            if not content:
+                continue
+            cleaned = self._clean_problem_markdown(content)
+            if cleaned != content:
+                updates.append((cleaned, "atcoder", problem_id))
+
+            if len(updates) >= batch_size:
+                count, ok = self.problems_db.batch_update_content(updates)
+                total_updated += count
+                if not ok:
+                    failed = True
+                updates.clear()
+
+            if index % 50 == 0 or index == total:
+                logger.info("Processed %s/%s, updated so far: %s", index, total, total_updated)
+
+        if updates:
+            count, ok = self.problems_db.batch_update_content(updates)
+            total_updated += count
+            if not ok:
+                failed = True
+
+        if failed:
+            logger.warning("Some updates failed during reprocessing")
+        logger.info("Reprocessed %s/%s AtCoder problems", total_updated, total)
+        return total_updated
+
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description="AtCoder CLI tool")
@@ -410,6 +519,11 @@ async def main() -> None:
         "--missing-content-stats",
         action="store_true",
         help="Show missing content count",
+    )
+    parser.add_argument(
+        "--reprocess-content",
+        action="store_true",
+        help="Reprocess AtCoder problem content with new cleaning rules",
     )
     parser.add_argument("--rate-limit", type=float, default=1.0, help="Rate limit in seconds")
     parser.add_argument("--data-dir", type=str, default=None, help="Data directory")
@@ -434,6 +548,7 @@ async def main() -> None:
         or args.status
         or args.fill_missing_content
         or args.missing_content_stats
+        or args.reprocess_content
     ):
         parser.print_help()
         return
@@ -456,6 +571,10 @@ async def main() -> None:
     if args.missing_content_stats:
         count = client.problems_db.count_missing_content(source="atcoder")
         print(f"Missing content: {count}")
+
+    if args.reprocess_content:
+        updated = await client.reprocess_content()
+        print(f"Reprocessed content: {updated}")
 
 
 if __name__ == "__main__":

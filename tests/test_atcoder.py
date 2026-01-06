@@ -63,7 +63,8 @@ async def test_fetch_problem_content_prefers_english(tmp_path):
 
     content = await client.fetch_problem_content(session=object(), contest_id="abc001", problem_id="abc001_a")
 
-    assert "lang-en" in content
+    assert "English" in content
+    assert "lang-en" not in content
 
 
 @pytest.mark.asyncio
@@ -75,7 +76,64 @@ async def test_fetch_problem_content_fallbacks_to_japanese(tmp_path):
 
     content = await client.fetch_problem_content(session=object(), contest_id="abc001", problem_id="abc001_a")
 
-    assert "lang-ja" in content
+    assert "Japanese" in content
+    assert "lang-ja" not in content
+
+
+def test_clean_problem_markdown_converts_structure(tmp_path):
+    client = AtCoderClient(data_dir=str(tmp_path), db_path=str(tmp_path / "db.sqlite"))
+    html = """
+    <span class="lang-en">
+    <p>Score : <var>500</var> points</p>
+    <div class="part">
+    <section>
+    <h3>Problem Statement</h3><p>Given are positive integers <var>a, b</var>.</p>
+    </section>
+    </div>
+    <div class="part">
+    <section>
+    <h3>Constraints</h3><ul>
+    <li><var>1\\leq a, b&lt; 10^{100000}</var></li>
+    </ul>
+    </section>
+    </div>
+    <hr/>
+    <div class="io-style">
+    <div class="part">
+    <section>
+    <h3>Input</h3><pre><var>a</var>\n<var>b</var>\n</pre>
+    </section>
+    </div>
+    <div class="part">
+    <section>
+    <h3>Output</h3><p>Print <var>a</var> then <var>b</var>.</p>
+    </section>
+    </div>
+    </div>
+    <p><a href="/contests/abc001">Link</a></p>
+    <p><img src="/img.png" alt="diagram" /></p>
+    </span>
+    """
+
+    cleaned = client._clean_problem_markdown(html)
+    normalized = " ".join(cleaned.split())
+
+    assert "Score : $500$ points" in normalized
+    assert "Score :\n$500$" not in cleaned
+    assert "$500$\n points" not in cleaned
+    assert "## Problem Statement" in cleaned
+    assert "Given are positive integers $a, b$." in normalized
+    assert "## Constraints" in cleaned
+    assert "- $1\\leq a, b< 10^{100000}$" in normalized
+    assert "-\n$1\\leq a, b< 10^{100000}$" not in cleaned
+    assert "## Input" in cleaned
+    assert "## Output" in cleaned
+    assert "```" in cleaned
+    assert "a" in cleaned
+    assert "b" in cleaned
+    assert "[Link](https://atcoder.jp/contests/abc001)" in cleaned
+    assert "![diagram](https://atcoder.jp/img.png)" in cleaned
+    assert "<span" not in cleaned
 
 
 def test_progress_file_roundtrip(tmp_path):

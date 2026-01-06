@@ -6,13 +6,18 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Union
-from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 from curl_cffi.requests import AsyncSession
 
 from utils.config import get_config
 from utils.database import ProblemsDatabaseManager
+from utils.html_converter import (
+    fix_relative_urls_in_soup,
+    normalize_math_delimiters,
+    normalize_newlines,
+    table_to_markdown,
+)
 from utils.logger import get_leetcode_logger
 
 logger = get_leetcode_logger()
@@ -266,21 +271,110 @@ class CodeforcesClient:
 
     def _fix_relative_urls(self, html: str, base_url: str) -> str:
         soup = BeautifulSoup(html, "html.parser")
-        for img in soup.find_all("img", src=True):
-            img["src"] = urljoin(base_url, img["src"])
-        for link in soup.find_all("a", href=True):
-            href = link["href"]
-            if href.startswith(("#", "javascript:", "mailto:")):
-                continue
-            link["href"] = urljoin(base_url, href)
+        fix_relative_urls_in_soup(soup, base_url)
         return str(soup)
+
+    def _clean_problem_markdown(self, html: str, base_url: str = "https://codeforces.com") -> str:
+        if not html:
+            return ""
+
+        soup = BeautifulSoup(html, "html.parser")
+        fix_relative_urls_in_soup(soup, base_url)
+
+        # MathJax 必須在移除 script 前處理
+        for script in soup.select("script[type^='math/tex']"):
+            latex = script.get_text().strip()
+            is_display = "mode=display" in (script.get("type") or "")
+            for sibling in (script.find_previous_sibling(), script.find_next_sibling()):
+                if not sibling or not getattr(sibling, "get", None):
+                    continue
+                classes = sibling.get("class") or []
+                if any(cls.startswith("MathJax") for cls in classes):
+                    sibling.decompose()
+            if is_display:
+                script.replace_with(f"\n$$\n{latex}\n$$\n")
+            else:
+                script.replace_with(f"${latex}$")
+
+        for tag in soup.select("span.MathJax, span.MathJax_Preview, div.MathJax_Display"):
+            tag.decompose()
+
+        for selector in (
+            ".header",
+            ".ojb-overlay",
+            ".html2md-panel",
+            ".likeForm",
+            ".monaco-editor",
+            ".overlay",
+        ):
+            for element in soup.select(selector):
+                element.decompose()
+
+        for tag in soup.select("script, style"):
+            tag.decompose()
+
+        for sample in soup.select("div.sample-tests"):
+            text = sample.get_text("\n", strip=True)
+            if text:
+                sample.replace_with(f"\n\n```\n{text}\n```\n\n")
+            else:
+                sample.decompose()
+
+        for pre in soup.find_all("pre"):
+            code = pre.get_text("\n").strip("\n")
+            pre.replace_with(f"\n\n```\n{code}\n```\n\n")
+
+        for section in soup.select("div.section-title"):
+            title = section.get_text(strip=True)
+            section.replace_with(f"\n\n## {title}\n")
+
+        for section in soup.select("div.property-title"):
+            title = section.get_text(strip=True)
+            section.replace_with(f"**{title}**: ")
+
+        for span in soup.select("span.tex-font-style-bf"):
+            text = span.get_text(strip=True)
+            span.replace_with(f"**{text}**")
+
+        for deleted in soup.find_all("del"):
+            deleted.replace_with(f"~~{deleted.get_text()}~~")
+
+        for strong in soup.find_all("strong"):
+            strong.replace_with(f"**{strong.get_text()}**")
+        for em in soup.find_all("em"):
+            em.replace_with(f"*{em.get_text()}*")
+        for code in soup.find_all("code"):
+            code.replace_with(f"`{code.get_text()}`")
+
+        for img in soup.find_all("img", src=True):
+            alt = img.get("alt") or ""
+            img.replace_with(f"![{alt}]({img['src']})")
+        for link in soup.find_all("a", href=True):
+            text = link.get_text(strip=True) or link["href"]
+            link.replace_with(f"[{text}]({link['href']})")
+
+        for table in soup.find_all("table"):
+            markdown = table_to_markdown(table)
+            if markdown:
+                table.replace_with(markdown)
+            else:
+                table.decompose()
+
+        for br in soup.find_all("br"):
+            br.replace_with("\n")
+
+        text = soup.get_text("\n")
+        text = normalize_math_delimiters(text)
+        lines = [line.rstrip() for line in text.splitlines()]
+        text = "\n".join(lines)
+        return normalize_newlines(text).strip()
 
     def _extract_problem_statement(self, html: str) -> Optional[str]:
         soup = BeautifulSoup(html, "html.parser")
         statement = soup.select_one("div.problem-statement")
         if not statement:
             return None
-        return self._fix_relative_urls(str(statement), "https://codeforces.com")
+        return self._clean_problem_markdown(str(statement), base_url="https://codeforces.com")
 
     async def fetch_problem_content(self, session: AsyncSession, contest_id: int, index: str) -> Optional[str]:
         base_url = self.PROBLEM_URL_TEMPLATE.format(contest_id=contest_id, index=index)
@@ -370,6 +464,48 @@ class CodeforcesClient:
                     logger.info("Processed %s/%s, filled %s", index, total, filled)
         return filled
 
+    async def reprocess_content(self) -> int:
+        problems = self.problems_db.get_problem_contents(source="codeforces")
+        if not problems:
+            logger.info("No Codeforces problems to reprocess.")
+            return 0
+
+        total = len(problems)
+        logger.info("Reprocessing content for %s Codeforces problems...", total)
+
+        updates: list[tuple[str, str, str]] = []
+        total_updated = 0
+        failed = False
+        batch_size = 100
+
+        for index, (problem_id, content) in enumerate(problems, start=1):
+            if not content:
+                continue
+            cleaned = self._clean_problem_markdown(content)
+            if cleaned != content:
+                updates.append((cleaned, "codeforces", problem_id))
+
+            if len(updates) >= batch_size:
+                count, ok = self.problems_db.batch_update_content(updates)
+                total_updated += count
+                if not ok:
+                    failed = True
+                updates.clear()
+
+            if index % 50 == 0 or index == total:
+                logger.info("Processed %s/%s, updated so far: %s", index, total, total_updated)
+
+        if updates:
+            count, ok = self.problems_db.batch_update_content(updates)
+            total_updated += count
+            if not ok:
+                failed = True
+
+        if failed:
+            logger.warning("Some updates failed during reprocessing")
+        logger.info("Reprocessed %s/%s Codeforces problems", total_updated, total)
+        return total_updated
+
     def show_status(self) -> None:
         progress = self.get_progress()
         fetched = progress.get("fetched_contests", [])
@@ -445,6 +581,11 @@ async def main() -> None:
         help="Print IDs of problems missing content",
     )
     parser.add_argument(
+        "--reprocess-content",
+        action="store_true",
+        help="Reprocess Codeforces problem content with new cleaning rules",
+    )
+    parser.add_argument(
         "--include-gym",
         action="store_true",
         help="Include gym contests in contest list",
@@ -477,6 +618,7 @@ async def main() -> None:
         or args.fill_missing_content
         or args.missing_content_stats
         or args.missing_problems
+        or args.reprocess_content
     ):
         parser.print_help()
         return
@@ -504,6 +646,10 @@ async def main() -> None:
         missing = client.problems_db.get_problems_missing_content(source="codeforces")
         for problem_id, _ in missing:
             print(problem_id)
+
+    if args.reprocess_content:
+        updated = await client.reprocess_content()
+        print(f"Reprocessed content: {updated}")
 
 
 if __name__ == "__main__":

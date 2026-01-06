@@ -49,3 +49,40 @@ def test_html_to_text_mathjax_commands():
     assert "query_j" in output
     assert "\\mathrm" not in output
     assert "\\text" not in output
+
+
+def test_html_to_text_latex_to_plain():
+    html = "<p>Given $n \\leq 10^5$ elements.</p>"
+
+    output = html_to_text(html)
+
+    assert "n <= 10^5" in output
+    assert "$" not in output
+
+
+def test_html_to_text_display_math():
+    html = "<p>Formula: $$\\sum_{i=1}^{n}$$</p>"
+
+    output = html_to_text(html)
+
+    assert "sum_i=1^n" in output
+    assert "$$" not in output
+
+
+def test_html_to_text_markdown_preserves_blocks_and_headers():
+    markdown = """
+    ## Input
+
+    ```text
+    $notlatex$
+    ```
+
+    Inline $x \\leq y$.
+    """
+
+    output = html_to_text(markdown)
+
+    assert "## Input" in output
+    assert "```text" in output
+    assert "$notlatex$" in output
+    assert "x <= y" in output
