@@ -494,9 +494,7 @@ class ProblemsDatabaseManager:
         conn.close()
         return [(str(row[0]), row[1]) for row in rows] if rows else []
 
-    def batch_update_content(
-        self, updates: list[tuple[str, str, str]], batch_size: int = 100
-    ) -> tuple[int, bool]:
+    def batch_update_content(self, updates: list[tuple[str, str, str]], batch_size: int = 100) -> tuple[int, bool]:
         """
         Batch update problem content.
 
