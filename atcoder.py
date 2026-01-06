@@ -209,9 +209,6 @@ class AtCoderClient:
         for hr in soup.find_all("hr"):
             hr.replace_with("\n\n")
 
-        for li in soup.find_all("li"):
-            li.insert_before("- ")
-
         for var in soup.find_all("var"):
             text = var.get_text(strip=True)
             var.replace_with(f"${text}$")
@@ -222,6 +219,10 @@ class AtCoderClient:
             em.replace_with(f"*{em.get_text()}*")
         for code in soup.find_all("code"):
             code.replace_with(f"`{code.get_text()}`")
+
+        for li in soup.find_all("li"):
+            item_text = li.get_text(" ", strip=True)
+            li.replace_with(f"\n- {item_text}")
 
         for pre in soup.find_all("pre"):
             content = normalize_preformatted(pre)
@@ -246,7 +247,7 @@ class AtCoderClient:
         for p in soup.find_all("p"):
             p.insert_before("\n\n")
 
-        text = soup.get_text("\n")
+        text = soup.get_text()
         lines = [line.rstrip() for line in text.splitlines()]
         text = "\n".join(lines)
         while "\n\n\n" in text:

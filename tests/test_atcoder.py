@@ -119,9 +119,13 @@ def test_clean_problem_markdown_converts_structure(tmp_path):
     normalized = " ".join(cleaned.split())
 
     assert "Score : $500$ points" in normalized
+    assert "Score :\n$500$" not in cleaned
+    assert "$500$\n points" not in cleaned
     assert "## Problem Statement" in cleaned
+    assert "Given are positive integers $a, b$." in normalized
     assert "## Constraints" in cleaned
     assert "- $1\\leq a, b< 10^{100000}$" in normalized
+    assert "-\n$1\\leq a, b< 10^{100000}$" not in cleaned
     assert "## Input" in cleaned
     assert "## Output" in cleaned
     assert "```" in cleaned
