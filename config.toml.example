@@ -22,6 +22,8 @@ timezone = "UTC"
 [llm.gemini]
 # API key for Google Gemini (optional - features will be disabled if not provided)
 api_key = "your_google_gemini_api_key_here"
+# Base URL for Gemini API (optional - use for third-party proxies)
+# base_url = "https://generativelanguage.googleapis.com/v1beta"
 
 # Model configurations
 [llm.gemini.models]

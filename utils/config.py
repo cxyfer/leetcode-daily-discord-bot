@@ -133,6 +133,11 @@ class ConfigManager:
         return self.get("llm.gemini.api_key")
 
     @property
+    def gemini_base_url(self) -> Optional[str]:
+        """Get Google Gemini base URL for third-party proxy"""
+        return self.get("llm.gemini.base_url")
+
+    @property
     def post_time(self) -> str:
         """Get default post time"""
         return self.get("schedule.post_time", "00:00")

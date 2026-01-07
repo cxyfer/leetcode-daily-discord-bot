@@ -43,7 +43,9 @@ class EmbeddingGenerator:
         api_key = _resolve_api_key(self.config)
         if not api_key:
             raise ValueError("Gemini API key not configured")
-        self.client = genai.Client(api_key=api_key)
+        base_url = self.config.gemini_base_url
+        http_options = types.HttpOptions(base_url=base_url) if base_url else None
+        self.client = genai.Client(api_key=api_key, http_options=http_options)
         self._embed_config = self._build_embed_config()
 
     def _build_embed_config(self):

@@ -142,6 +142,7 @@ bot = commands.Bot(command_prefix=command_prefix, intents=intents)
 # LLM
 try:
     gemini_api_key = config.gemini_api_key
+    gemini_base_url = config.gemini_base_url
     if gemini_api_key and gemini_api_key != "your_google_gemini_api_key_here":
         # Initialize standard model
         standard_config = config.get_llm_model_config("standard")
@@ -152,6 +153,7 @@ try:
             max_tokens=standard_config.get("max_tokens"),
             timeout=standard_config.get("timeout"),
             max_retries=standard_config.get("max_retries", 2),
+            base_url=gemini_base_url,
         )
 
         # Initialize pro model
@@ -163,6 +165,7 @@ try:
             max_tokens=pro_config.get("max_tokens"),
             timeout=pro_config.get("timeout"),
             max_retries=pro_config.get("max_retries", 2),
+            base_url=gemini_base_url,
         )
         logger.info("LLM models initialized successfully")
     else:
