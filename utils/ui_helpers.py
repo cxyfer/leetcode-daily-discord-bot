@@ -209,9 +209,7 @@ async def create_problem_embed(
             if not problem_id or not problem_title:
                 continue
             link = item.get("link")
-            problem_text = (
-                f"[{problem_id}. {problem_title}]({link})" if link else f"{problem_id}. {problem_title}"
-            )
+            problem_text = f"[{problem_id}. {problem_title}]({link})" if link else f"{problem_id}. {problem_title}"
             line = f"- [`{year}`] {emoji} {problem_text}"
             rating = item.get("rating")
             if rating is not None and round(rating) > 0:
