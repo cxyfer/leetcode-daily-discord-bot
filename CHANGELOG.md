@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.1.4] - 2026-01-07
+### Changed
+- **Unified GenAI Client**: Replaced `langchain` and `langchain-google-genai` with direct `google-genai` SDK integration for simpler and more efficient LLM operations. (#20)
+- **Native JSON Parsing**: Replaced `langchain_core.output_parsers.SimpleJsonOutputParser` with native Python JSON parsing.
+- **Plain String Templates**: Replaced `langchain_core.prompts.PromptTemplate` with plain Python string templates.
+
+### Added
+- **Third-Party Proxy Support**: Added `base_url` configuration option under `[llm.gemini]` to support third-party API proxies.
+- **Per-Model Credentials**: Added optional `api_key` and `base_url` configuration for embedding and rewrite models with inheritance logic (model-specific → global → environment variables).
+- **SDK Retry Options**: Implemented retry logic using SDK's native `HttpRetryOptions` for better reliability.
+- **Debug Logging**: Added DEBUG-level logging for EmbeddingGenerator and EmbeddingRewriter configuration inspection.
+
+### Fixed
+- **Timeout Unit**: Clarified that `HttpOptions.timeout` expects milliseconds (SDK requirement).
+- **Base URL Format**: Corrected base_url example to use `https://generativelanguage.googleapis.com` without `/v1beta` suffix.
+
+### Removed
+- **Langchain Dependencies**: Removed `langchain` and `langchain-google-genai` from project dependencies, reducing package size and complexity.
+
 ## [v1.1.3] - 2026-01-06
 ### Added
 - **Codeforces Platform Support**: Complete integration of Codeforces as a problem source with problemset sync, contest list, standings parsing, and problem content fetching. (#18)
