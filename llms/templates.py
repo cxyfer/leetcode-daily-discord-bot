@@ -1,6 +1,4 @@
-from langchain_core.prompts import PromptTemplate
-
-TRANSLATION_JSON_PROMPT = """你是一位專業的翻譯助手，擅長根據上下文理解原文的用語風格（情感、語氣），
+TRANSLATION_JSON_PROMPT_TEMPLATE = """你是一位專業的翻譯助手，擅長根據上下文理解原文的用語風格（情感、語氣），
 並且準確地在 {to} 中再現這種風格。
 
 ## 翻譯要求
@@ -28,7 +26,7 @@ TRANSLATION_JSON_PROMPT = """你是一位專業的翻譯助手，擅長根據上
 {text}
 """
 
-INSPIRE_JSON_PROMPT = """你是一位專業的 LeetCode 解題靈感啟發助手，擅長根據題目內容、標籤與難度，
+INSPIRE_JSON_PROMPT_TEMPLATE = """你是一位專業的 LeetCode 解題靈感啟發助手，擅長根據題目內容、標籤與難度，
 為使用者提供解題思路與啟發，但嚴禁給出任何程式碼、偽代碼、演算法步驟或直接解答。
 
 ## 輸出要求
@@ -59,6 +57,3 @@ INSPIRE_JSON_PROMPT = """你是一位專業的 LeetCode 解題靈感啟發助手
   "inspiration": "其他靈感或提示"
 }}
 """
-
-INSPIRE_JSON_PROMPT_TEMPLATE = PromptTemplate.from_template(INSPIRE_JSON_PROMPT)
-TRANSLATION_JSON_PROMPT_TEMPLATE = PromptTemplate.from_template(TRANSLATION_JSON_PROMPT)

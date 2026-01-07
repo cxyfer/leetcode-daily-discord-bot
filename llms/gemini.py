@@ -41,7 +41,7 @@ class GeminiInspireOutput(GeminiBaseModel):
 
 class GeminiLLM(LLMBase):
     """
-    GeminiLLM is a wrapper for Google Gemini (Google Generative AI) using langchain.
+    GeminiLLM is a wrapper for Google Gemini (Google Generative AI) using google-genai SDK.
 
     This class provides a simple interface for generating text using Gemini models.
 

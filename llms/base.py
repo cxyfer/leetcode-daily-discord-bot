@@ -1,7 +1,7 @@
 import json
+import re
 from abc import ABC, abstractmethod
 
-from langchain_core.output_parsers import SimpleJsonOutputParser
 from pydantic import BaseModel
 
 from llms.templates import (
@@ -11,6 +11,19 @@ from llms.templates import (
 from utils.logger import get_llm_logger
 
 logger = get_llm_logger()
+
+
+def _parse_json_from_text(text: str) -> dict:
+    """Extract and parse JSON from text, handling markdown code blocks."""
+    # Try to extract JSON from markdown code blocks first
+    code_block_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    if code_block_match:
+        return json.loads(code_block_match.group(1).strip())
+    # Try to find JSON object directly
+    json_match = re.search(r"\{[\s\S]*\}", text)
+    if json_match:
+        return json.loads(json_match.group(0))
+    raise ValueError("No JSON found in text")
 
 
 class TranslationOutput(BaseModel):
@@ -116,9 +129,8 @@ class LLMBase(ABC):
         response = await self.generate(prompt)
         response_text = self._normalize_response(response)
         logger.debug(f"Translation response: {response_text}")
-        parser = SimpleJsonOutputParser()
         try:
-            parsed = parser.parse(response_text)
+            parsed = _parse_json_from_text(response_text)
             return parsed.get("translation", response_text)
         except Exception:
             return response_text
@@ -147,9 +159,8 @@ class LLMBase(ABC):
 
         response = await self.generate(prompt)
         response_text = self._normalize_response(response)
-        parser = SimpleJsonOutputParser()
         try:
-            parsed = parser.parse(response_text)
+            parsed = _parse_json_from_text(response_text)
             return parsed
         except Exception:
             return {"raw": response_text}

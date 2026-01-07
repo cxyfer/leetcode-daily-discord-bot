@@ -395,8 +395,7 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 - [pytz](https://pypi.org/project/pytz/) - Timezone handling
 - [beautifulsoup4](https://pypi.org/project/beautifulsoup4/) - HTML parsing
 - [colorlog](https://pypi.org/project/colorlog/) - Colored logging output
-- [langchain](https://pypi.org/project/langchain/) - LLM application framework
-- [langchain-google-genai](https://pypi.org/project/langchain-google-genai/) - Google Gemini LLM integration
+- [google-genai](https://pypi.org/project/google-genai/) - Google Gemini SDK
 - [aiohttp](https://pypi.org/project/aiohttp/) - Asynchronous HTTP client/server
 
 ## 📄 License
