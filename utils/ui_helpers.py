@@ -585,11 +585,15 @@ async def send_daily_challenge(
 
         logger.info(f"Got daily challenge: {challenge_info['id']}. {challenge_info['title']} for domain {domain}")
 
+        history_anchor = challenge_info.get("date") or date_str
+        history_problems = await current_client.get_daily_history(history_anchor)
+
         embed = await create_problem_embed(
             problem_info=challenge_info,
             bot=bot,
             domain=domain,
             is_daily=True,
+            history_problems=history_problems,
         )
         view = await create_problem_view(problem_info=challenge_info, bot=bot, domain=domain)
 
