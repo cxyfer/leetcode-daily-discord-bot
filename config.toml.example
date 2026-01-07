@@ -49,6 +49,9 @@ name = "gemini-embedding-001"
 dim = 768
 task_type = "SEMANTIC_SIMILARITY"
 batch_size = 32
+# Optional: use different API credentials for embedding (inherits from [llm.gemini] if not set)
+# api_key = "your_embedding_api_key_here"
+# base_url = "https://your-embedding-proxy.example.com/v1beta"
 
 # Rewrite model for simplifying problem statements
 [llm.gemini.models.rewrite]
@@ -57,6 +60,9 @@ temperature = 0.3
 timeout = 60
 max_retries = 2
 workers = 8
+# Optional: use different API credentials for rewrite (inherits from [llm.gemini] if not set)
+# api_key = "your_rewrite_api_key_here"
+# base_url = "https://your-rewrite-proxy.example.com/v1beta"
 
 # Cache settings for LLM responses
 [llm.cache]

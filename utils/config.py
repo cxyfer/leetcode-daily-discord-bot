@@ -196,6 +196,8 @@ class ConfigManager:
             dim=section.get("dim", 768),
             task_type=section.get("task_type", "SEMANTIC_SIMILARITY"),
             batch_size=section.get("batch_size", 32),
+            api_key=section.get("api_key"),
+            base_url=section.get("base_url"),
         )
 
     def get_rewrite_model_config(self) -> "RewriteModelConfig":
@@ -207,6 +209,8 @@ class ConfigManager:
             timeout=section.get("timeout", 30),
             max_retries=section.get("max_retries", 2),
             workers=section.get("workers", 4),
+            api_key=section.get("api_key"),
+            base_url=section.get("base_url"),
         )
 
     def get_similar_config(self) -> "SimilarConfig":
@@ -226,6 +230,8 @@ class EmbeddingModelConfig:
     dim: int = 768
     task_type: str = "SEMANTIC_SIMILARITY"
     batch_size: int = 32
+    api_key: Optional[str] = None
+    base_url: Optional[str] = None
 
 
 @dataclass
@@ -237,6 +243,8 @@ class RewriteModelConfig:
     timeout: int = 30
     max_retries: int = 2
     workers: int = 4
+    api_key: Optional[str] = None
+    base_url: Optional[str] = None
 
 
 @dataclass
