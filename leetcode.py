@@ -754,6 +754,43 @@ class LeetCodeClient:
 
         return None
 
+    async def get_daily_history(self, anchor_date: str, years: int = 5) -> list[dict]:
+        """
+        Fetch daily challenges for the same day in previous years.
+        """
+        dates = generate_history_dates(anchor_date, years)
+        if not dates:
+            return []
+
+        semaphore = asyncio.Semaphore(3)
+
+        async def fetch_date(date_str: str):
+            async with semaphore:
+                try:
+                    return await self.get_daily_challenge(date_str=date_str, domain=self.domain)
+                except Exception as exc:
+                    logger.warning(f"Failed to fetch history for {date_str}: {exc}")
+                    return None
+
+        results = await asyncio.gather(*(fetch_date(date_str) for date_str in dates))
+        history = []
+        for item in results:
+            if not item:
+                continue
+            entry = {
+                "date": item.get("date"),
+                "id": item.get("id"),
+                "title": item.get("title"),
+                "difficulty": item.get("difficulty"),
+                "link": item.get("link"),
+            }
+            rating = item.get("rating")
+            if rating is not None:
+                entry["rating"] = rating
+            history.append(entry)
+
+        return history
+
     async def fetch_recent_ac_submissions(self, username, limit=15):
         """
         Fetch recent AC (Accepted) submissions for a given username
