@@ -79,6 +79,7 @@ async def create_problem_embed(
     user: Optional[discord.User] = None,
     title: Optional[str] = None,
     message: Optional[str] = None,
+    history_problems: Optional[List[Dict[str, Any]]] = None,
 ) -> discord.Embed:
     """Create an embed for a LeetCode problem"""
     source = problem_info.get("source", "leetcode")
@@ -192,6 +193,30 @@ async def create_problem_embed(
             embed.add_field(
                 name=f"{FIELD_EMOJIS['similar']} Similar Questions",
                 value="\n".join(similar_q_list),
+                inline=False,
+            )
+
+    if history_problems:
+        history_lines = []
+        for item in history_problems[:5]:
+            date_value = item.get("date", "")
+            if not date_value:
+                continue
+            year = date_value.split("-")[0]
+            emoji = get_difficulty_emoji(item.get("difficulty", ""))
+            problem_id = item.get("id")
+            problem_title = item.get("title")
+            if not problem_id or not problem_title:
+                continue
+            line = f"- [{year}] {emoji} {problem_id}. {problem_title}"
+            rating = item.get("rating")
+            if rating is not None and round(rating) > 0:
+                line += f" *{int(round(rating))}*"
+            history_lines.append(line)
+        if history_lines:
+            embed.add_field(
+                name=f"{FIELD_EMOJIS['history']} History Problems",
+                value="\n".join(history_lines),
                 inline=False,
             )
 
