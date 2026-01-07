@@ -75,10 +75,38 @@ class EmbeddingRewriter:
     def __init__(self, config: ConfigManager | None = None):
         self.config = config or get_config()
         self.model_config: RewriteModelConfig = self.config.get_rewrite_model_config()
-        api_key = _resolve_api_key(self.config)
+
+        # Resolve API key: model-specific -> global -> env
+        api_key = self.model_config.api_key or _resolve_api_key(self.config)
         if not api_key:
             raise ValueError("Gemini API key not configured")
-        self.client = genai.Client(api_key=api_key)
+
+        # Resolve base_url with inheritance logic
+        model_base_url = self.model_config.base_url
+        global_base_url = self.config.gemini_base_url
+
+        if model_base_url and not self.model_config.api_key:
+            # base_url set without api_key -> error
+            raise ValueError(
+                "Rewrite model has base_url configured but no api_key. "
+                "Please also set api_key in [llm.gemini.models.rewrite]"
+            )
+
+        # Use model-specific base_url if set, otherwise inherit global
+        base_url = model_base_url or global_base_url
+
+        # Debug logging for configuration
+        logger.debug(
+            "EmbeddingRewriter config: model=%s, api_key=%s, base_url=%s (model=%s, global=%s)",
+            self.model_config.name,
+            f"{api_key[:8]}..." if api_key else None,
+            base_url,
+            model_base_url,
+            global_base_url,
+        )
+
+        http_options = types.HttpOptions(base_url=base_url) if base_url else None
+        self.client = genai.Client(api_key=api_key, http_options=http_options)
 
     def _build_prompt(self, original: str) -> str:
         return REWRITE_PROMPT.format(ORIGINAL=original)

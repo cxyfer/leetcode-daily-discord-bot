@@ -15,7 +15,7 @@ except ImportError:
     )
 
 from google import genai
-from langchain_google_genai import ChatGoogleGenerativeAI
+from google.genai import types
 from pydantic import BaseModel, Field
 
 from utils.logger import get_llm_logger
@@ -41,7 +41,7 @@ class GeminiInspireOutput(GeminiBaseModel):
 
 class GeminiLLM(LLMBase):
     """
-    GeminiLLM is a wrapper for Google Gemini (Google Generative AI) using langchain.
+    GeminiLLM is a wrapper for Google Gemini (Google Generative AI) using google-genai SDK.
 
     This class provides a simple interface for generating text using Gemini models.
 
@@ -56,6 +56,7 @@ class GeminiLLM(LLMBase):
         max_tokens: int = None,
         timeout: int = None,
         max_retries: int = 2,
+        base_url: str = None,
     ):
         """
         Initialize the GeminiLLM instance.
@@ -65,8 +66,9 @@ class GeminiLLM(LLMBase):
             model (str, optional): The name of the Gemini model to use, default is "gemini-2.0-flash"
             temperature (float, optional): The temperature parameter for the model, default is 0.7
             max_tokens (int, optional): The maximum number of tokens to generate, default is None
-            timeout (int, optional): The timeout for the request, default is None
+            timeout (int, optional): The timeout for the request in seconds, default is None
             max_retries (int, optional): The maximum number of retries for the request, default is 2
+            base_url (str, optional): Base URL for third-party proxy, default is None
         """
         self.api_key = api_key or os.getenv("GOOGLE_GEMINI_API_KEY")
 
@@ -74,16 +76,22 @@ class GeminiLLM(LLMBase):
             raise ValueError("請設定 GOOGLE_GEMINI_API_KEY 環境變數或傳入 api_key 參數")
 
         self.temperature = temperature
-        self.llm = ChatGoogleGenerativeAI(
-            google_api_key=self.api_key,
-            model=model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            timeout=timeout,
-            max_retries=max_retries,
-        )
-        self.genai_client = genai.Client(api_key=self.api_key)
+        self.max_tokens = max_tokens
         self.model_name = model
+
+        # Build HTTP options with timeout and retry settings
+        http_options = types.HttpOptions(
+            base_url=base_url,
+            timeout=timeout * 1000 if timeout else None,  # HttpOptions expects milliseconds
+            retry_options=types.HttpRetryOptions(
+                attempts=max_retries + 1,  # attempts includes the initial request
+            ),
+        )
+
+        self.genai_client = genai.Client(
+            api_key=self.api_key,
+            http_options=http_options,
+        )
 
     @staticmethod
     def _schema_to_json(schema: type) -> dict | None:
@@ -153,10 +161,19 @@ class GeminiLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        result = await self.llm.ainvoke(prompt)
-        if hasattr(result, "content"):
-            return result.content
-        return str(result)
+        config_kwargs = {}
+        if self.temperature is not None:
+            config_kwargs["temperature"] = self.temperature
+        if self.max_tokens is not None:
+            config_kwargs["max_output_tokens"] = self.max_tokens
+
+        response = await asyncio.to_thread(
+            self.genai_client.models.generate_content,
+            model=self.model_name,
+            contents=prompt,
+            config=config_kwargs if config_kwargs else None,
+        )
+        return getattr(response, "text", "") or ""
 
 
 if __name__ == "__main__":
