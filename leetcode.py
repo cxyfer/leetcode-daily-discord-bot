@@ -17,6 +17,54 @@ from utils.logger import get_leetcode_logger
 logger = get_leetcode_logger()
 
 
+def generate_history_dates(anchor_date: str, years: int = 5) -> list[str]:
+    """
+    Generate a list of dates for the same day in previous years.
+    Excludes the current year and dates before 2020-04-01.
+    """
+    if years <= 0:
+        return []
+
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", anchor_date):
+        return []
+
+    year, month, day = (int(part) for part in anchor_date.split("-"))
+    if not (1 <= month <= 12 and 1 <= day <= 31):
+        return []
+
+    if not (month == 2 and day == 29):
+        try:
+            datetime(year, month, day)
+        except ValueError:
+            return []
+
+    def is_leap_year(value: int) -> bool:
+        return value % 4 == 0 and (value % 100 != 0 or value % 400 == 0)
+
+    min_date = datetime(2020, 4, 1)
+    dates: list[str] = []
+
+    for i in range(1, years + 1):
+        target_year = year - i
+        if month == 2 and day == 29:
+            if not is_leap_year(target_year):
+                continue
+            target_date = datetime(target_year, 2, 29)
+            if target_date < min_date and target_date != datetime(2020, 2, 29):
+                continue
+        else:
+            try:
+                target_date = datetime(target_year, month, day)
+            except ValueError:
+                continue
+            if target_date < min_date:
+                continue
+
+        dates.append(target_date.strftime("%Y-%m-%d"))
+
+    return dates
+
+
 class LeetCodeClient:
     """
     LeetCode API Client for fetching problems, daily challenges and more.
