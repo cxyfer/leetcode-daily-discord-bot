@@ -77,15 +77,16 @@ class GeminiLLM(LLMBase):
 
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self.max_retries = max_retries
         self.model_name = model
 
-        http_options = None
-        if base_url or timeout:
-            http_options = types.HttpOptions(
-                base_url=base_url,
-                timeout=timeout * 1000 if timeout else None,
-            )
+        # Build HTTP options with timeout and retry settings
+        http_options = types.HttpOptions(
+            base_url=base_url,
+            timeout=timeout * 1000 if timeout else None,  # HttpOptions expects milliseconds
+            retry_options=types.HttpRetryOptions(
+                attempts=max_retries + 1,  # attempts includes the initial request
+            ),
+        )
 
         self.genai_client = genai.Client(
             api_key=self.api_key,
