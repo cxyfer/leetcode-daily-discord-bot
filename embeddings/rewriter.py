@@ -95,6 +95,16 @@ class EmbeddingRewriter:
         # Use model-specific base_url if set, otherwise inherit global
         base_url = model_base_url or global_base_url
 
+        # Debug logging for configuration
+        logger.debug(
+            "EmbeddingRewriter config: model=%s, api_key=%s, base_url=%s (model=%s, global=%s)",
+            self.model_config.name,
+            f"{api_key[:8]}..." if api_key else None,
+            base_url,
+            model_base_url,
+            global_base_url,
+        )
+
         http_options = types.HttpOptions(base_url=base_url) if base_url else None
         self.client = genai.Client(api_key=api_key, http_options=http_options)
 
