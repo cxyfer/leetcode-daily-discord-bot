@@ -44,6 +44,19 @@ class EmbeddingStorage:
     async def get_embedding_meta(self, source: str, problem_id: str) -> Optional[dict]:
         return await asyncio.to_thread(self._get_embedding_meta_sync, source, problem_id)
 
+    def _get_vector_sync(self, source: str, problem_id: str) -> Optional[List[float]]:
+        row = self.db.execute(
+            "SELECT embedding FROM vec_embeddings WHERE source = ? AND problem_id = ?",
+            (source, problem_id),
+            fetchone=True,
+        )
+        if not row:
+            return None
+        return json.loads(row[0])
+
+    async def get_vector(self, source: str, problem_id: str) -> Optional[List[float]]:
+        return await asyncio.to_thread(self._get_vector_sync, source, problem_id)
+
     def _get_existing_ids_sync(self, source: str, model: str, dim: int) -> set[str]:
         rows = self.db.execute(
             """
