@@ -52,7 +52,16 @@ class EmbeddingStorage:
         )
         if not row:
             return None
-        return json.loads(row[0])
+
+        # Handle both JSON string (legacy) and binary format (sqlite-vec native)
+        data = row[0]
+        if isinstance(data, (bytes, memoryview)):
+            # Binary format: decode as float32 array
+            import struct
+            return list(struct.unpack(f'{len(data)//4}f', bytes(data)))
+        else:
+            # JSON string format (legacy)
+            return json.loads(data)
 
     async def get_vector(self, source: str, problem_id: str) -> Optional[List[float]]:
         return await asyncio.to_thread(self._get_vector_sync, source, problem_id)
