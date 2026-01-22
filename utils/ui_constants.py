@@ -42,6 +42,7 @@ FIELD_EMOJIS = {
     "instructions": "💡",
     "problems": "📋",
     "link": "🔗",
+    "history": "📅",
 }
 
 # LeetCode 相關常量

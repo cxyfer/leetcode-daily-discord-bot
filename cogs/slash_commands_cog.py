@@ -83,12 +83,15 @@ class SlashCommandsCog(commands.Cog):
                     await interaction.followup.send(f"找不到 {date} 的每日挑戰資料。", ephemeral=not public)
                     return
 
+                history_problems = await current_client.get_daily_history(date)
+
                 embed = await create_problem_embed(
                     problem_info=challenge_info,
                     bot=self.bot,
                     domain="com",
                     is_daily=True,
                     date_str=date,
+                    history_problems=history_problems,
                 )
                 view = await create_problem_view(problem_info=challenge_info, bot=self.bot, domain="com")
 
@@ -134,12 +137,15 @@ class SlashCommandsCog(commands.Cog):
                     await interaction.followup.send(f"找不到 {date} 的每日挑戰資料。", ephemeral=not public)
                     return
 
+                history_problems = await current_client.get_daily_history(date)
+
                 embed = await create_problem_embed(
                     problem_info=challenge_info,
                     bot=self.bot,
                     domain="cn",
                     is_daily=True,
                     date_str=date,
+                    history_problems=history_problems,
                 )
                 view = await create_problem_view(problem_info=challenge_info, bot=self.bot, domain="cn")
 
