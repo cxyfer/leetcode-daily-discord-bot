@@ -110,9 +110,10 @@ async def test_similar_command_problem_precedence(cog):
     interaction = AsyncMock()
     problem_input = "leetcode:1"
     query_input = "Should be ignored"
-    
+
     cog.storage.count_embeddings = AsyncMock(return_value=10)
     cog.storage.get_vector = AsyncMock(return_value=[0.9, 0.9])
+    cog.storage.get_embedding_meta = AsyncMock(return_value=None)
     cog.searcher.search = AsyncMock(return_value=[])
 
     await cog.similar_command.callback(cog, interaction, query=query_input, problem=problem_input)
@@ -120,3 +121,19 @@ async def test_similar_command_problem_precedence(cog):
     cog.storage.get_vector.assert_called()
     cog.rewriter.rewrite.assert_not_called()
     cog.generator.embed.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_similar_command_problem_leetcode_url_slug(cog):
+    interaction = AsyncMock()
+    problem_input = "https://leetcode.com/problems/two-sum/"
+
+    cog.storage.count_embeddings = AsyncMock(return_value=10)
+    cog.storage.get_problem_id_by_slug = AsyncMock(return_value="1")
+    cog.storage.get_vector = AsyncMock(return_value=[0.1, 0.2])
+    cog.storage.get_embedding_meta = AsyncMock(return_value=None)
+    cog.searcher.search = AsyncMock(return_value=[])
+
+    await cog.similar_command.callback(cog, interaction, query=None, problem=problem_input)
+
+    cog.storage.get_problem_id_by_slug.assert_called_with("leetcode", "two-sum")
+    cog.storage.get_vector.assert_called_with("leetcode", "1")

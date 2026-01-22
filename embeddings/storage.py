@@ -57,6 +57,19 @@ class EmbeddingStorage:
     async def get_vector(self, source: str, problem_id: str) -> Optional[List[float]]:
         return await asyncio.to_thread(self._get_vector_sync, source, problem_id)
 
+    def _get_problem_id_by_slug_sync(self, source: str, slug: str) -> Optional[str]:
+        row = self.db.execute(
+            "SELECT id FROM problems WHERE source = ? AND slug = ?",
+            (source, slug),
+            fetchone=True,
+        )
+        if not row:
+            return None
+        return str(row[0])
+
+    async def get_problem_id_by_slug(self, source: str, slug: str) -> Optional[str]:
+        return await asyncio.to_thread(self._get_problem_id_by_slug_sync, source, slug)
+
     def _get_existing_ids_sync(self, source: str, model: str, dim: int) -> set[str]:
         rows = self.db.execute(
             """

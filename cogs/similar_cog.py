@@ -111,6 +111,12 @@ class SimilarCog(commands.Cog):
                     )
                     return
 
+                # For LeetCode, if normalized_id is a slug, try to resolve it to numeric ID
+                if detected_source == "leetcode" and not normalized_id.isdigit():
+                    resolved_id = await self.storage.get_problem_id_by_slug(detected_source, normalized_id)
+                    if resolved_id:
+                        normalized_id = resolved_id
+
                 # Try to get existing vector
                 vector = await self.storage.get_vector(detected_source, normalized_id)
                 if not vector:
