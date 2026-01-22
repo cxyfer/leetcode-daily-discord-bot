@@ -189,14 +189,10 @@ class SimilarCog(commands.Cog):
         if is_problem_search:
             embed.add_field(name="🔗 基準題目", value=display_query, inline=False)
             if display_rewritten:
-                embed.add_field(
-                    name="📝 題目摘要 (已索引)", value=display_rewritten, inline=False
-                )
+                embed.add_field(name="📝 題目摘要 (已索引)", value=display_rewritten, inline=False)
         else:
             embed.add_field(name="❓ 原始查詢", value=display_query, inline=False)
-            embed.add_field(
-                name="🤖 AI 重寫", value=display_rewritten or "(無)", inline=False
-            )
+            embed.add_field(name="🤖 AI 重寫", value=display_rewritten or "(無)", inline=False)
 
         if not results:
             embed.add_field(

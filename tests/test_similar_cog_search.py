@@ -12,6 +12,7 @@ def mock_bot():
     bot.db = Mock()
     return bot
 
+
 @pytest.fixture
 def mock_config():
     config = Mock(spec=ConfigManager)
@@ -20,21 +21,24 @@ def mock_config():
     config.database_path = ":memory:"
     return config
 
+
 @pytest.fixture
 def cog(mock_bot, mock_config):
-    with patch('cogs.similar_cog.get_config', return_value=mock_config), \
-         patch('cogs.similar_cog.EmbeddingDatabaseManager'), \
-         patch('cogs.similar_cog.EmbeddingStorage') as MockStorage, \
-         patch('cogs.similar_cog.EmbeddingRewriter') as MockRewriter, \
-         patch('cogs.similar_cog.EmbeddingGenerator') as MockGenerator, \
-         patch('cogs.similar_cog.SimilaritySearcher') as MockSearcher:
-
+    with (
+        patch("cogs.similar_cog.get_config", return_value=mock_config),
+        patch("cogs.similar_cog.EmbeddingDatabaseManager"),
+        patch("cogs.similar_cog.EmbeddingStorage") as MockStorage,
+        patch("cogs.similar_cog.EmbeddingRewriter") as MockRewriter,
+        patch("cogs.similar_cog.EmbeddingGenerator") as MockGenerator,
+        patch("cogs.similar_cog.SimilaritySearcher") as MockSearcher,
+    ):
         cog = SimilarCog(mock_bot)
         cog.storage = MockStorage.return_value
         cog.rewriter = MockRewriter.return_value
         cog.generator = MockGenerator.return_value
         cog.searcher = MockSearcher.return_value
         return cog
+
 
 @pytest.mark.asyncio
 async def test_similar_command_problem_found(cog):
@@ -47,9 +51,7 @@ async def test_similar_command_problem_found(cog):
     cog.storage.get_embedding_meta = AsyncMock(return_value={"rewritten_content": "Rewrite"})
 
     # Mock searcher
-    cog.searcher.search = AsyncMock(return_value=[
-        {"problem_id": "other_id", "similarity": 0.9}
-    ])
+    cog.searcher.search = AsyncMock(return_value=[{"problem_id": "other_id", "similarity": 0.9}])
 
     await cog.similar_command.callback(cog, interaction, query=None, problem=problem_input)
 
@@ -63,6 +65,7 @@ async def test_similar_command_problem_found(cog):
     # Since we can't easily inspect the embed object directly on a mock without capturing it,
     # we just assume it worked if no exception and followup.send was called.
     assert interaction.followup.send.called
+
 
 @pytest.mark.asyncio
 async def test_similar_command_problem_not_found(cog):
@@ -78,6 +81,7 @@ async def test_similar_command_problem_not_found(cog):
     # Verify we sent an error message
     args, _ = interaction.followup.send.call_args
     assert "找不到" in args[0] or "找不到" in str(args)
+
 
 @pytest.mark.asyncio
 async def test_similar_command_query_only(cog):
@@ -96,6 +100,7 @@ async def test_similar_command_query_only(cog):
     cog.generator.embed.assert_called_with("rewritten query")
     cog.searcher.search.assert_called()
 
+
 @pytest.mark.asyncio
 async def test_similar_command_neither_provided(cog):
     interaction = AsyncMock()
@@ -106,7 +111,8 @@ async def test_similar_command_neither_provided(cog):
     interaction.response.send_message.assert_called()
     args, kwargs = interaction.response.send_message.call_args
     assert "請至少輸入" in args[0]
-    assert kwargs['ephemeral'] is True
+    assert kwargs["ephemeral"] is True
+
 
 @pytest.mark.asyncio
 async def test_similar_command_problem_precedence(cog):
@@ -124,6 +130,7 @@ async def test_similar_command_problem_precedence(cog):
     cog.storage.get_vector.assert_called()
     cog.rewriter.rewrite.assert_not_called()
     cog.generator.embed.assert_not_called()
+
 
 @pytest.mark.asyncio
 async def test_similar_command_problem_leetcode_url_slug(cog):
