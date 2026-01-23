@@ -741,14 +741,18 @@ class InteractionHandlerCog(commands.Cog):
                     pass
 
         # Button for similar problems search
-        elif custom_id.startswith(self.bot.LEETCODE_SIMILAR_BUTTON_PREFIX) or custom_id.startswith("ext_similar|"):
+        similar_prefix = getattr(self.bot, "LEETCODE_SIMILAR_BUTTON_PREFIX", "leetcode_similar_")
+        if custom_id.startswith(similar_prefix) or custom_id.startswith("ext_similar|"):
             self.logger.debug(f"接收到相似題目按鈕交互: custom_id={custom_id}")
 
             try:
                 # Parse custom_id
-                if custom_id.startswith(self.bot.LEETCODE_SIMILAR_BUTTON_PREFIX):
+                if custom_id.startswith(similar_prefix):
                     # LeetCode format: leetcode_similar_{problem_id}_{domain}
                     parts = custom_id.split("_")
+                    if len(parts) < 3:
+                        await interaction.response.send_message("無效的按鈕格式。", ephemeral=True)
+                        return
                     problem_id = parts[2]
                     source = "leetcode"
                 else:
@@ -808,7 +812,7 @@ class InteractionHandlerCog(commands.Cog):
                 results = await similar_cog.searcher.search(
                     embedding,
                     None,  # Search all sources
-                    5,  # top_k
+                    similar_cog.similar_config.top_k,
                     similar_cog.similar_config.min_similarity,
                 )
 
