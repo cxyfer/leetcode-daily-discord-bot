@@ -65,19 +65,17 @@ class EmbeddingStorage:
             # Handle both JSON string (legacy) and binary format (sqlite-vec native)
             if isinstance(data, (bytes, bytearray, memoryview)):
                 # Binary format: decode as float32 array
-                data_bytes = bytes(data) if isinstance(data, memoryview) else data
-
                 # Validate length is divisible by 4 (size of float32)
-                if len(data_bytes) % 4 != 0:
+                if len(data) % 4 != 0:
                     logger.error(
-                        f"Invalid vector data length for {source}:{problem_id}: "
-                        f"{len(data_bytes)} bytes (not divisible by 4)"
+                        f"Invalid vector data length for {source}:{problem_id}: {len(data)} bytes (not divisible by 4)"
                     )
                     return None
 
                 # Use little-endian format for cross-platform consistency
-                count = len(data_bytes) // 4
-                return list(struct.unpack(f"<{count}f", data_bytes))
+                # struct.unpack supports buffer protocol, works directly with memoryview
+                count = len(data) // 4
+                return list(struct.unpack(f"<{count}f", data))
             else:
                 # JSON string format (legacy)
                 return json.loads(data)
