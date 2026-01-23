@@ -12,7 +12,7 @@ from embeddings import (
 from utils.config import get_config
 from utils.database import EmbeddingDatabaseManager
 from utils.logger import get_commands_logger
-from utils.source_detector import looks_like_problem_id
+from utils.source_detector import detect_source, looks_like_problem_id
 from utils.ui_constants import (
     DEFAULT_COLOR,
     FIELD_EMOJIS,
@@ -50,7 +50,8 @@ class SimilarCog(commands.Cog):
 
     @app_commands.command(name="similar", description="搜尋相似題目")
     @app_commands.describe(
-        query="題目敘述或關鍵字",
+        query="題目敘述或關鍵字 (若指定 problem 則此欄位可略過)",
+        problem="既有題目編號或網址 (例如: 1, atcoder:abc100_a)",
         top_k="返回結果數量 (預設 5)",
         source="題庫來源 (留空為全部)",
         public="是否公開顯示回覆 (預設為私密回覆)",
@@ -58,17 +59,25 @@ class SimilarCog(commands.Cog):
     async def similar_command(
         self,
         interaction: discord.Interaction,
-        query: str,
+        query: str = None,
+        problem: str = None,
         top_k: int = 5,
         source: str | None = None,
         public: bool = False,
     ):
-        if not query or not query.strip():
-            await interaction.response.send_message("請輸入題目描述或關鍵字", ephemeral=not public)
+        if not query and not problem:
+            await interaction.response.send_message(
+                "請至少輸入題目敘述 (query) 或題目編號 (problem)", ephemeral=not public
+            )
             return
 
-        if looks_like_problem_id(query):
-            await interaction.response.send_message("請輸入題目描述或關鍵字，而非題目編號", ephemeral=not public)
+        # If user only provides query but it looks like an ID, warn them
+        if query and not problem and looks_like_problem_id(query):
+            await interaction.response.send_message(
+                "偵測到您輸入的內容疑似題目編號。若要搜尋特定題目的相似題，"
+                "請使用 `problem` 參數；若為題目描述，請提供更多細節。",
+                ephemeral=not public,
+            )
             return
 
         top_k = max(1, min(top_k, 20))
@@ -86,10 +95,53 @@ class SimilarCog(commands.Cog):
                 )
                 return
 
-            rewritten = await self.rewriter.rewrite(query)
-            if not rewritten or not rewritten.strip():
-                rewritten = query
-            embedding = await self.generator.embed(rewritten)
+            embedding = None
+            display_query = query
+            rewritten = None
+            is_problem_search = False
+
+            if problem:
+                is_problem_search = True
+                detected_source, normalized_id = detect_source(problem)
+                if detected_source == "unknown":
+                    await interaction.followup.send(
+                        f"無法識別題目編號 `{problem}` 的來源。請嘗試使用標準格式 "
+                        "(如 `leetcode:1`, `atcoder:abc100_a`)。",
+                        ephemeral=not public,
+                    )
+                    return
+
+                # For LeetCode, if normalized_id is a slug, try to resolve it to numeric ID
+                if detected_source == "leetcode" and not normalized_id.isdigit():
+                    resolved_id = await self.storage.get_problem_id_by_slug(detected_source, normalized_id)
+                    if resolved_id:
+                        normalized_id = resolved_id
+
+                # Try to get existing vector
+                vector = await self.storage.get_vector(detected_source, normalized_id)
+                if not vector:
+                    await interaction.followup.send(
+                        f"資料庫中找不到題目 `{detected_source}:{normalized_id}` 的向量索引。\n"
+                        "請確認該題目是否已加入資料庫並完成索引建置。",
+                        ephemeral=not public,
+                    )
+                    return
+
+                embedding = vector
+                display_query = f"{detected_source.title()}: {normalized_id}"
+
+                # Try to get metadata for display purposes
+                meta = await self.storage.get_embedding_meta(detected_source, normalized_id)
+                if meta:
+                    rewritten = meta.get("rewritten_content")
+
+            else:
+                # Text query path
+                rewritten = await self.rewriter.rewrite(query)
+                if not rewritten or not rewritten.strip():
+                    rewritten = query
+                embedding = await self.generator.embed(rewritten)
+
             results = await self.searcher.search(
                 embedding,
                 source_filter,
@@ -97,8 +149,15 @@ class SimilarCog(commands.Cog):
                 self.similar_config.min_similarity,
             )
 
-            embed = await self.create_results_embed(query, rewritten, results, source_filter)
+            embed = await self.create_results_embed(
+                display_query,
+                rewritten,
+                results,
+                source_filter,
+                is_problem_search=is_problem_search,
+            )
             await interaction.followup.send(embed=embed, ephemeral=not public)
+
         except Exception as exc:
             self.logger.error("/similar failed: %s", exc, exc_info=True)
             await interaction.followup.send("搜尋服務暫時不可用，請稍後再試", ephemeral=not public)
@@ -110,7 +169,14 @@ class SimilarCog(commands.Cog):
             return text
         return text[: max_length - len(suffix)] + suffix
 
-    async def create_results_embed(self, query: str, rewritten_query: str, results: list, source: str | None):
+    async def create_results_embed(
+        self,
+        query: str,
+        rewritten_query: str,
+        results: list,
+        source: str | None,
+        is_problem_search: bool = False,
+    ):
         display_source = source or "all"
         show_source = source is None
         title = f"{FIELD_EMOJIS['search']} 相似題目搜尋結果"
@@ -118,10 +184,15 @@ class SimilarCog(commands.Cog):
 
         # Truncate content to avoid Discord limits (1024 chars per field value)
         display_query = self._truncate_text(query)
-        display_rewritten = self._truncate_text(rewritten_query)
+        display_rewritten = self._truncate_text(rewritten_query) if rewritten_query else None
 
-        embed.add_field(name="❓ 原始查詢", value=display_query, inline=False)
-        embed.add_field(name="🤖 AI 重寫", value=display_rewritten, inline=False)
+        if is_problem_search:
+            embed.add_field(name="🔗 基準題目", value=display_query, inline=False)
+            if display_rewritten:
+                embed.add_field(name="📝 題目摘要 (已索引)", value=display_rewritten, inline=False)
+        else:
+            embed.add_field(name="❓ 原始查詢", value=display_query, inline=False)
+            embed.add_field(name="🤖 AI 重寫", value=display_rewritten or "(無)", inline=False)
 
         if not results:
             embed.add_field(
