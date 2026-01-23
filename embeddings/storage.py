@@ -77,7 +77,7 @@ class EmbeddingStorage:
 
                 # Use little-endian format for cross-platform consistency
                 count = len(data_bytes) // 4
-                return list(struct.unpack(f'<{count}f', data_bytes))
+                return list(struct.unpack(f"<{count}f", data_bytes))
             else:
                 # JSON string format (legacy)
                 return json.loads(data)
