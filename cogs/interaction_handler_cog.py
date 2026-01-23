@@ -740,6 +740,102 @@ class InteractionHandlerCog(commands.Cog):
                 except Exception:
                     pass
 
+        # Button for similar problems search
+        elif custom_id.startswith(self.bot.LEETCODE_SIMILAR_BUTTON_PREFIX) or custom_id.startswith("ext_similar|"):
+            self.logger.debug(f"接收到相似題目按鈕交互: custom_id={custom_id}")
+
+            try:
+                # Parse custom_id
+                if custom_id.startswith(self.bot.LEETCODE_SIMILAR_BUTTON_PREFIX):
+                    # LeetCode format: leetcode_similar_{problem_id}_{domain}
+                    parts = custom_id.split("_")
+                    problem_id = parts[2]
+                    source = "leetcode"
+                else:
+                    # External format: ext_similar|{source}|{problem_id}
+                    parts = custom_id.split("|")
+                    if len(parts) < 3:
+                        await interaction.response.send_message("無效的題目資訊，無法搜尋相似題目。", ephemeral=True)
+                        return
+                    source = parts[1]
+                    problem_id = parts[2]
+
+                # Get SimilarCog
+                similar_cog = self.bot.get_cog("SimilarCog")
+                if not similar_cog:
+                    await interaction.response.send_message("相似題目功能尚未啟用，請聯繫管理員。", ephemeral=True)
+                    return
+
+                # Defer the response as this might take some time
+                await interaction.response.defer(ephemeral=True)
+
+                self.logger.debug(f"搜尋相似題目: problem={source}:{problem_id}")
+
+                # Import source detector
+                from utils.source_detector import detect_source
+
+                # Detect source and normalize ID
+                problem_param = f"{source}:{problem_id}"
+                detected_source, normalized_id = detect_source(problem_param)
+                if detected_source == "unknown":
+                    await interaction.followup.send(f"無法識別題目編號 `{problem_param}` 的來源。", ephemeral=True)
+                    return
+
+                # For LeetCode, if normalized_id is a slug, try to resolve it to numeric ID
+                if detected_source == "leetcode" and not normalized_id.isdigit():
+                    resolved_id = await similar_cog.storage.get_problem_id_by_slug(detected_source, normalized_id)
+                    if resolved_id:
+                        normalized_id = resolved_id
+
+                # Try to get existing vector
+                vector = await similar_cog.storage.get_vector(detected_source, normalized_id)
+                if not vector:
+                    await interaction.followup.send(
+                        f"資料庫中找不到題目 `{detected_source}:{normalized_id}` 的向量索引。\n"
+                        "請確認該題目是否已加入資料庫並完成索引建置。",
+                        ephemeral=True,
+                    )
+                    return
+
+                embedding = vector
+                display_query = f"{detected_source.title()}: {normalized_id}"
+
+                # Try to get metadata for display purposes
+                meta = await similar_cog.storage.get_embedding_meta(detected_source, normalized_id)
+                rewritten = meta.get("rewritten_content") if meta else None
+
+                # Search for similar problems
+                results = await similar_cog.searcher.search(
+                    embedding,
+                    None,  # Search all sources
+                    5,  # top_k
+                    similar_cog.similar_config.min_similarity,
+                )
+
+                # Create results embed
+                embed = await similar_cog.create_results_embed(
+                    display_query,
+                    rewritten,
+                    results,
+                    None,  # source_filter
+                    is_problem_search=True,
+                )
+
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                self.logger.info(f"成功搜尋相似題目: {problem_param}")
+
+            except discord.errors.InteractionResponded:
+                await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
+            except Exception as e:
+                self.logger.error(f"處理相似題目按鈕交互時發生錯誤: {e}", exc_info=True)
+                try:
+                    if not interaction.response.is_done():
+                        await interaction.response.send_message(f"搜尋相似題目時發生錯誤：{str(e)}", ephemeral=True)
+                    else:
+                        await interaction.followup.send(f"搜尋相似題目時發生錯誤：{str(e)}", ephemeral=True)
+                except Exception:
+                    pass
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(InteractionHandlerCog(bot))
