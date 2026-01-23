@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import struct
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -53,15 +54,36 @@ class EmbeddingStorage:
         if not row:
             return None
 
-        # Handle both JSON string (legacy) and binary format (sqlite-vec native)
         data = row[0]
-        if isinstance(data, (bytes, memoryview)):
-            # Binary format: decode as float32 array
-            import struct
-            return list(struct.unpack(f'{len(data)//4}f', bytes(data)))
-        else:
-            # JSON string format (legacy)
-            return json.loads(data)
+
+        # Handle empty data
+        if data is None or (isinstance(data, (bytes, bytearray, memoryview)) and len(data) == 0):
+            logger.warning(f"Empty vector data for {source}:{problem_id}")
+            return None
+
+        try:
+            # Handle both JSON string (legacy) and binary format (sqlite-vec native)
+            if isinstance(data, (bytes, bytearray, memoryview)):
+                # Binary format: decode as float32 array
+                data_bytes = bytes(data) if isinstance(data, memoryview) else data
+
+                # Validate length is divisible by 4 (size of float32)
+                if len(data_bytes) % 4 != 0:
+                    logger.error(
+                        f"Invalid vector data length for {source}:{problem_id}: "
+                        f"{len(data_bytes)} bytes (not divisible by 4)"
+                    )
+                    return None
+
+                # Use little-endian format for cross-platform consistency
+                count = len(data_bytes) // 4
+                return list(struct.unpack(f'<{count}f', data_bytes))
+            else:
+                # JSON string format (legacy)
+                return json.loads(data)
+        except (struct.error, json.JSONDecodeError) as e:
+            logger.error(f"Failed to decode vector for {source}:{problem_id}: {e}")
+            return None
 
     async def get_vector(self, source: str, problem_id: str) -> Optional[List[float]]:
         return await asyncio.to_thread(self._get_vector_sync, source, problem_id)
