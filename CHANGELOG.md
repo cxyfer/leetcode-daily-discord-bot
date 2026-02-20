@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.1.5] - 2026-02-20
+### Added
+- **Daily History**: Display historical daily challenges on the same date from previous years in `/daily` embeds, with linked problem titles and monospace year formatting. (#21)
+- **Similar by Problem ID**: Added `problem` parameter to `/similar` command, allowing users to search by problem ID or URL using existing vectors instead of re-embedding. (#22)
+- **Slug-to-ID Resolution**: Added `get_problem_id_by_slug()` to resolve LeetCode URLs/slugs to numeric IDs for vector lookup. (#22)
+
+### Fixed
+- **Binary Vector Decoding**: Fixed `UnicodeDecodeError` when reading embedding vectors from `sqlite-vec`, which stores vectors in binary float32 format. (#22)
+- **Cross-Platform Vector Handling**: Added binary length validation and explicit little-endian format for consistent vector decoding across platforms. (#22)
+
+### Improved
+- **Vector Decoding Robustness**: Enhanced `_get_vector_sync` with comprehensive error handling for binary, JSON, bytearray, and memoryview formats. (#22)
+- **Embedding Performance**: Removed unnecessary `bytes()` conversion for memoryview data, leveraging `struct.unpack()` native buffer protocol support. (#22)
+
 ## [v1.1.4] - 2026-01-07
 ### Changed
 - **Unified GenAI Client**: Replaced `langchain` and `langchain-google-genai` with direct `google-genai` SDK integration for simpler and more efficient LLM operations. (#20)
