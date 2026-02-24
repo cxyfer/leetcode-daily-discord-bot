@@ -177,8 +177,13 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# Claude Code
+# AI tools
+.ace-tool/
 .claude/
+.codex/
+.gemini/
+.opsx/
+.agent/
 CLAUDE.md
 
 # Logs
