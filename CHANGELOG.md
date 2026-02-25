@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.1.6] - 2026-02-26
+### Added
+- **Similar Problems Button**: Added "Similar Problems" button to `/daily` and `/problem` command embeds for quick access to related problems. (#23)
+
+### Changed
+- **Unified `/config` Command**: Consolidated `/set_channel`, `/set_post_time`, `/set_timezone`, `/set_role`, `/show_settings`, `/remove_channel` into a single `/config` command with subcommands. (#24)
+
+### Maintenance
+- Added AI tool directories to `.gitignore`.
+- Initialized OpenSpec project specs with 10 capability definitions.
+
 ## [v1.1.5] - 2026-02-20
 ### Added
 - **Daily History**: Display historical daily challenges on the same date from previous years in `/daily` embeds, with linked problem titles and monospace year formatting. (#21)
