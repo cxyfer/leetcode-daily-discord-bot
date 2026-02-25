@@ -79,6 +79,56 @@ class InteractionHandlerCog(commands.Cog):
         async with self.ongoing_llm_requests_lock:
             self.ongoing_llm_requests.discard(request_key)
 
+    async def _handle_config_reset(self, interaction: discord.Interaction) -> None:
+        custom_id = interaction.data.get("custom_id", "")
+        parts = custom_id.split("|")
+        try:
+            if len(parts) != 4:
+                raise ValueError
+            action, raw_guild_id, raw_user_id, raw_exp_unix = parts
+            guild_id = int(raw_guild_id)
+            user_id = int(raw_user_id)
+            exp_unix = int(raw_exp_unix)
+        except (ValueError, TypeError):
+            await interaction.response.send_message("無效的操作。", ephemeral=True)
+            return
+
+        if action not in ("config_reset_cancel", "config_reset_confirm"):
+            await interaction.response.send_message("無效的操作。", ephemeral=True)
+            return
+
+        if interaction.guild is None:
+            await interaction.response.send_message("此操作僅能在伺服器中使用。", ephemeral=True)
+            return
+
+        if guild_id != interaction.guild.id:
+            await interaction.response.send_message("無效的操作。", ephemeral=True)
+            return
+
+        if user_id != interaction.user.id:
+            await interaction.response.send_message("此操作僅限原發起者使用。", ephemeral=True)
+            return
+
+        if int(time.time()) > exp_unix:
+            await interaction.response.send_message("此確認已過期，請重新使用 /config reset:True。", ephemeral=True)
+            return
+
+        if action == "config_reset_cancel":
+            await interaction.response.edit_message(content="已取消重置操作。", embed=None, view=None)
+            self.logger.info(f"Config reset cancelled for guild {guild_id} by user {interaction.user.id}")
+            return
+
+        if not interaction.user.guild_permissions.manage_guild:
+            await interaction.response.send_message("您需要「管理伺服器」權限才能執行此操作。", ephemeral=True)
+            return
+        success = self.bot.db.delete_server_settings(guild_id)
+        if not success:
+            await interaction.response.send_message("重置設定時發生錯誤，請稍後再試。", ephemeral=True)
+            return
+        await self.bot.reschedule_daily_challenge(guild_id, "config_reset")
+        await interaction.response.edit_message(content="✅ 已重置所有設定並停止排程。", embed=None, view=None)
+        self.logger.info(f"Config reset confirmed for guild {guild_id} by user {interaction.user.id}")
+
     async def _handle_similar_problem_interaction(self, interaction: discord.Interaction, custom_id: str) -> None:
         """
         Handle similar problem button interactions.
@@ -189,6 +239,11 @@ class InteractionHandlerCog(commands.Cog):
             return
 
         custom_id = interaction.data.get("custom_id", "")
+
+        # Config reset buttons
+        if custom_id.startswith("config_reset_confirm|") or custom_id.startswith("config_reset_cancel|"):
+            await self._handle_config_reset(interaction)
+            return
 
         def format_inspire_field(val):
             if isinstance(val, list):

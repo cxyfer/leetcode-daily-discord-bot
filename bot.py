@@ -254,6 +254,20 @@ async def reload(ctx, extension):
         bot.logger.error(f"Error reloading extension cogs.{extension}: {e}", exc_info=True)
 
 
+def _create_reschedule_helper(bot):
+    async def reschedule_daily_challenge(server_id: int, context: str = ""):
+        schedule_cog = bot.get_cog("ScheduleManagerCog")
+        if schedule_cog:
+            await schedule_cog.reschedule_daily_challenge(server_id)
+        else:
+            bot.logger.warning(
+                f"ScheduleManagerCog not found during {context} for server {server_id}. "
+                "Scheduling may not update immediately."
+            )
+
+    return reschedule_daily_challenge
+
+
 async def load_extensions():
     if not os.path.exists("./cogs"):
         os.makedirs("./cogs")
@@ -287,6 +301,7 @@ async def main():
         bot.LEETCODE_SIMILAR_BUTTON_PREFIX = LEETCODE_SIMILAR_BUTTON_PREFIX
 
         await load_extensions()
+        bot.reschedule_daily_challenge = _create_reschedule_helper(bot)
         if not DISCORD_TOKEN:
             bot.logger.critical("DISCORD_TOKEN is not set. Bot cannot start.")
             return
