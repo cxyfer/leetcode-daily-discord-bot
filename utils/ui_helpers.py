@@ -243,14 +243,17 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
         description_prefix = getattr(bot, "LEETCODE_DISCRIPTION_BUTTON_PREFIX", "leetcode_problem_")
         translate_prefix = getattr(bot, "LEETCODE_TRANSLATE_BUTTON_PREFIX", "leetcode_translate_")
         inspire_prefix = getattr(bot, "LEETCODE_INSPIRE_BUTTON_PREFIX", "leetcode_inspire_")
+        similar_prefix = getattr(bot, "LEETCODE_SIMILAR_BUTTON_PREFIX", "leetcode_similar_")
         description_id = f"{description_prefix}{problem_info['id']}_{domain}"
         translate_id = f"{translate_prefix}{problem_info['id']}_{domain}"
         inspire_id = f"{inspire_prefix}{problem_info['id']}_{domain}"
+        similar_id = f"{similar_prefix}{problem_info['id']}_{domain}"
     else:
         # Use generic prefix with source info: ext_problem|{source}|{problem_id}
         description_id = f"ext_problem|{source}|{problem_info['id']}"
         translate_id = f"ext_translate|{source}|{problem_info['id']}"
         inspire_id = f"ext_inspire|{source}|{problem_info['id']}"
+        similar_id = f"ext_similar|{source}|{problem_info['id']}"
 
     # Description button
     view.add_item(
@@ -283,6 +286,16 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
                 custom_id=inspire_id,
             )
         )
+
+    # Similar problems button
+    view.add_item(
+        discord.ui.Button(
+            style=discord.ButtonStyle.secondary,
+            label="相似題目",
+            emoji=BUTTON_EMOJIS["similar"],
+            custom_id=similar_id,
+        )
+    )
 
     return view
 

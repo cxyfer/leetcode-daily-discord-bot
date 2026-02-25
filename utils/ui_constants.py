@@ -27,6 +27,7 @@ BUTTON_EMOJIS = {
     "description": "📖",
     "translate": "🤖",
     "inspire": "💡",
+    "similar": "🔍",
     "previous": "◀️",
     "next": "▶️",
 }
