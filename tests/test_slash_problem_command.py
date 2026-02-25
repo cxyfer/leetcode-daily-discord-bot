@@ -80,7 +80,7 @@ async def test_problem_command_atcoder_single_sends_without_view():
     assert interaction.followup.send.call_count == 1
     _, kwargs = interaction.followup.send.call_args
     assert "view" in kwargs
-    assert len(kwargs["view"].children) == 3
+    assert len(kwargs["view"].children) == 4
     assert kwargs["view"].children[0].custom_id.startswith("ext_problem|atcoder|")
 
 
