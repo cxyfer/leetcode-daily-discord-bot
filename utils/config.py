@@ -20,6 +20,9 @@ else:
     except ImportError:
         raise ImportError("tomli is required for Python < 3.11. Please install it with: pip install tomli")
 
+DEFAULT_POST_TIME = "00:00"
+DEFAULT_TIMEZONE = "UTC"
+
 # Module-level logger (avoid initializing logger system during import)
 logger = logging.getLogger("config")
 
