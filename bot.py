@@ -264,6 +264,7 @@ def _create_reschedule_helper(bot):
                 f"ScheduleManagerCog not found during {context} for server {server_id}. "
                 "Scheduling may not update immediately."
             )
+
     return reschedule_daily_challenge
 
 

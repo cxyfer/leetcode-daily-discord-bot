@@ -319,11 +319,19 @@ class SlashCommandsCog(commands.Cog):
 
     _TZ_CHOICES: list[str] = (
         [f"UTC{'+' if h >= 0 else ''}{h}" for h in range(-12, 15)]
-        + ["UTC+3:30", "UTC+4:30", "UTC+5:30", "UTC+5:45", "UTC+6:30",
-           "UTC+8:45", "UTC+9:30", "UTC+10:30", "UTC+12:45"]
-        + ["UTC", "Asia/Taipei", "Asia/Tokyo", "Asia/Shanghai", "Asia/Kolkata",
-           "America/New_York", "America/Los_Angeles", "America/Chicago",
-           "Europe/London", "Europe/Berlin"]
+        + ["UTC+3:30", "UTC+4:30", "UTC+5:30", "UTC+5:45", "UTC+6:30", "UTC+8:45", "UTC+9:30", "UTC+10:30", "UTC+12:45"]
+        + [
+            "UTC",
+            "Asia/Taipei",
+            "Asia/Tokyo",
+            "Asia/Shanghai",
+            "Asia/Kolkata",
+            "America/New_York",
+            "America/Los_Angeles",
+            "America/Chicago",
+            "Europe/London",
+            "Europe/Berlin",
+        ]
     )
 
     @app_commands.command(name="config", description="設定 LeetCode 每日挑戰的所有配置")
@@ -352,9 +360,7 @@ class SlashCommandsCog(commands.Cog):
 
         # ── Reset conflict check ──
         if reset and any([channel, role, post_time is not None, timezone is not None, clear_role]):
-            await interaction.response.send_message(
-                "`reset` 不可與其他設定參數同時使用。", ephemeral=True
-            )
+            await interaction.response.send_message("`reset` 不可與其他設定參數同時使用。", ephemeral=True)
             return
 
         # ── Show mode (no params) ──
@@ -383,9 +389,7 @@ class SlashCommandsCog(commands.Cog):
         if reset:
             settings = self.bot.db.get_server_settings(server_id)
             if not settings:
-                await interaction.response.send_message(
-                    "此伺服器尚未設定，無需重置。", ephemeral=True
-                )
+                await interaction.response.send_message("此伺服器尚未設定，無需重置。", ephemeral=True)
                 return
             # Build preview embed
             ch = self.bot.get_channel(settings["channel_id"])
@@ -400,25 +404,31 @@ class SlashCommandsCog(commands.Cog):
 
             exp_unix = int(time.time()) + 180
             view = discord.ui.View(timeout=180)
-            view.add_item(discord.ui.Button(
-                label="確認重置", style=discord.ButtonStyle.danger,
-                custom_id=f"config_reset_confirm|{server_id}|{interaction.user.id}|{exp_unix}",
-            ))
-            view.add_item(discord.ui.Button(
-                label="取消", style=discord.ButtonStyle.secondary,
-                custom_id=f"config_reset_cancel|{server_id}|{interaction.user.id}|{exp_unix}",
-            ))
+            view.add_item(
+                discord.ui.Button(
+                    label="確認重置",
+                    style=discord.ButtonStyle.danger,
+                    custom_id=f"config_reset_confirm|{server_id}|{interaction.user.id}|{exp_unix}",
+                )
+            )
+            view.add_item(
+                discord.ui.Button(
+                    label="取消",
+                    style=discord.ButtonStyle.secondary,
+                    custom_id=f"config_reset_cancel|{server_id}|{interaction.user.id}|{exp_unix}",
+                )
+            )
             await interaction.response.send_message(
                 content="⚠️ 確定要重置此伺服器的所有設定嗎？這將停止每日挑戰排程。",
-                embed=preview_embed, view=view, ephemeral=True,
+                embed=preview_embed,
+                view=view,
+                ephemeral=True,
             )
             return
 
         # Mutual exclusion: role + clear_role
         if role and clear_role:
-            await interaction.response.send_message(
-                "`role` 與 `clear_role` 不可同時使用。", ephemeral=True
-            )
+            await interaction.response.send_message("`role` 與 `clear_role` 不可同時使用。", ephemeral=True)
             return
 
         # Validate time format
@@ -442,17 +452,14 @@ class SlashCommandsCog(commands.Cog):
             try:
                 parse_timezone(timezone)
             except ValueError as e:
-                await interaction.response.send_message(
-                    f"無效的時區：{e}", ephemeral=True
-                )
+                await interaction.response.send_message(f"無效的時區：{e}", ephemeral=True)
                 return
 
         # First-time setup requires channel
         settings = self.bot.db.get_server_settings(server_id)
         if not settings and not channel:
             await interaction.response.send_message(
-                "首次設定時必須指定 `channel` 參數。\n"
-                "範例：`/config channel:#general time:08:00 timezone:UTC+8`",
+                "首次設定時必須指定 `channel` 參數。\n範例：`/config channel:#general time:08:00 timezone:UTC+8`",
                 ephemeral=True,
             )
             return
@@ -494,20 +501,14 @@ class SlashCommandsCog(commands.Cog):
         embed = create_settings_embed(
             interaction.guild.name, ch_display, role_display, base["post_time"], base["timezone"]
         )
-        await interaction.response.send_message(
-            content="✅ 設定已更新", embed=embed, ephemeral=True
-        )
+        await interaction.response.send_message(content="✅ 設定已更新", embed=embed, ephemeral=True)
 
         await self._reschedule_if_available(server_id, "config")
 
     @config_command.autocomplete("timezone")
     async def config_timezone_autocomplete(self, interaction: discord.Interaction, current: str):
         lowered = current.lower()
-        return [
-            app_commands.Choice(name=tz, value=tz)
-            for tz in self._TZ_CHOICES
-            if lowered in tz.lower()
-        ][:25]
+        return [app_commands.Choice(name=tz, value=tz) for tz in self._TZ_CHOICES if lowered in tz.lower()][:25]
 
     @config_command.error
     async def config_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
@@ -610,7 +611,6 @@ class SlashCommandsCog(commands.Cog):
         except Exception as e:
             self.logger.error(f"Error getting submission details: {e}", exc_info=True)
         return None
-
 
 
 async def setup(bot: commands.Bot):

@@ -110,9 +110,7 @@ class InteractionHandlerCog(commands.Cog):
             return
 
         if int(time.time()) > exp_unix:
-            await interaction.response.send_message(
-                "此確認已過期，請重新使用 /config reset:True。", ephemeral=True
-            )
+            await interaction.response.send_message("此確認已過期，請重新使用 /config reset:True。", ephemeral=True)
             return
 
         if action == "config_reset_cancel":
@@ -121,18 +119,14 @@ class InteractionHandlerCog(commands.Cog):
             return
 
         if not interaction.user.guild_permissions.manage_guild:
-            await interaction.response.send_message(
-                "您需要「管理伺服器」權限才能執行此操作。", ephemeral=True
-            )
+            await interaction.response.send_message("您需要「管理伺服器」權限才能執行此操作。", ephemeral=True)
             return
         success = self.bot.db.delete_server_settings(guild_id)
         if not success:
             await interaction.response.send_message("重置設定時發生錯誤，請稍後再試。", ephemeral=True)
             return
         await self.bot.reschedule_daily_challenge(guild_id, "config_reset")
-        await interaction.response.edit_message(
-            content="✅ 已重置所有設定並停止排程。", embed=None, view=None
-        )
+        await interaction.response.edit_message(content="✅ 已重置所有設定並停止排程。", embed=None, view=None)
         self.logger.info(f"Config reset confirmed for guild {guild_id} by user {interaction.user.id}")
 
     async def _handle_similar_problem_interaction(self, interaction: discord.Interaction, custom_id: str) -> None:

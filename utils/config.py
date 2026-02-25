@@ -292,8 +292,7 @@ def parse_timezone(tz_string: str):
     m = _UTC_OFFSET_RE.match(tz_string)
     if not m:
         raise ValueError(
-            f"Invalid timezone: {tz_string} "
-            "(supported: IANA name e.g. Asia/Taipei, or UTC offset e.g. UTC+8, UTC-5:30)"
+            f"Invalid timezone: {tz_string} (supported: IANA name e.g. Asia/Taipei, or UTC offset e.g. UTC+8, UTC-5:30)"
         )
 
     sign = 1 if m.group(1) == "+" else -1

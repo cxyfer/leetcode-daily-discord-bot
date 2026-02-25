@@ -102,7 +102,9 @@ class ScheduleManagerCog(commands.Cog):
             self.logger.info(f"Scheduled daily challenge for server {server_id} at {post_time_str} {timezone_str}")
 
         except ValueError as e:
-            self.logger.error(f"Server {server_id}: Invalid schedule config (time={post_time_str}, tz={timezone_str}): {e}")
+            self.logger.error(
+                f"Server {server_id}: Invalid schedule config (time={post_time_str}, tz={timezone_str}): {e}"
+            )
         except Exception as e:
             self.logger.error(f"Server {server_id}: Error adding schedule: {e}", exc_info=True)
 
