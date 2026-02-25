@@ -11,6 +11,8 @@ from datetime import timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import pytz
+
 # Try to use tomllib from Python 3.11+, otherwise fall back to tomli
 if sys.version_info >= (3, 11):
     import tomllib
@@ -277,13 +279,11 @@ def get_config() -> ConfigManager:
     return _config
 
 
-_UTC_OFFSET_RE = re.compile(r"^UTC([+-])(\d{1,2})(?::?([0-5]\d))?$", re.IGNORECASE)
+_UTC_OFFSET_RE = re.compile(r"^UTC([+-])(\d{1,2})(?::([0-5]\d))?$", re.IGNORECASE)
 
 
 def parse_timezone(tz_string: str):
     """Parse IANA timezone name or UTC offset string into a tzinfo object."""
-    import pytz
-
     try:
         return pytz.timezone(tz_string)
     except pytz.exceptions.UnknownTimeZoneError:
@@ -292,7 +292,7 @@ def parse_timezone(tz_string: str):
     m = _UTC_OFFSET_RE.match(tz_string)
     if not m:
         raise ValueError(
-            f"Invalid timezone: {tz_string}  "
+            f"Invalid timezone: {tz_string} "
             "(supported: IANA name e.g. Asia/Taipei, or UTC offset e.g. UTC+8, UTC-5:30)"
         )
 

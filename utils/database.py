@@ -162,7 +162,7 @@ class SettingsDatabaseManager:
         try:
             cursor.execute("DELETE FROM server_settings WHERE server_id = ?", (server_id,))
             conn.commit()
-            return cursor.rowcount > 0
+            return True
         except Exception as e:
             logger.error(f"Error deleting server settings: {e}")
             return False

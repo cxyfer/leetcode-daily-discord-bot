@@ -332,33 +332,33 @@ class SlashCommandsCog(commands.Cog):
     @app_commands.describe(
         channel="發送每日挑戰的頻道",
         role="要標記的身分組",
-        time="發送時間 (HH:MM 或 H:MM，例如 08:00)",
+        post_time="發送時間 (HH:MM 或 H:MM，例如 08:00)",
         timezone="時區 (例如 Asia/Taipei 或 UTC+8)",
         clear_role="清除身分組標記設定",
         reset="重置所有設定並停止排程（需確認）",
     )
+    @app_commands.rename(post_time="time")
     async def config_command(
         self,
         interaction: discord.Interaction,
         channel: discord.TextChannel = None,
         role: discord.Role = None,
-        time: str = None,
+        post_time: str = None,
         timezone: str = None,
         clear_role: bool = False,
         reset: bool = False,
     ):
         server_id = interaction.guild.id
-        import time as time_mod
 
         # ── Reset conflict check ──
-        if reset and any([channel, role, time is not None, timezone is not None, clear_role]):
+        if reset and any([channel, role, post_time is not None, timezone is not None, clear_role]):
             await interaction.response.send_message(
                 "`reset` 不可與其他設定參數同時使用。", ephemeral=True
             )
             return
 
         # ── Show mode (no params) ──
-        has_update = any([channel, role, time is not None, timezone is not None, clear_role, reset])
+        has_update = any([channel, role, post_time is not None, timezone is not None, clear_role, reset])
         if not has_update:
             settings = self.bot.db.get_server_settings(server_id)
             if not settings or not settings.get("channel_id"):
@@ -398,7 +398,7 @@ class SlashCommandsCog(commands.Cog):
             tz = settings.get("timezone", DEFAULT_TIMEZONE)
             preview_embed = create_settings_embed(interaction.guild.name, ch_mention, role_mention, post_time, tz)
 
-            exp_unix = int(time_mod.time()) + 180
+            exp_unix = int(time.time()) + 180
             view = discord.ui.View(timeout=180)
             view.add_item(discord.ui.Button(
                 label="確認重置", style=discord.ButtonStyle.danger,
@@ -423,11 +423,11 @@ class SlashCommandsCog(commands.Cog):
 
         # Validate time format
         validated_time = None
-        if time is not None:
+        if post_time is not None:
             try:
-                if not re.match(r"^\d{1,2}:\d{2}$", time):
+                if not re.match(r"^\d{1,2}:\d{2}$", post_time):
                     raise ValueError
-                hour, minute = int(time.split(":")[0]), int(time.split(":")[1])
+                hour, minute = int(post_time.split(":")[0]), int(post_time.split(":")[1])
                 if not (0 <= hour <= 23 and 0 <= minute <= 59):
                     raise ValueError
                 validated_time = f"{hour:02d}:{minute:02d}"
