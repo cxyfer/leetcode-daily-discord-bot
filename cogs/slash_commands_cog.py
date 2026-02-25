@@ -8,6 +8,7 @@ import pytz  # For timezone validation in set_timezone
 from discord import app_commands
 from discord.ext import commands
 
+from utils.config import parse_timezone
 from utils.logger import get_commands_logger
 from utils.source_detector import detect_source
 from utils.ui_constants import ATCODER_LOGO_URL, LEETCODE_LOGO_URL
@@ -344,7 +345,9 @@ class SlashCommandsCog(commands.Cog):
 
         if success:
             await interaction.response.send_message(
-                f"LeetCode 每日挑戰頻道已成功設定為 {channel.mention}", ephemeral=True
+                f"LeetCode 每日挑戰頻道已成功設定為 {channel.mention}"
+                "\n\n⚠️ 此指令即將廢棄，請改用 `/config channel:<頻道>`",
+                ephemeral=True,
             )
             self.logger.info(f"Server {server_id} channel set to {channel.id} by {interaction.user.name}")
             # Reschedule after successful update
@@ -376,13 +379,17 @@ class SlashCommandsCog(commands.Cog):
         # Check if channel is set first, as role is usually set after channel
         settings = self.bot.db.get_server_settings(server_id)
         if not settings or not settings.get("channel_id"):
-            await interaction.response.send_message("請先使用 `/set_channel` 設定每日挑戰的發送頻道。", ephemeral=True)
+            await interaction.response.send_message("請先使用 `/config channel:<頻道>` 設定每日挑戰的發送頻道。", ephemeral=True)
             return
 
         success = self.bot.db.set_role(server_id, role.id)
 
         if success:
-            await interaction.response.send_message(f"LeetCode 每日挑戰將成功標記 {role.mention}", ephemeral=True)
+            await interaction.response.send_message(
+                f"LeetCode 每日挑戰將成功標記 {role.mention}"
+                "\n\n⚠️ 此指令即將廢棄，請改用 `/config role:<身分組>`",
+                ephemeral=True,
+            )
             self.logger.info(f"Server {server_id} role set to {role.id} by {interaction.user.name}")
             # Reschedule, as role change might affect notifications if the bot logic uses it before sending.
             await self._reschedule_if_available(server_id, "set_role")
@@ -424,13 +431,17 @@ class SlashCommandsCog(commands.Cog):
 
         settings = self.bot.db.get_server_settings(server_id)
         if not settings or not settings.get("channel_id"):
-            await interaction.response.send_message("請先使用 `/set_channel` 設定每日挑戰的發送頻道。", ephemeral=True)
+            await interaction.response.send_message("請先使用 `/config channel:<頻道>` 設定每日挑戰的發送頻道。", ephemeral=True)
             return
 
         success = self.bot.db.set_post_time(server_id, time)
 
         if success:
-            await interaction.response.send_message(f"每日挑戰發送時間已成功設定為 {time}", ephemeral=True)
+            await interaction.response.send_message(
+                f"每日挑戰發送時間已成功設定為 {time}"
+                "\n\n⚠️ 此指令即將廢棄，請改用 `/config time:<時間>`",
+                ephemeral=True,
+            )
             self.logger.info(f"Server {server_id} post time set to {time} by {interaction.user.name}")
             # Reschedule after successful update
             await self._reschedule_if_available(server_id, "set_post_time")
@@ -468,13 +479,17 @@ class SlashCommandsCog(commands.Cog):
 
         settings = self.bot.db.get_server_settings(server_id)
         if not settings or not settings.get("channel_id"):
-            await interaction.response.send_message("請先使用 `/set_channel` 設定每日挑戰的發送頻道。", ephemeral=True)
+            await interaction.response.send_message("請先使用 `/config channel:<頻道>` 設定每日挑戰的發送頻道。", ephemeral=True)
             return
 
         success = self.bot.db.set_timezone(server_id, timezone)
 
         if success:
-            await interaction.response.send_message(f"每日挑戰發送時區已成功設定為 {timezone}", ephemeral=True)
+            await interaction.response.send_message(
+                f"每日挑戰發送時區已成功設定為 {timezone}"
+                "\n\n⚠️ 此指令即將廢棄，請改用 `/config timezone:<時區>`",
+                ephemeral=True,
+            )
             self.logger.info(f"Server {server_id} timezone set to {timezone} by {interaction.user.name}")
             # Reschedule after successful update
             await self._reschedule_if_available(server_id, "set_timezone")
@@ -495,6 +510,152 @@ class SlashCommandsCog(commands.Cog):
             self.logger.error(f"Error in set_timezone_command: {error}", exc_info=True)
             await interaction.response.send_message(f"設定時區時發生錯誤: {error}", ephemeral=True)
 
+    # ── Unified /config command ──────────────────────────────────────
+
+    _TZ_CHOICES: list[str] = (
+        [f"UTC{'+' if h >= 0 else ''}{h}" for h in range(-12, 15)]
+        + ["UTC+3:30", "UTC+4:30", "UTC+5:30", "UTC+5:45", "UTC+6:30",
+           "UTC+8:45", "UTC+9:30", "UTC+10:30", "UTC+12:45"]
+        + ["UTC", "Asia/Taipei", "Asia/Tokyo", "Asia/Shanghai", "Asia/Kolkata",
+           "America/New_York", "America/Los_Angeles", "America/Chicago",
+           "Europe/London", "Europe/Berlin"]
+    )
+
+    @app_commands.command(name="config", description="設定 LeetCode 每日挑戰的所有配置")
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(manage_guild=True)
+    @app_commands.describe(
+        channel="發送每日挑戰的頻道",
+        role="要標記的身分組",
+        time="發送時間 (HH:MM 或 H:MM，例如 08:00)",
+        timezone="時區 (例如 Asia/Taipei 或 UTC+8)",
+        clear_role="清除身分組標記設定",
+    )
+    async def config_command(
+        self,
+        interaction: discord.Interaction,
+        channel: discord.TextChannel = None,
+        role: discord.Role = None,
+        time: str = None,
+        timezone: str = None,
+        clear_role: bool = False,
+    ):
+        server_id = interaction.guild.id
+
+        # Mutual exclusion: role + clear_role
+        if role and clear_role:
+            await interaction.response.send_message(
+                "`role` 與 `clear_role` 不可同時使用。", ephemeral=True
+            )
+            return
+
+        # Validate time format
+        validated_time = None
+        if time is not None:
+            try:
+                if not re.match(r"^\d{1,2}:\d{2}$", time):
+                    raise ValueError
+                hour, minute = int(time.split(":")[0]), int(time.split(":")[1])
+                if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                    raise ValueError
+                validated_time = f"{hour:02d}:{minute:02d}"
+            except (ValueError, IndexError):
+                await interaction.response.send_message(
+                    "時間格式錯誤，請使用 HH:MM 格式（例如 08:00 或 23:59）。", ephemeral=True
+                )
+                return
+
+        # Validate timezone
+        if timezone is not None:
+            try:
+                parse_timezone(timezone)
+            except ValueError as e:
+                await interaction.response.send_message(
+                    f"無效的時區：{e}", ephemeral=True
+                )
+                return
+
+        # Check at least one param
+        has_update = any([channel, role, time is not None, timezone is not None, clear_role])
+        if not has_update:
+            await interaction.response.send_message("請至少提供一個要更新的參數。", ephemeral=True)
+            return
+
+        # First-time setup requires channel
+        settings = self.bot.db.get_server_settings(server_id)
+        if not settings and not channel:
+            await interaction.response.send_message(
+                "首次設定時必須指定 `channel` 參數。\n"
+                "範例：`/config channel:#general time:08:00 timezone:UTC+8`",
+                ephemeral=True,
+            )
+            return
+
+        # Merge with existing settings
+        base = {
+            "channel_id": settings["channel_id"] if settings else None,
+            "role_id": settings.get("role_id") if settings else None,
+            "post_time": settings.get("post_time", "00:00") if settings else "00:00",
+            "timezone": settings.get("timezone", "UTC") if settings else "UTC",
+        }
+        if channel:
+            base["channel_id"] = channel.id
+        if role:
+            base["role_id"] = role.id
+        if clear_role:
+            base["role_id"] = None
+        if validated_time is not None:
+            base["post_time"] = validated_time
+        if timezone is not None:
+            base["timezone"] = timezone
+
+        success = self.bot.db.set_server_settings(
+            server_id, base["channel_id"], base["role_id"], base["post_time"], base["timezone"]
+        )
+
+        if not success:
+            await interaction.response.send_message("設定時發生錯誤，請稍後再試。", ephemeral=True)
+            return
+
+        # Build success response
+        ch_obj = self.bot.get_channel(base["channel_id"])
+        ch_display = ch_obj.mention if ch_obj else f"ID: {base['channel_id']}"
+        role_display = "未設定"
+        if base["role_id"]:
+            r = interaction.guild.get_role(base["role_id"])
+            role_display = r.mention if r else f"ID: {base['role_id']}"
+
+        await interaction.response.send_message(
+            f"✅ 設定已更新：\n"
+            f"- 頻道：{ch_display}\n"
+            f"- 身分組：{role_display}\n"
+            f"- 時間：{base['post_time']}\n"
+            f"- 時區：{base['timezone']}",
+            ephemeral=True,
+        )
+
+        await self._reschedule_if_available(server_id, "config")
+
+    @config_command.autocomplete("timezone")
+    async def config_timezone_autocomplete(self, interaction: discord.Interaction, current: str):
+        lowered = current.lower()
+        return [
+            app_commands.Choice(name=tz, value=tz)
+            for tz in self._TZ_CHOICES
+            if lowered in tz.lower()
+        ][:25]
+
+    @config_command.error
+    async def config_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        if isinstance(error, app_commands.MissingPermissions):
+            await interaction.response.send_message("您需要「管理伺服器」權限才能使用此指令。", ephemeral=True)
+        elif isinstance(error, app_commands.NoPrivateMessage):
+            await interaction.response.send_message("此指令不能在私訊中使用。", ephemeral=True)
+        else:
+            self.logger.error(f"Error in config_command: {error}", exc_info=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"設定時發生錯誤: {error}", ephemeral=True)
+
     @app_commands.command(name="show_settings", description="顯示目前伺服器的 LeetCode 挑戰設定")
     @app_commands.guild_only()
     async def show_settings_command(self, interaction: discord.Interaction):
@@ -504,7 +665,7 @@ class SlashCommandsCog(commands.Cog):
 
         if not settings or not settings.get("channel_id"):
             await interaction.response.send_message(
-                "尚未設定 LeetCode 每日挑戰頻道。使用 `/set_channel` 開始設定。",
+                "尚未設定 LeetCode 每日挑戰頻道。使用 `/config channel:<頻道>` 開始設定。",
                 ephemeral=True,
             )
             return

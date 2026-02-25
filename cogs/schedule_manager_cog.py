@@ -6,6 +6,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from discord.ext import commands
 
+from utils.config import parse_timezone
 from utils.logger import get_scheduler_logger
 
 # Import UI helpers
@@ -82,7 +83,7 @@ class ScheduleManagerCog(commands.Cog):
 
         try:
             hour, minute = map(int, post_time_str.split(":"))
-            target_timezone = pytz.timezone(timezone_str)
+            target_timezone = parse_timezone(timezone_str)
 
             # Create cron trigger for daily execution
             trigger = CronTrigger(hour=hour, minute=minute, timezone=target_timezone)
@@ -107,7 +108,7 @@ class ScheduleManagerCog(commands.Cog):
             self.logger.info(f"Scheduled daily challenge for server {server_id} at {post_time_str} {timezone_str}")
 
         except ValueError as e:
-            self.logger.error(f"Server {server_id}: Invalid post_time format '{post_time_str}': {e}")
+            self.logger.error(f"Server {server_id}: Invalid schedule config (time={post_time_str}, tz={timezone_str}): {e}")
         except Exception as e:
             self.logger.error(f"Server {server_id}: Error adding schedule: {e}", exc_info=True)
 

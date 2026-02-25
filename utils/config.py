@@ -4,8 +4,10 @@ Configuration management module for loading and accessing settings from config.t
 
 import logging
 import os
+import re
 import sys
 from dataclasses import dataclass
+from datetime import timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -270,3 +272,33 @@ def get_config() -> ConfigManager:
     if _config is None:
         _config = ConfigManager()
     return _config
+
+
+_UTC_OFFSET_RE = re.compile(r"^UTC([+-])(\d{1,2})(?::?([0-5]\d))?$", re.IGNORECASE)
+
+
+def parse_timezone(tz_string: str):
+    """Parse IANA timezone name or UTC offset string into a tzinfo object."""
+    import pytz
+
+    try:
+        return pytz.timezone(tz_string)
+    except pytz.exceptions.UnknownTimeZoneError:
+        pass
+
+    m = _UTC_OFFSET_RE.match(tz_string)
+    if not m:
+        raise ValueError(
+            f"Invalid timezone: {tz_string}  "
+            "(supported: IANA name e.g. Asia/Taipei, or UTC offset e.g. UTC+8, UTC-5:30)"
+        )
+
+    sign = 1 if m.group(1) == "+" else -1
+    hours = int(m.group(2))
+    minutes = int(m.group(3)) if m.group(3) else 0
+    total = sign * (hours * 60 + minutes)
+
+    if not (-720 <= total <= 840):
+        raise ValueError(f"UTC offset out of range: {tz_string} (valid: UTC-12:00 ~ UTC+14:00)")
+
+    return timezone(timedelta(minutes=total))
