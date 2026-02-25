@@ -1,64 +1,4 @@
-# slash-commands Specification
-
-## Purpose
-TBD - created by archiving change init-project-specs. Update Purpose after archive.
-## Requirements
-### Requirement: Daily challenge command
-The `/daily` command SHALL fetch and display the current daily challenge from LeetCode.
-
-#### Scenario: Fetch today's challenge
-- **WHEN** a user runs `/daily`
-- **THEN** the bot SHALL display the daily challenge embed with problem info, difficulty, tags, and interactive buttons
-
-#### Scenario: Fetch challenge by date
-- **WHEN** a user runs `/daily` with a date parameter (YYYY-MM-DD format)
-- **THEN** the bot SHALL display the daily challenge for that specific date
-
-#### Scenario: CN domain support
-- **WHEN** a user runs `/daily_cn`
-- **THEN** the bot SHALL fetch the daily challenge from leetcode.cn instead of leetcode.com
-
-#### Scenario: Public toggle
-- **WHEN** a user runs `/daily` with the `public` parameter set to True
-- **THEN** the response SHALL be visible to all users in the channel instead of ephemeral
-
-### Requirement: Problem lookup command
-The `/problem` command SHALL fetch and display specific problems by ID, URL, or slug.
-
-#### Scenario: Lookup by problem number
-- **WHEN** a user runs `/problem` with a numeric ID
-- **THEN** the bot SHALL display the problem embed with details and interactive buttons
-
-#### Scenario: Lookup by URL
-- **WHEN** a user runs `/problem` with a LeetCode URL
-- **THEN** the bot SHALL parse the URL, detect the source, and display the problem
-
-#### Scenario: Multi-source support
-- **WHEN** a user provides a problem from AtCoder, Codeforces, Luogu, UVA, or SPOJ
-- **THEN** the bot SHALL detect the source and display the problem accordingly
-
-#### Scenario: Multi-problem query
-- **WHEN** a user provides multiple problem IDs (comma or space separated, up to 20)
-- **THEN** the bot SHALL display an overview embed with detail buttons for each problem
-
-#### Scenario: Custom title and message
-- **WHEN** a user provides `title` and/or `message` parameters
-- **THEN** the bot SHALL use the custom title for the overview embed and include the message as additional context
-
-#### Scenario: Explicit source parameter
-- **WHEN** a user provides the `source` parameter
-- **THEN** the bot SHALL use the specified source instead of auto-detecting
-
-### Requirement: Recent submissions command
-The `/recent` command SHALL display a user's recent accepted submissions on LeetCode.
-
-#### Scenario: Display recent submissions
-- **WHEN** a user runs `/recent` with a LeetCode username
-- **THEN** the bot SHALL display the user's recent accepted submissions (default limit 20, max 50)
-
-#### Scenario: Submission pagination
-- **WHEN** submissions are displayed with navigation buttons
-- **THEN** the user SHALL be able to navigate through submissions using previous/next buttons
+## MODIFIED Requirements
 
 ### Requirement: Unified config command
 The `/config` command SHALL allow server admins to view, update, and reset all server configuration. It dispatches three modes based on parameters: **show** (no params), **reset** (`reset:True` alone), and **update** (any setting params).
@@ -164,3 +104,34 @@ The `/config` command SHALL provide autocomplete suggestions for the `timezone` 
 - **WHEN** the user types "Asia" in the timezone field
 - **THEN** the bot SHALL filter suggestions to show matching IANA zones (e.g., Asia/Taipei, Asia/Tokyo, Asia/Shanghai)
 
+## REMOVED Requirements
+
+### Requirement: Server settings commands
+**Reason**: All deprecated `/set_*` commands, `/show_settings`, and `/remove_channel` have been consolidated into the unified `/config` command. The deprecated commands were introduced with warnings in the prior `unified-config-command` change; this change completes the removal.
+**Migration**: Use `/config` — no params to view, params to update, `reset:True` to delete all settings.
+
+### Requirement: Channel prerequisite
+**Reason**: The channel prerequisite logic is now handled within the unified `/config` command's first-time setup check. No separate requirement needed.
+**Migration**: `/config time:08:00` on an unconfigured server will prompt for channel parameter.
+
+## PBT Properties
+
+### Property: Mode dispatch determinism
+- **INVARIANT**: For any combination of `/config` parameters, exactly one mode (show/reset/update) is selected
+- **FALSIFICATION**: Generate all 2^6 combinations of the 6 optional params; assert each maps to exactly one mode or a mutual-exclusion error
+
+### Property: Reset mutual exclusion completeness
+- **INVARIANT**: `reset:True` combined with any non-default setting param always produces the mutual-exclusion error
+- **FALSIFICATION**: Generate all subsets of `{channel, role, time, timezone, clear_role}` with `reset=True`; assert error for every non-empty subset
+
+### Property: Show-DB consistency
+- **INVARIANT**: `/config` no-params always reflects the current DB state (show is a pure projection)
+- **FALSIFICATION**: Sequence: update → show; compare show embed fields with DB snapshot after update
+
+### Property: Update idempotency
+- **INVARIANT**: Applying the same update twice from identical state produces identical DB state
+- **FALSIFICATION**: Apply identical update payload twice; assert DB row identical after first and second call
+
+### Property: All responses ephemeral
+- **INVARIANT**: Every response path in `/config` (show/update/reset/error) uses `ephemeral=True`
+- **FALSIFICATION**: Enumerate all code paths; assert `ephemeral=True` in every `send_message`/`followup.send` call
