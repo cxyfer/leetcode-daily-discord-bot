@@ -14,6 +14,7 @@ from utils.database import EmbeddingDatabaseManager
 from utils.logger import get_commands_logger
 from utils.source_detector import detect_source, looks_like_problem_id
 from utils.ui_constants import (
+    ATCODER_LOGO_URL,
     DEFAULT_COLOR,
     FIELD_EMOJIS,
     LEETCODE_LOGO_URL,
@@ -71,6 +72,11 @@ class SimilarCog(commands.Cog):
             )
             return
 
+        # Validate query is not just whitespace
+        if query and not query.strip():
+            await interaction.response.send_message("請提供有效的題目描述，不可為空白", ephemeral=not public)
+            return
+
         # If user only provides query but it looks like an ID, warn them
         if query and not problem and looks_like_problem_id(query):
             await interaction.response.send_message(
@@ -113,6 +119,8 @@ class SimilarCog(commands.Cog):
 
                 # For LeetCode, if normalized_id is a slug, try to resolve it to numeric ID
                 if detected_source == "leetcode" and not normalized_id.isdigit():
+                    # Normalize slug to lowercase for consistent lookup
+                    normalized_id = normalized_id.lower()
                     resolved_id = await self.storage.get_problem_id_by_slug(detected_source, normalized_id)
                     if resolved_id:
                         normalized_id = resolved_id
@@ -261,7 +269,13 @@ class SimilarCog(commands.Cog):
                 inline=False,
             )
 
-        embed.set_footer(text=f"Source: {display_source}", icon_url=LEETCODE_LOGO_URL)
+        # Select footer icon based on source filter
+        icon_url = LEETCODE_LOGO_URL
+        if display_source == "atcoder":
+            icon_url = ATCODER_LOGO_URL
+        # Add more sources as needed (e.g., codeforces, luogu)
+
+        embed.set_footer(text=f"Source: {display_source}", icon_url=icon_url)
         return embed
 
 

@@ -787,6 +787,8 @@ class InteractionHandlerCog(commands.Cog):
 
                 # For LeetCode, if normalized_id is a slug, try to resolve it to numeric ID
                 if detected_source == "leetcode" and not normalized_id.isdigit():
+                    # Normalize slug to lowercase for consistent lookup
+                    normalized_id = normalized_id.lower()
                     resolved_id = await similar_cog.storage.get_problem_id_by_slug(detected_source, normalized_id)
                     if resolved_id:
                         normalized_id = resolved_id
