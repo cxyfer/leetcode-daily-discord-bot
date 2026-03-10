@@ -5,8 +5,8 @@ def test_translate_cache_accepts_string_id(tmp_path):
     db_path = tmp_path / "db.sqlite"
     manager = LLMTranslateDatabaseManager(db_path=str(db_path), expire_seconds=3600)
 
-    manager.save_translation("abc436_g", "atcoder", "translated", model_name="m")
-    result = manager.get_translation("abc436_g", "atcoder")
+    manager.save_translation("atcoder", "abc436_g", "translated", model_name="m")
+    result = manager.get_translation("atcoder", "abc436_g")
 
     assert result is not None
     assert result["translation"] == "translated"
@@ -18,15 +18,15 @@ def test_inspire_cache_accepts_string_id(tmp_path):
     manager = LLMInspireDatabaseManager(db_path=str(db_path), expire_seconds=3600)
 
     manager.save_inspire(
-        "abc436_g",
         "atcoder",
+        "abc436_g",
         "thinking",
         "traps",
         "algorithms",
         "inspiration",
         model_name="m",
     )
-    result = manager.get_inspire("abc436_g", "atcoder")
+    result = manager.get_inspire("atcoder", "abc436_g")
 
     assert result is not None
     assert result["thinking"] == "thinking"
