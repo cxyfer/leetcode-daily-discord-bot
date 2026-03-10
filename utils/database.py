@@ -1,7 +1,6 @@
 import json
 import os
 import sqlite3
-import threading
 import time
 from pathlib import Path
 
@@ -170,532 +169,56 @@ class SettingsDatabaseManager:
             conn.close()
 
 
-class ProblemsDatabaseManager:
-    """
-    Manage LeetCode problem data database operations
-    """
-
-    def __init__(self, db_path="data/data.db"):
-        self.db_path = db_path
-        Path(os.path.dirname(db_path)).mkdir(parents=True, exist_ok=True)
-        self._init_db()
-        logger.info(f"Problems DB manager initialized with database at {db_path}")
-
-    def _init_db(self):
-        """Create problems table"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS problems (
-            id TEXT NOT NULL,
-            source TEXT NOT NULL DEFAULT 'leetcode',
-            slug TEXT NOT NULL,
-            title TEXT,
-            title_cn TEXT,
-            difficulty TEXT,
-            ac_rate REAL,
-            rating REAL,
-            contest TEXT,
-            problem_index TEXT,
-            tags TEXT,
-            link TEXT,
-            category TEXT,
-            paid_only INTEGER,
-            content TEXT,
-            content_cn TEXT,
-            similar_questions TEXT,
-            PRIMARY KEY (source, id)
-        )
-        """)
-        conn.commit()
-        conn.close()
-        logger.debug("Problems table initialized")
-
-    def update_problems(self, problems):
-        """
-        Insert problem data in batch. If the problem already exists, it will be ignored.
-        Use single SQL execution for batch insertion to improve performance.
-
-        Args:
-            problems (list[dict]): problem data list
-
-        Returns:
-            int: actual inserted data count
-        """
-        total_count = len(problems)
-        if total_count == 0:
-            return 0
-
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        # Prepare data to insert
-        values = []
-        for problem in problems:
-            problem_id = problem.get("id")
-            problem_source = problem.get("source") or "leetcode"
-            values.append(
-                (
-                    str(problem_id) if problem_id is not None else None,
-                    problem_source,
-                    problem.get("slug"),
-                    problem.get("title"),
-                    problem.get("title_cn"),
-                    problem.get("difficulty"),
-                    problem.get("ac_rate"),
-                    problem.get("rating"),
-                    problem.get("contest"),
-                    problem.get("problem_index"),
-                    problem.get("tags"),
-                    problem.get("link"),
-                    problem.get("category"),
-                    problem.get("paid_only"),
-                    problem.get("content"),
-                    problem.get("content_cn"),
-                    problem.get("similar_questions", None),
-                )
-            )
-
-        try:
-            cursor.executemany(
-                """
-            INSERT OR IGNORE INTO problems (
-                id, source, slug, title, title_cn, difficulty, ac_rate,
-                rating, contest, problem_index, tags, link,
-                category, paid_only, content, content_cn, similar_questions
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                values,
-            )
-
-            conn.commit()
-
-            # get actual inserted data count
-            inserted_count = cursor.rowcount
-
-            logger.info(
-                f"Batch inserted {inserted_count}/{total_count} problems "
-                f"(ignored {total_count - inserted_count} existing problems)"
-            )
-            return inserted_count
-
-        except Exception as e:
-            logger.error(f"Error inserting problems: {e}")
-            return 0
-        finally:
-            conn.close()
-
-    def update_problem(self, problem, force_update=False):
-        """
-        Insert or update single problem data.
-
-        Args:
-            problem (dict): problem data, must contain id or slug field for identification
-            force_update (bool, optional): force update all fields. If False, empty values will not overwrite
-                                       existing data. Default is False.
-
-        Returns:
-            bool: True if update succeeded, False otherwise
-
-        Raises:
-            ValueError: when problem parameter doesn't contain id field
-        """
-        # Check if id exists to identify the problem
-        problem_id = problem.get("id")
-        problem_source = problem.get("source") or "leetcode"
-
-        if not problem_id:
-            raise ValueError("Problem must have 'id' field for identification")
-        problem_id = str(problem_id)
-        problem["source"] = problem_source
-
-        # If not force update, get existing data and merge
-        if not force_update:
-            existing_problem = self.get_problem(id=problem_id, source=problem_source)
-            if existing_problem:
-                # Merge update: if new data field is empty, keep old data
-                for key in existing_problem:
-                    if key != "id" and (key not in problem or problem[key] is None or problem[key] == ""):
-                        problem[key] = existing_problem[key]
-
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        try:
-            cursor.execute(
-                """
-            INSERT OR REPLACE INTO problems (
-                id, source, slug, title, title_cn, difficulty, ac_rate,
-                rating, contest, problem_index, tags, link,
-                category, paid_only, content, content_cn, similar_questions
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    problem_id,
-                    problem_source,
-                    problem.get("slug"),
-                    problem.get("title"),
-                    problem.get("title_cn"),
-                    problem.get("difficulty"),
-                    problem.get("ac_rate"),
-                    problem.get("rating"),
-                    problem.get("contest"),
-                    problem.get("problem_index"),
-                    json.dumps(problem.get("tags", [])),
-                    problem.get("link"),
-                    problem.get("category"),
-                    problem.get("paid_only"),
-                    problem.get("content"),
-                    problem.get("content_cn"),
-                    json.dumps(problem.get("similar_questions", [])),
-                ),
-            )
-
-            conn.commit()
-            logger.debug(
-                "Updated problem with source=%s, id=%s, force_update=%s",
-                problem_source,
-                problem_id,
-                force_update,
-            )
-            return True
-
-        except Exception as e:
-            logger.error(f"Error updating problem: {e}")
-            return False
-        finally:
-            conn.close()
-
-    def get_problem(self, id=None, slug=None, source="leetcode"):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        if id:
-            cursor.execute(
-                "SELECT * FROM problems WHERE source = ? AND id = ?",
-                (source, str(id)),
-            )
-        elif slug:
-            cursor.execute(
-                "SELECT * FROM problems WHERE source = ? AND slug = ?",
-                (source, slug),
-            )
-        row = cursor.fetchone()
-        conn.close()
-        if row:
-            problem = self._row_to_dict(row)
-            problem["tags"] = json.loads(problem["tags"]) if problem["tags"] else []
-            problem["similar_questions"] = (
-                json.loads(problem["similar_questions"]) if problem["similar_questions"] else []
-            )
-            return problem
-        return None
-
-    def get_problem_contents(self, source: str) -> list[tuple[str, str]]:
-        """Get (id, content) pairs for problems with content."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT id, content
-            FROM problems
-            WHERE source = ?
-              AND content IS NOT NULL
-              AND content != ''
-            ORDER BY id ASC
-            """,
-            (source,),
-        )
-        rows = cursor.fetchall()
-        conn.close()
-        return [(str(row[0]), row[1]) for row in rows] if rows else []
-
-    def batch_update_content(self, updates: list[tuple[str, str, str]], batch_size: int = 100) -> tuple[int, bool]:
-        """
-        Batch update problem content.
-
-        Args:
-            updates: List of (content, source, id) tuples
-            batch_size: Number of updates per transaction
-
-        Returns:
-            Tuple of (rows_updated, success). If success is False, some
-            updates may have failed and the caller should consider retrying.
-        """
-        if not updates:
-            return 0, True
-
-        if batch_size < 1:
-            batch_size = 100
-
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        total_updated = 0
-
-        try:
-            for i in range(0, len(updates), batch_size):
-                batch = updates[i : i + batch_size]
-                cursor.executemany(
-                    "UPDATE problems SET content = ? WHERE source = ? AND id = ?",
-                    batch,
-                )
-                total_updated += cursor.rowcount
-                conn.commit()
-            return total_updated, True
-        except Exception as e:
-            logger.error("Error batch updating content: %s", e)
-            conn.rollback()
-            return total_updated, False
-        finally:
-            conn.close()
-
-    def get_problem_ids_missing_content(self, source="leetcode"):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT id
-            FROM problems
-            WHERE source = ?
-              AND (content IS NULL OR content = '')
-              AND category = 'Algorithms'
-              AND paid_only = 0
-            -- id 為 TEXT，排序為字典序；若需數值排序請另行轉型
-            ORDER BY id ASC
-            """,
-            (source,),
-        )
-        rows = cursor.fetchall()
-        conn.close()
-        return [str(row[0]) for row in rows] if rows else []
-
-    def count_missing_content(self, source="leetcode") -> int:
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT COUNT(*)
-            FROM problems
-            WHERE source = ?
-              AND (content IS NULL OR content = '')
-              AND category = 'Algorithms'
-              AND paid_only = 0
-            """,
-            (source,),
-        )
-        row = cursor.fetchone()
-        conn.close()
-        return int(row[0]) if row else 0
-
-    def get_problems_missing_content(self, source: str) -> list[tuple[str, str]]:
-        """Get (id, link) pairs for problems missing content."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT id, link
-            FROM problems
-            WHERE source = ?
-              AND (content IS NULL OR content = '')
-              AND link IS NOT NULL AND link != ''
-            ORDER BY id ASC
-            """,
-            (source,),
-        )
-        rows = cursor.fetchall()
-        conn.close()
-        return [(str(row[0]), row[1]) for row in rows] if rows else []
-
-    def _row_to_dict(self, row):
-        keys = [
-            "id",
-            "source",
-            "slug",
-            "title",
-            "title_cn",
-            "difficulty",
-            "ac_rate",
-            "rating",
-            "contest",
-            "problem_index",
-            "tags",
-            "link",
-            "category",
-            "paid_only",
-            "content",
-            "content_cn",
-            "similar_questions",
-        ]
-        return dict(zip(keys, row))
-
-
-class EmbeddingDatabaseManager:
-    """
-    管理 embeddings 相關資料表與 sqlite-vec 連線
-    """
-
-    def __init__(self, db_path="data/data.db"):
-        self.db_path = db_path
-        Path(os.path.dirname(db_path)).mkdir(parents=True, exist_ok=True)
-        self._lock = threading.Lock()
-        self._conn = self._create_connection()
-        self._ensure_metadata_table()
-        logger.info(f"Embedding DB manager initialized with database at {db_path}")
-
-    def _create_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path, check_same_thread=False)
-        conn.enable_load_extension(True)
-        try:
-            import sqlite_vec
-        except ImportError as exc:
-            raise RuntimeError("sqlite-vec is required for embeddings") from exc
-        sqlite_vec.load(conn)
-        conn.enable_load_extension(False)
-        return conn
-
-    def _ensure_metadata_table(self) -> None:
-        self.execute(
-            """
-            CREATE TABLE IF NOT EXISTS problem_embeddings (
-                source TEXT NOT NULL,
-                problem_id TEXT NOT NULL,
-                rewritten_content TEXT,
-                model TEXT NOT NULL,
-                dim INTEGER NOT NULL,
-                updated_at TEXT NOT NULL,
-                PRIMARY KEY (source, problem_id)
-            )
-            """,
-            commit=True,
-        )
-
-    def create_vec_table(self, dim: int) -> None:
-        if not isinstance(dim, int) or isinstance(dim, bool) or dim <= 0:
-            raise ValueError("dim must be a positive integer")
-        self.execute(
-            f"""
-            CREATE VIRTUAL TABLE IF NOT EXISTS vec_embeddings USING vec0(
-                source TEXT,
-                problem_id TEXT,
-                embedding float[{dim}]
-            )
-            """,
-            commit=True,
-        )
-
-    def check_dimension_consistency(self, dim: int) -> bool:
-        try:
-            row = self.execute(
-                "SELECT vec_length(embedding) FROM vec_embeddings LIMIT 1",
-                fetchone=True,
-            )
-            if row and row[0] != dim:
-                return False
-        except sqlite3.OperationalError:
-            return False
-        return True
-
-    def execute(
-        self,
-        query: str,
-        params: tuple = (),
-        commit: bool = False,
-        fetchone: bool = False,
-        fetchall: bool = False,
-    ):
-        with self._lock:
-            cursor = self._conn.execute(query, params)
-            if commit:
-                self._conn.commit()
-            if fetchone:
-                return cursor.fetchone()
-            if fetchall:
-                return cursor.fetchall()
-            return None
-
-    def executemany(self, query: str, seq, commit: bool = False) -> int:
-        with self._lock:
-            cursor = self._conn.executemany(query, seq)
-            if commit:
-                self._conn.commit()
-            return cursor.rowcount
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        self.close()
-        return False
-
-    def close(self) -> None:
-        with self._lock:
-            self._conn.close()
-
-
 class LLMTranslateDatabaseManager:
-    """
-    管理 LLM 翻譯結果的資料庫操作
-    """
 
     def __init__(self, db_path="data/data.db", expire_seconds=604800):
         self.db_path = db_path
         self.expire_seconds = expire_seconds
         Path(os.path.dirname(db_path)).mkdir(parents=True, exist_ok=True)
         self._init_db()
-        logger.info(f"LLMTranslate DB manager initialized with database at {db_path}, expire_seconds={expire_seconds}")
+        logger.info(f"LLMTranslate DB manager initialized with database at {db_path}")
 
     def _init_db(self):
-        """建立 llm_translate_results 資料表"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+        # Migrate: drop legacy table with (problem_id INTEGER, domain TEXT) PK
+        cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='llm_translate_results'")
+        row = cursor.fetchone()
+        if row and "domain" in row[0]:
+            cursor.execute("DROP TABLE llm_translate_results")
+            logger.info("Dropped legacy llm_translate_results table (old schema)")
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS llm_translate_results (
-            problem_id INTEGER NOT NULL,
-            domain TEXT NOT NULL,
+            source TEXT NOT NULL,
+            problem_id TEXT NOT NULL,
             translation TEXT,
             created_at INTEGER NOT NULL,
             model_name TEXT,
-            PRIMARY KEY (problem_id, domain)
+            PRIMARY KEY (source, problem_id)
         )
         """)
         conn.commit()
         conn.close()
-        logger.debug("llm_translate_results table initialized")
 
-    def get_translation(self, problem_id, domain, expire_seconds=None):
-        """
-        查詢翻譯結果，若超過 expire_seconds 則回傳 None
-        """
+    def get_translation(self, source, problem_id, expire_seconds=None):
         if expire_seconds is None:
             expire_seconds = self.expire_seconds
-
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT translation, created_at, model_name FROM llm_translate_results WHERE problem_id = ? AND domain = ?",
-            (problem_id, domain),
+            "SELECT translation, created_at, model_name FROM llm_translate_results WHERE source = ? AND problem_id = ?",
+            (source, problem_id),
         )
         row = cursor.fetchone()
         conn.close()
-
         if row:
             translation, created_at, model_name = row
-            now = int(time.time())
-            if now - created_at <= expire_seconds:
+            if int(time.time()) - created_at <= expire_seconds:
                 return {"translation": translation, "model_name": model_name}
         return None
 
-    def save_translation(self, problem_id, domain, translation, model_name=None):
-        """
-        寫入或覆蓋翻譯結果，使用 UNIX timestamp 儲存時間
-
-        Args:
-            problem_id (int): 題目ID
-            domain (str): 網域 (com/cn)
-            translation (str): 翻譯內容
-            model_name (str, optional): 使用的模型名稱
-        """
+    def save_translation(self, source, problem_id, translation, model_name=None):
         now = int(time.time())
-
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         if translation is None:
@@ -705,71 +228,63 @@ class LLMTranslateDatabaseManager:
         else:
             translation = str(translation)
         cursor.execute(
-            """
-        INSERT OR REPLACE INTO llm_translate_results (problem_id, domain, translation, created_at, model_name)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-            (problem_id, domain, translation, now, model_name),
+            "INSERT OR REPLACE INTO llm_translate_results (source, problem_id, translation, created_at, model_name) VALUES (?, ?, ?, ?, ?)",
+            (source, problem_id, translation, now, model_name),
         )
         conn.commit()
         conn.close()
-        logger.info(f"Saved LLM translation for problem_id={problem_id}, domain={domain}, model={model_name}")
+        logger.info(f"Saved LLM translation for {source}/{problem_id}, model={model_name}")
 
 
 class LLMInspireDatabaseManager:
-    """
-    管理 LLM 靈感啟發結果的資料庫操作
-    """
 
     def __init__(self, db_path="data/data.db", expire_seconds=604800):
         self.db_path = db_path
         self.expire_seconds = expire_seconds
         Path(os.path.dirname(db_path)).mkdir(parents=True, exist_ok=True)
         self._init_db()
-        logger.info(f"LLMInspire DB manager initialized with database at {db_path}, expire_seconds={expire_seconds}")
+        logger.info(f"LLMInspire DB manager initialized with database at {db_path}")
 
     def _init_db(self):
-        """建立 llm_inspire_results 資料表"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+        # Migrate: drop legacy table with (problem_id INTEGER, domain TEXT) PK
+        cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='llm_inspire_results'")
+        row = cursor.fetchone()
+        if row and "domain" in row[0]:
+            cursor.execute("DROP TABLE llm_inspire_results")
+            logger.info("Dropped legacy llm_inspire_results table (old schema)")
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS llm_inspire_results (
-            problem_id INTEGER NOT NULL,
-            domain TEXT NOT NULL,
+            source TEXT NOT NULL,
+            problem_id TEXT NOT NULL,
             thinking TEXT,
             traps TEXT,
             algorithms TEXT,
             inspiration TEXT,
             created_at INTEGER NOT NULL,
             model_name TEXT,
-            PRIMARY KEY (problem_id, domain)
+            PRIMARY KEY (source, problem_id)
         )
         """)
         conn.commit()
         conn.close()
-        logger.debug("llm_inspire_results table initialized")
 
-    def get_inspire(self, problem_id, domain, expire_seconds=None):
-        """
-        查詢靈感啟發結果，若超過 expire_seconds（預設使用初始化時設定的值）則回傳 None
-        """
+    def get_inspire(self, source, problem_id, expire_seconds=None):
         if expire_seconds is None:
             expire_seconds = self.expire_seconds
-
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute(
             "SELECT thinking, traps, algorithms, inspiration, created_at, model_name "
-            "FROM llm_inspire_results WHERE problem_id = ? AND domain = ?",
-            (problem_id, domain),
+            "FROM llm_inspire_results WHERE source = ? AND problem_id = ?",
+            (source, problem_id),
         )
         row = cursor.fetchone()
         conn.close()
-
         if row:
             thinking, traps, algorithms, inspiration, created_at, model_name = row
-            now = int(time.time())
-            if now - created_at <= expire_seconds:
+            if int(time.time()) - created_at <= expire_seconds:
                 return {
                     "thinking": thinking,
                     "traps": traps,
@@ -779,34 +294,11 @@ class LLMInspireDatabaseManager:
                 }
         return None
 
-    def save_inspire(
-        self,
-        problem_id,
-        domain,
-        thinking,
-        traps,
-        algorithms,
-        inspiration,
-        model_name=None,
-    ):
-        """
-        寫入或覆蓋靈感啟發結果，使用 UNIX timestamp 儲存時間
-
-        Args:
-            problem_id (int): 題目ID
-            domain (str): 網域 (com/cn)
-            thinking (str): 思路內容
-            traps (str): 陷阱內容
-            algorithms (str): 演算法內容
-            inspiration (str): 靈感內容
-            model_name (str, optional): 使用的模型名稱
-        """
+    def save_inspire(self, source, problem_id, thinking, traps, algorithms, inspiration, model_name=None):
         now = int(time.time())
-
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        # 確保所有欄位都是 str
         def safe_str(val):
             if val is None:
                 return ""
@@ -815,171 +307,14 @@ class LLMInspireDatabaseManager:
             return str(val)
 
         cursor.execute(
-            """
-        INSERT OR REPLACE INTO llm_inspire_results
-        (problem_id, domain, thinking, traps, algorithms, inspiration, created_at, model_name)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-            (
-                problem_id,
-                domain,
-                safe_str(thinking),
-                safe_str(traps),
-                safe_str(algorithms),
-                safe_str(inspiration),
-                now,
-                model_name,
-            ),
+            "INSERT OR REPLACE INTO llm_inspire_results "
+            "(source, problem_id, thinking, traps, algorithms, inspiration, created_at, model_name) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (source, problem_id, safe_str(thinking), safe_str(traps), safe_str(algorithms), safe_str(inspiration), now, model_name),
         )
         conn.commit()
         conn.close()
-        logger.info(f"Saved LLM inspire for problem_id={problem_id}, domain={domain}, model={model_name}")
-
-    def _row_to_dict(self, row):
-        keys = [
-            "id",
-            "slug",
-            "title",
-            "title_cn",
-            "difficulty",
-            "ac_rate",
-            "rating",
-            "contest",
-            "problem_index",
-            "tags",
-            "link",
-            "category",
-            "paid_only",
-            "content",
-            "content_cn",
-            "similar_questions",
-        ]
-        return dict(zip(keys, row))
-
-
-class DailyChallengeDatabaseManager:
-    """
-    Manage LeetCode daily challenge data database operations
-    """
-
-    def __init__(self, db_path="data/data.db"):
-        self.db_path = db_path
-        Path(os.path.dirname(db_path)).mkdir(parents=True, exist_ok=True)
-        self._init_db()
-        logger.info(f"DailyChallenge DB manager initialized with database at {db_path}")
-
-    def _init_db(self):
-        """Create daily_challenge table"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS daily_challenge (
-            date TEXT NOT NULL,
-            domain TEXT NOT NULL,
-            id INTEGER,
-            slug TEXT NOT NULL,
-            title TEXT,
-            title_cn TEXT,
-            difficulty TEXT,
-            ac_rate REAL,
-            rating REAL,
-            contest TEXT,
-            problem_index TEXT,
-            tags TEXT,
-            link TEXT,
-            category TEXT,
-            paid_only INTEGER,
-            content TEXT,
-            content_cn TEXT,
-            similar_questions TEXT,
-            PRIMARY KEY (date, domain)
-        )
-        """)
-        conn.commit()
-        conn.close()
-        logger.debug("DailyChallenge table initialized")
-
-    def update_daily(self, daily):
-        """
-        Insert or update daily challenge data
-        Args:
-            daily (dict): daily challenge data
-        """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        try:
-            cursor.execute(
-                """
-            INSERT INTO daily_challenge
-            (date, domain, id, slug, title, title_cn, difficulty, ac_rate, rating, contest,
-             problem_index, tags, link, category, paid_only, content, content_cn, similar_questions)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    daily.get("date"),
-                    daily.get("domain"),
-                    daily.get("id"),
-                    daily.get("slug"),
-                    daily.get("title"),
-                    daily.get("title_cn"),
-                    daily.get("difficulty"),
-                    daily.get("ac_rate"),
-                    daily.get("rating"),
-                    daily.get("contest"),
-                    daily.get("problem_index"),
-                    json.dumps(daily.get("tags", [])),
-                    daily.get("link"),
-                    daily.get("category"),
-                    daily.get("paid_only"),
-                    daily.get("content"),
-                    daily.get("content_cn"),
-                    json.dumps(daily.get("similar_questions", [])),
-                ),
-            )
-            conn.commit()
-            logger.info(f"Inserted/updated daily challenge for {daily.get('date')} {daily.get('domain')}")
-            return True
-        except Exception as e:
-            logger.error(f"Error inserting/updating daily challenge: {e}")
-            return False
-        finally:
-            conn.close()
-
-    def get_daily_by_date(self, date, domain):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT * FROM daily_challenge WHERE date = ? AND domain = ?",
-            (date, domain),
-        )
-        row = cursor.fetchone()
-        conn.close()
-        if row:
-            keys = [
-                "date",
-                "domain",
-                "id",
-                "slug",
-                "title",
-                "title_cn",
-                "difficulty",
-                "ac_rate",
-                "rating",
-                "contest",
-                "problem_index",
-                "tags",
-                "link",
-                "category",
-                "paid_only",
-                "content",
-                "content_cn",
-                "similar_questions",
-            ]
-            result = dict(zip(keys, row))
-            result["tags"] = json.loads(result["tags"]) if result["tags"] else []
-            result["similar_questions"] = json.loads(result["similar_questions"]) if result["similar_questions"] else []
-            return result
-        return None
+        logger.info(f"Saved LLM inspire for {source}/{problem_id}, model={model_name}")
 
 
 if __name__ == "__main__":
