@@ -80,6 +80,8 @@ class ConfigManager:
             "GOOGLE_GEMINI_API_KEY": ("llm", "gemini", "api_key"),
             "POST_TIME": ("schedule", "post_time"),
             "TIMEZONE": ("schedule", "timezone"),
+            "API_BASE_URL": ("api", "base_url"),
+            "API_TOKEN": ("api", "token"),
         }
 
         for env_var, config_path in env_mappings.items():
@@ -195,31 +197,6 @@ class ConfigManager:
         default = 3600 if cache_type == "translation" else 86400
         return self.get(key, default)
 
-    def get_embedding_model_config(self) -> "EmbeddingModelConfig":
-        """Get embedding model configuration"""
-        section = self.get("llm.gemini.models.embedding", {})
-        return EmbeddingModelConfig(
-            name=section.get("name", "gemini-embedding-001"),
-            dim=section.get("dim", 768),
-            task_type=section.get("task_type", "SEMANTIC_SIMILARITY"),
-            batch_size=section.get("batch_size", 32),
-            api_key=section.get("api_key"),
-            base_url=section.get("base_url"),
-        )
-
-    def get_rewrite_model_config(self) -> "RewriteModelConfig":
-        """Get rewrite model configuration"""
-        section = self.get("llm.gemini.models.rewrite", {})
-        return RewriteModelConfig(
-            name=section.get("name", "gemini-2.0-flash"),
-            temperature=section.get("temperature", 0.3),
-            timeout=section.get("timeout", 30),
-            max_retries=section.get("max_retries", 2),
-            workers=section.get("workers", 4),
-            api_key=section.get("api_key"),
-            base_url=section.get("base_url"),
-        )
-
     def get_similar_config(self) -> "SimilarConfig":
         """Get similar-problem search configuration"""
         section = self.get("similar", {})
@@ -228,30 +205,18 @@ class ConfigManager:
             min_similarity=section.get("min_similarity", 0.70),
         )
 
+    @property
+    def api_base_url(self) -> str:
+        return self.get("api.base_url", "https://craboj.zeabur.app/api/v1")
 
-@dataclass
-class EmbeddingModelConfig:
-    """Embedding model configuration"""
+    @property
+    def api_token(self) -> str | None:
+        val = self.get("api.token")
+        return val if val else None
 
-    name: str = "gemini-embedding-001"
-    dim: int = 768
-    task_type: str = "SEMANTIC_SIMILARITY"
-    batch_size: int = 32
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None
-
-
-@dataclass
-class RewriteModelConfig:
-    """Rewrite model configuration"""
-
-    name: str = "gemini-2.0-flash"
-    temperature: float = 0.3
-    timeout: int = 30
-    max_retries: int = 2
-    workers: int = 4
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None
+    @property
+    def api_timeout(self) -> int:
+        return self.get("api.timeout", 10)
 
 
 @dataclass
