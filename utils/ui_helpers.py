@@ -31,6 +31,8 @@ from .ui_constants import (
     LEETCODE_LOGO_URL,
     MAX_PROBLEMS_PER_OVERVIEW,
     MAX_SIMILAR_QUESTIONS,
+    LUOGU_DIFFICULTY_EMOJIS,
+    MAX_FIELD_LENGTH,
     NON_DIFFICULTY_EMOJI,
     PROBLEMS_PER_FIELD,
 )
@@ -64,7 +66,19 @@ def get_difficulty_color(difficulty: str) -> int:
 
 def get_difficulty_emoji(difficulty: str) -> str:
     """獲取難度對應的表情符號"""
-    return DIFFICULTY_EMOJIS.get(difficulty, "⚫")
+    return DIFFICULTY_EMOJIS.get(difficulty, NON_DIFFICULTY_EMOJI)
+
+
+def get_source_difficulty_emoji(source: str, difficulty: str | None) -> str:
+    """依題庫來源和難度取得對應表情符號"""
+    if not difficulty:
+        return NON_DIFFICULTY_EMOJI
+    if source == "leetcode":
+        return DIFFICULTY_EMOJIS.get(difficulty, NON_DIFFICULTY_EMOJI)
+    if source == "luogu":
+        normalized = difficulty.replace("\u2212", "-")
+        return LUOGU_DIFFICULTY_EMOJIS.get(normalized, NON_DIFFICULTY_EMOJI)
+    return NON_DIFFICULTY_EMOJI
 
 
 def get_problem_emoji(problem_info: Dict[str, Any]) -> str:
@@ -72,6 +86,39 @@ def get_problem_emoji(problem_info: Dict[str, Any]) -> str:
     if problem_info.get("source", "leetcode") == "leetcode":
         return get_difficulty_emoji(problem_info.get("difficulty", ""))
     return NON_DIFFICULTY_EMOJI
+
+
+def create_similar_results_embed(
+    result: Dict[str, Any],
+    *,
+    base_source: str | None = None,
+    base_id: str | None = None,
+) -> discord.Embed:
+    """建立相似題目搜尋結果 embed"""
+    embed = discord.Embed(title="🔍 相似題目", color=0x3498DB)
+
+    if result.get("rewritten_query"):
+        embed.add_field(name="✨ 重寫搜尋", value=result["rewritten_query"], inline=False)
+    elif base_source and base_id:
+        embed.add_field(name="🔗 基準題目", value=f"{base_source}:{base_id}", inline=False)
+
+    lines = []
+    for idx, r in enumerate(result["results"], 1):
+        source = r["source"]
+        emoji = get_source_difficulty_emoji(source, r.get("difficulty"))
+        sep = ". " if source == "leetcode" else ": "
+        sim = f"{r['similarity']:.2f}"
+        lines.append(f"{idx}. {emoji} [{r['id']}{sep}{r['title']}]({r['link']}) [{source}] · {sim}")
+
+    for i in range(0, len(lines), PROBLEMS_PER_FIELD):
+        chunk = lines[i : i + PROBLEMS_PER_FIELD]
+        value = "\n".join(chunk)
+        if len(value) > MAX_FIELD_LENGTH:
+            value = value[: MAX_FIELD_LENGTH - 3] + "..."
+        field_name = f"{FIELD_EMOJIS['problems']} Results" if i == 0 else f"{FIELD_EMOJIS['problems']} Results (cont.)"
+        embed.add_field(name=field_name, value=value, inline=False)
+
+    return embed
 
 
 async def create_problem_embed(

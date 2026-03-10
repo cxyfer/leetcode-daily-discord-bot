@@ -13,6 +13,18 @@ DIFFICULTY_COLORS = {
 # 難度表情符號映射
 DIFFICULTY_EMOJIS = {"Easy": "🟢", "Medium": "🟡", "Hard": "🔴"}
 
+# 洛谷難度表情符號映射
+LUOGU_DIFFICULTY_EMOJIS = {
+    "暂无评定": "⚪",
+    "入门": "🔴",
+    "普及-": "🟠",
+    "普及/提高-": "🟡",
+    "普及+/提高": "🟢",
+    "提高+/省选-": "🔵",
+    "省选/NOI-": "🟣",
+    "NOI/NOI+/CTSC": "⚫",
+}
+
 # 無難度題目表情符號
 NON_DIFFICULTY_EMOJI = "🧩"
 

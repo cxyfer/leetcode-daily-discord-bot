@@ -10,9 +10,9 @@ from utils.logger import get_commands_logger
 from utils.ui_helpers import (
     create_inspiration_embed,
     create_problem_description_embed,
+    create_similar_results_embed,
     create_submission_embed,
     create_submission_view,
-    get_difficulty_emoji,
 )
 
 
@@ -302,18 +302,7 @@ class InteractionHandlerCog(commands.Cog):
             await interaction.followup.send("找不到相似題目。", ephemeral=True)
             return
 
-        embed = discord.Embed(title="🔍 相似題目", color=0x3498DB)
-        lines = []
-        for r in result["results"]:
-            diff = r.get("difficulty") or "Unknown"
-            emoji = get_difficulty_emoji(diff)
-            sim = f"{r['similarity']:.2f}"
-            lines.append(f"- {emoji} [{r['title']}]({r['link']}) `{sim}`")
-        embed.description = "\n".join(lines)
-
-        if result.get("rewritten_query"):
-            embed.set_footer(text=f"Rewritten: {result['rewritten_query']}")
-
+        embed = create_similar_results_embed(result, base_source=source, base_id=pid)
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     # -- Main listener --

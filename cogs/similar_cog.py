@@ -4,7 +4,7 @@ from discord.ext import commands
 
 from api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
 from utils.logger import get_commands_logger
-from utils.ui_helpers import get_difficulty_emoji
+from utils.ui_helpers import create_similar_results_embed
 
 
 class SimilarCog(commands.Cog):
@@ -57,17 +57,10 @@ class SimilarCog(commands.Cog):
                 await interaction.followup.send("找不到相似題目。", ephemeral=not public)
                 return
 
-            embed = discord.Embed(title="🔍 相似題目", color=0x3498DB)
-            lines = []
-            for r in result["results"]:
-                diff = r.get("difficulty") or "Unknown"
-                emoji = get_difficulty_emoji(diff)
-                sim = f"{r['similarity']:.2f}"
-                lines.append(f"- {emoji} [{r['title']}]({r['link']}) `{sim}`")
-            embed.description = "\n".join(lines)
-
-            if result.get("rewritten_query"):
-                embed.set_footer(text=f"Rewritten: {result['rewritten_query']}")
+            if problem:
+                embed = create_similar_results_embed(result, base_source=src, base_id=pid)
+            else:
+                embed = create_similar_results_embed(result)
 
             await interaction.followup.send(embed=embed, ephemeral=not public)
 
