@@ -5,12 +5,11 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
+from api_client import OjApiClient
 from leetcode import LeetCodeClient  # html_to_text 會在 cog 中使用
 from llms import GeminiLLM
 from utils import SettingsDatabaseManager
 from utils.config import (
-    EmbeddingModelConfig,
-    RewriteModelConfig,
     SimilarConfig,
     get_config,
 )
@@ -85,14 +84,6 @@ except FileNotFoundError:
             """Get cache expiration time"""
             return 3600 if cache_type == "translation" else 86400
 
-        def get_embedding_model_config(self):
-            """Get embedding model configuration"""
-            return EmbeddingModelConfig()
-
-        def get_rewrite_model_config(self):
-            """Get rewrite model configuration"""
-            return RewriteModelConfig()
-
         def get_similar_config(self):
             """Get similar problem search configuration"""
             return SimilarConfig()
@@ -108,6 +99,19 @@ except FileNotFoundError:
         @property
         def gemini_api_key(self):
             return os.getenv("GOOGLE_GEMINI_API_KEY")
+
+        @property
+        def api_base_url(self):
+            return os.getenv("API_BASE_URL", "https://craboj.zeabur.app/api/v1")
+
+        @property
+        def api_token(self):
+            val = os.getenv("API_TOKEN")
+            return val if val else None
+
+        @property
+        def api_timeout(self):
+            return int(os.getenv("API_TIMEOUT", "10"))
 
         @property
         def post_time(self):
@@ -129,9 +133,11 @@ llm_inspire_db = LLMInspireDatabaseManager(
     db_path=db_path, expire_seconds=config.get_cache_expire_seconds("inspiration")
 )
 
-# Initialize LeetCode client
+# Initialize LeetCode client (retained for /recent)
 lcus = LeetCodeClient()
-lccn = LeetCodeClient(domain="cn")
+
+# Initialize API client
+api = OjApiClient(config.api_base_url, config.api_token, config.api_timeout)
 
 # Initialize Discord client
 intents = discord.Intents.default()
@@ -176,12 +182,6 @@ except Exception as e:
     logger.error(f"Error while initializing LLM: {e}")
     llm = None
     llm_pro = None
-
-# Define a fixed custom ID prefix (這些將作為 bot 的屬性)
-LEETCODE_DISCRIPTION_BUTTON_PREFIX = "leetcode_problem_"
-LEETCODE_TRANSLATE_BUTTON_PREFIX = "leetcode_translate_"
-LEETCODE_INSPIRE_BUTTON_PREFIX = "leetcode_inspire_"
-LEETCODE_SIMILAR_BUTTON_PREFIX = "leetcode_similar_"
 
 
 @bot.event
@@ -283,23 +283,18 @@ async def load_extensions():
 
 
 async def main():
-    # 全域初始化已在頂部完成
     async with bot:
-        # 將共享物件設為 bot 的屬性
         bot.lcus = lcus
-        bot.lccn = lccn
+        bot.api = api
         bot.db = db
         bot.llm_translate_db = llm_translate_db
         bot.llm_inspire_db = llm_inspire_db
         bot.llm = llm
         bot.llm_pro = llm_pro
-        bot.logger = logger  # logger 已在全域初始化
-        # 移除舊的排程任務字典，現在使用 APScheduler
-        bot.LEETCODE_DISCRIPTION_BUTTON_PREFIX = LEETCODE_DISCRIPTION_BUTTON_PREFIX
-        bot.LEETCODE_TRANSLATE_BUTTON_PREFIX = LEETCODE_TRANSLATE_BUTTON_PREFIX
-        bot.LEETCODE_INSPIRE_BUTTON_PREFIX = LEETCODE_INSPIRE_BUTTON_PREFIX
-        bot.LEETCODE_SIMILAR_BUTTON_PREFIX = LEETCODE_SIMILAR_BUTTON_PREFIX
+        bot.logger = logger
+        bot.config = config
 
+        await bot.api.start()
         await load_extensions()
         bot.reschedule_daily_challenge = _create_reschedule_helper(bot)
         if not DISCORD_TOKEN:
@@ -309,7 +304,7 @@ async def main():
         try:
             await bot.start(DISCORD_TOKEN)
         finally:
-            # 確保 APScheduler 優雅關閉
+            await bot.api.close()
             schedule_cog = bot.get_cog("ScheduleManagerCog")
             if schedule_cog and hasattr(schedule_cog, "shutdown"):
                 await schedule_cog.shutdown()

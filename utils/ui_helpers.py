@@ -3,6 +3,7 @@
 統一的 Discord UI 創建函數，包含所有 embed 和 view 的創建邏輯
 """
 
+import asyncio
 import hashlib
 import json
 import re
@@ -11,6 +12,9 @@ from typing import Any, Dict, List, Optional
 
 import discord
 import pytz
+
+from api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
+from leetcode import LeetCodeClient
 
 from .logger import get_ui_logger
 from .ui_constants import (
@@ -177,17 +181,17 @@ async def create_problem_embed(
             inline=False,
         )
 
-    # Similar questions handling (limit to avoid too much processing)
+    # Similar questions (use data directly from API response)
     if problem_info.get("similar_questions"):
-        current_client = bot.lcus if domain == "com" else bot.lccn
         similar_q_list = []
-        for sq_slug_info in problem_info["similar_questions"][:MAX_SIMILAR_QUESTIONS]:
-            sq_detail = await current_client.get_problem(slug=sq_slug_info["titleSlug"])
-            if sq_detail:
-                emoji = get_difficulty_emoji(sq_detail["difficulty"])
-                sq_text = f"- {emoji} [{sq_detail['id']}. {sq_detail['title']}]({sq_detail['link']})"
-                if sq_detail.get("rating") and sq_detail["rating"] > 0:
-                    sq_text += f" *{int(sq_detail['rating'])}*"
+        for sq in problem_info["similar_questions"][:MAX_SIMILAR_QUESTIONS]:
+            if isinstance(sq, dict):
+                sq_title = sq.get("title", "")
+                sq_slug = sq.get("titleSlug") or sq.get("slug", "")
+                sq_diff = sq.get("difficulty", "")
+                emoji = get_difficulty_emoji(sq_diff)
+                link = f"https://leetcode.com/problems/{sq_slug}/" if sq_slug else ""
+                sq_text = f"- {emoji} [{sq_title}]({link})" if link else f"- {emoji} {sq_title}"
                 similar_q_list.append(sq_text)
         if similar_q_list:
             embed.add_field(
@@ -239,61 +243,43 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
     """Create a view with buttons for a problem"""
     view = discord.ui.View(timeout=None)
     source = problem_info.get("source", "leetcode")
-    if source == "leetcode":
-        description_prefix = getattr(bot, "LEETCODE_DISCRIPTION_BUTTON_PREFIX", "leetcode_problem_")
-        translate_prefix = getattr(bot, "LEETCODE_TRANSLATE_BUTTON_PREFIX", "leetcode_translate_")
-        inspire_prefix = getattr(bot, "LEETCODE_INSPIRE_BUTTON_PREFIX", "leetcode_inspire_")
-        similar_prefix = getattr(bot, "LEETCODE_SIMILAR_BUTTON_PREFIX", "leetcode_similar_")
-        description_id = f"{description_prefix}{problem_info['id']}_{domain}"
-        translate_id = f"{translate_prefix}{problem_info['id']}_{domain}"
-        inspire_id = f"{inspire_prefix}{problem_info['id']}_{domain}"
-        similar_id = f"{similar_prefix}{problem_info['id']}_{domain}"
-    else:
-        # Use generic prefix with source info: ext_problem|{source}|{problem_id}
-        description_id = f"ext_problem|{source}|{problem_info['id']}"
-        translate_id = f"ext_translate|{source}|{problem_info['id']}"
-        inspire_id = f"ext_inspire|{source}|{problem_info['id']}"
-        similar_id = f"ext_similar|{source}|{problem_info['id']}"
+    pid = problem_info["id"]
 
-    # Description button
     view.add_item(
         discord.ui.Button(
             style=discord.ButtonStyle.primary,
             label="題目描述",
             emoji=BUTTON_EMOJIS["description"],
-            custom_id=description_id,
+            custom_id=f"problem|{source}|{pid}|desc",
         )
     )
 
-    # LLM Translation button
     if bot.llm:
         view.add_item(
             discord.ui.Button(
                 style=discord.ButtonStyle.success,
                 label="LLM 翻譯",
                 emoji=BUTTON_EMOJIS["translate"],
-                custom_id=translate_id,
+                custom_id=f"problem|{source}|{pid}|translate",
             )
         )
 
-    # Inspiration button
     if bot.llm_pro:
         view.add_item(
             discord.ui.Button(
                 style=discord.ButtonStyle.danger,
                 label="靈感啟發",
                 emoji=BUTTON_EMOJIS["inspire"],
-                custom_id=inspire_id,
+                custom_id=f"problem|{source}|{pid}|inspire",
             )
         )
 
-    # Similar problems button
     view.add_item(
         discord.ui.Button(
             style=discord.ButtonStyle.secondary,
             label="相似題目",
             emoji=BUTTON_EMOJIS["similar"],
-            custom_id=similar_id,
+            custom_id=f"problem|{source}|{pid}|similar",
         )
     )
 
@@ -351,8 +337,9 @@ def create_submission_view(
     """Create a view for submission navigation"""
     view = discord.ui.View(timeout=None)
     show_nav = total_submissions is not None
+    source = submission.get("source", "leetcode")
+    pid = submission["id"]
 
-    # Add previous button (leftmost)
     if show_nav and total_submissions:
         prev_button = discord.ui.Button(
             style=discord.ButtonStyle.secondary,
@@ -363,23 +350,21 @@ def create_submission_view(
         )
         view.add_item(prev_button)
 
-    # Add description button
     view.add_item(
         discord.ui.Button(
             style=discord.ButtonStyle.primary,
             emoji=BUTTON_EMOJIS["description"],
-            custom_id=f"{bot.LEETCODE_DISCRIPTION_BUTTON_PREFIX}{submission['id']}_com",
+            custom_id=f"problem|{source}|{pid}|desc",
             row=0,
         )
     )
 
-    # Add LLM buttons if available
     if bot.llm:
         view.add_item(
             discord.ui.Button(
                 style=discord.ButtonStyle.success,
                 emoji=BUTTON_EMOJIS["translate"],
-                custom_id=f"{bot.LEETCODE_TRANSLATE_BUTTON_PREFIX}{submission['id']}_com",
+                custom_id=f"problem|{source}|{pid}|translate",
                 row=0,
             )
         )
@@ -389,12 +374,11 @@ def create_submission_view(
             discord.ui.Button(
                 style=discord.ButtonStyle.danger,
                 emoji=BUTTON_EMOJIS["inspire"],
-                custom_id=f"{bot.LEETCODE_INSPIRE_BUTTON_PREFIX}{submission['id']}_com",
+                custom_id=f"problem|{source}|{pid}|inspire",
                 row=0,
             )
         )
 
-    # Add next button (rightmost)
     if show_nav and total_submissions:
         next_button = discord.ui.Button(
             style=discord.ButtonStyle.secondary,
@@ -482,7 +466,6 @@ def create_problems_overview_view(problems: List[Dict[str, Any]], domain: str) -
     """Create a view with buttons for each problem"""
     view = discord.ui.View(timeout=None)
 
-    # Create buttons for each problem (max 25 buttons per view)
     for i, problem in enumerate(problems[:MAX_PROBLEMS_PER_OVERVIEW]):
         emoji = get_problem_emoji(problem)
         source = problem.get("source", "leetcode")
@@ -491,8 +474,8 @@ def create_problems_overview_view(problems: List[Dict[str, Any]], domain: str) -
             style=discord.ButtonStyle.secondary,
             label=f"{problem['id']}",
             emoji=emoji,
-            custom_id=f"problem_detail|{source}|{problem['id']}|{domain}",
-            row=i // 5,  # 5 buttons per row
+            custom_id=f"problem|{source}|{problem['id']}|desc",
+            row=i // 5,
         )
         view.add_item(button)
 
@@ -568,6 +551,28 @@ def create_inspiration_embed(inspiration_data: Dict[str, Any], problem_info: Dic
     return embed
 
 
+async def _fetch_daily_history(bot: Any, domain: str, anchor_date: str) -> List[Dict[str, Any]]:
+    """Fetch daily challenge history for the same day in previous years."""
+    try:
+        history_dates = LeetCodeClient.generate_history_dates(anchor_date)
+    except Exception:
+        return []
+    if not history_dates:
+        return []
+
+    sem = asyncio.Semaphore(5)
+
+    async def fetch_one(d: str):
+        async with sem:
+            try:
+                return await bot.api.get_daily(domain, d)
+            except Exception:
+                return None
+
+    results = await asyncio.gather(*[fetch_one(d) for d in history_dates])
+    return [r for r in results if r]
+
+
 async def send_daily_challenge(
     bot: Any,
     channel_id: int = None,
@@ -576,32 +581,25 @@ async def send_daily_challenge(
     domain: str = "com",
     ephemeral: bool = True,
 ):
-    """Fetches and sends the LeetCode daily challenge."""
+    """Fetches and sends the daily challenge via API."""
     try:
-        logger.info(
-            f"Attempting to send daily challenge. Domain: {domain}, Channel: {channel_id}, "
-            f"Interaction: {'Yes' if interaction else 'No'}"
-        )
+        logger.info("Attempting to send daily challenge. Domain: %s, Channel: %s", domain, channel_id)
 
-        current_client = bot.lcus if domain == "com" else bot.lccn
-
-        # Determine date string based on LeetCode's server timezone for daily challenges
         now_utc = datetime.now(pytz.UTC)
         date_str = now_utc.strftime("%Y-%m-%d")
 
-        logger.debug(f"Fetching daily challenge for date: {date_str} (UTC), domain: {domain}")
-        challenge_info = await current_client.get_daily_challenge()
+        challenge_info = await bot.api.get_daily(domain)
 
         if not challenge_info:
-            logger.error(f"Failed to get daily challenge info for domain {domain}.")
+            logger.error("No daily challenge for domain %s", domain)
             if interaction:
-                await interaction.followup.send("Could not fetch daily challenge.", ephemeral=ephemeral)
+                await interaction.followup.send("找不到今日挑戰。", ephemeral=ephemeral)
             return None
 
-        logger.info(f"Got daily challenge: {challenge_info['id']}. {challenge_info['title']} for domain {domain}")
+        logger.info("Got daily challenge: %s. %s for domain %s", challenge_info["id"], challenge_info["title"], domain)
 
         history_anchor = challenge_info.get("date") or date_str
-        history_problems = await current_client.get_daily_history(history_anchor)
+        history_problems = await _fetch_daily_history(bot, domain, history_anchor)
 
         embed = await create_problem_embed(
             problem_info=challenge_info,
@@ -613,42 +611,53 @@ async def send_daily_challenge(
         view = await create_problem_view(problem_info=challenge_info, bot=bot, domain=domain)
 
         if interaction:
-            # If called from a slash command
             await interaction.followup.send(embed=embed, view=view, ephemeral=ephemeral)
-            logger.info(f"Sent daily challenge via interaction {interaction.id}")
         elif channel_id:
             target_channel = bot.get_channel(channel_id)
             if target_channel:
                 content_msg = ""
                 if role_id:
-                    # Ensure role exists in guild before mentioning
-                    guild = target_channel.guild
-                    role = guild.get_role(role_id)
+                    role = target_channel.guild.get_role(role_id)
                     if role:
                         content_msg = f"{role.mention}"
                     else:
-                        logger.warning(f"Role ID {role_id} not found in guild {guild.id} for channel {channel_id}.")
+                        logger.warning("Role ID %s not found in guild for channel %s", role_id, channel_id)
                 await target_channel.send(
-                    content=content_msg if content_msg else None,
+                    content=content_msg or None,
                     embed=embed,
                     view=view,
                 )
-                logger.info(f"Sent daily challenge to channel {channel_id}")
+                logger.info("Sent daily challenge to channel %s", channel_id)
             else:
-                logger.error(f"Could not find channel {channel_id} to send daily challenge.")
+                logger.error("Could not find channel %s", channel_id)
         else:
             logger.error("send_daily_challenge called without channel_id or interaction.")
 
         return challenge_info
 
-    except Exception as e:
-        logger.error(f"Error in send_daily_challenge: {e}", exc_info=True)
+    except (ApiProcessingError, ApiRateLimitError) as e:
+        logger.warning("API error in send_daily_challenge: %s", e)
+        if interaction:
+            msg = "⏳ 資料準備中，請稍後重試。" if isinstance(e, ApiProcessingError) else "⏱️ 請求頻率過高，請稍後重試。"
+            try:
+                await interaction.followup.send(msg, ephemeral=ephemeral)
+            except Exception:
+                pass
+            return None
+        raise
+    except (ApiNetworkError, ApiError) as e:
+        logger.error("API error in send_daily_challenge: %s", e)
         if interaction:
             try:
-                await interaction.followup.send(
-                    f"An error occurred while sending the daily challenge: {e}",
-                    ephemeral=ephemeral,
-                )
+                await interaction.followup.send("❌ 查詢失敗，請稍後重試。", ephemeral=ephemeral)
+            except Exception:
+                pass
+        return None
+    except Exception as e:
+        logger.error("Error in send_daily_challenge: %s", e, exc_info=True)
+        if interaction:
+            try:
+                await interaction.followup.send(f"發送每日挑戰時發生錯誤：{e}", ephemeral=ephemeral)
             except Exception:
                 pass
         return None
