@@ -1,85 +1,44 @@
-# cogs/interaction_handler_cog.py
 import asyncio
 import time
 
 import discord
 from discord.ext import commands
 
-from leetcode import html_to_text  # 確保這個 import 存在
+from api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
+from leetcode import html_to_text
 from utils.logger import get_commands_logger
-from utils.source_detector import detect_source
-
-# Import UI helpers
 from utils.ui_helpers import (
     create_inspiration_embed,
     create_problem_description_embed,
-    create_problem_embed,
-    create_problem_view,
     create_submission_embed,
     create_submission_view,
+    get_difficulty_emoji,
 )
-
-# from utils.logger import get_logger # 使用 bot.logger
 
 
 class InteractionHandlerCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.logger = get_commands_logger()
-        # 共享資源將透過 self.bot 存取, 例如:
-        # self.lcus = bot.lcus
-        # self.llm = bot.llm
-        # self.LEETCODE_DISCRIPTION_BUTTON_PREFIX = bot.LEETCODE_DISCRIPTION_BUTTON_PREFIX
+        self.submissions_cache = {}
+        self.ongoing_llm_requests: set[tuple] = set()
+        self.ongoing_llm_requests_lock = asyncio.Lock()
 
-        # Cache for user submissions (to avoid re-fetching)
-        self.submissions_cache = {}  # key: f"{username}_{user_id}", value: (submissions, timestamp, limit)
-
-        # Track ongoing LLM requests to prevent duplicates
-        self.ongoing_llm_requests = set()  # elements: (user_id, problem_id, request_type)
-        self.ongoing_llm_requests_lock = asyncio.Lock()  # Lock for atomic operations
-
-    async def _handle_duplicate_request(
-        self, interaction: discord.Interaction, request_key: tuple, request_type: str
-    ) -> bool:
-        """
-        Check if a request is already in progress and handle the duplicate case.
-
-        Args:
-            interaction: Discord interaction object
-            request_key: Tuple of (user_id, problem_id, request_type)
-            request_type: Type of request ("translate" or "inspire")
-
-        Returns:
-            True if this is a duplicate request (already handled), False otherwise
-        """
-        async with self.ongoing_llm_requests_lock:
-            if request_key in self.ongoing_llm_requests:
-                if request_type == "translate":
-                    message = "正在處理您的翻譯請求，請稍候..."
-                else:
-                    message = "正在處理您的靈感啟發請求，請稍候..."
-
-                await interaction.response.send_message(message, ephemeral=True)
-                self.logger.info(
-                    f"防止重複{request_type}請求: user={interaction.user.name}, problem_id={request_key[1]}"
-                )
-                return True
-
-            # Add to ongoing requests
-            self.ongoing_llm_requests.add(request_key)
-            return False
-
-    async def _cleanup_request(self, request_key: tuple) -> None:
-        """
-        Remove a request from the ongoing requests set.
-
-        Args:
-            request_key: Tuple of (user_id, problem_id, request_type)
-        """
+    async def _cleanup_request(self, request_key: tuple):
         async with self.ongoing_llm_requests_lock:
             self.ongoing_llm_requests.discard(request_key)
 
-    async def _handle_config_reset(self, interaction: discord.Interaction) -> None:
+    async def _check_duplicate_llm(self, interaction: discord.Interaction, request_key: tuple, label: str) -> bool:
+        async with self.ongoing_llm_requests_lock:
+            if request_key in self.ongoing_llm_requests:
+                await interaction.followup.send(f"正在處理您的{label}請求，請稍候...", ephemeral=True)
+                return True
+            self.ongoing_llm_requests.add(request_key)
+            return False
+
+    # -- Config reset (preserved) --
+
+    async def _handle_config_reset(self, interaction: discord.Interaction):
         custom_id = interaction.data.get("custom_id", "")
         parts = custom_id.split("|")
         try:
@@ -96,814 +55,298 @@ class InteractionHandlerCog(commands.Cog):
         if action not in ("config_reset_cancel", "config_reset_confirm"):
             await interaction.response.send_message("無效的操作。", ephemeral=True)
             return
-
-        if interaction.guild is None:
-            await interaction.response.send_message("此操作僅能在伺服器中使用。", ephemeral=True)
-            return
-
-        if guild_id != interaction.guild.id:
+        if not interaction.guild or guild_id != interaction.guild.id:
             await interaction.response.send_message("無效的操作。", ephemeral=True)
             return
-
         if user_id != interaction.user.id:
             await interaction.response.send_message("此操作僅限原發起者使用。", ephemeral=True)
             return
-
         if int(time.time()) > exp_unix:
             await interaction.response.send_message("此確認已過期，請重新使用 /config reset:True。", ephemeral=True)
             return
 
         if action == "config_reset_cancel":
             await interaction.response.edit_message(content="已取消重置操作。", embed=None, view=None)
-            self.logger.info(f"Config reset cancelled for guild {guild_id} by user {interaction.user.id}")
             return
 
         if not interaction.user.guild_permissions.manage_guild:
             await interaction.response.send_message("您需要「管理伺服器」權限才能執行此操作。", ephemeral=True)
             return
-        success = self.bot.db.delete_server_settings(guild_id)
-        if not success:
+        if not self.bot.db.delete_server_settings(guild_id):
             await interaction.response.send_message("重置設定時發生錯誤，請稍後再試。", ephemeral=True)
             return
         await self.bot.reschedule_daily_challenge(guild_id, "config_reset")
         await interaction.response.edit_message(content="✅ 已重置所有設定並停止排程。", embed=None, view=None)
-        self.logger.info(f"Config reset confirmed for guild {guild_id} by user {interaction.user.id}")
 
-    async def _handle_similar_problem_interaction(self, interaction: discord.Interaction, custom_id: str) -> None:
-        """
-        Handle similar problem button interactions.
+    # -- Submission navigation (preserved) --
 
-        Args:
-            interaction: Discord interaction object
-            custom_id: Custom ID from the button
-        """
+    async def _handle_submission_nav(self, interaction: discord.Interaction, custom_id: str):
         try:
-            # Parse custom_id
-            similar_prefix = getattr(self.bot, "LEETCODE_SIMILAR_BUTTON_PREFIX", "leetcode_similar_")
-            if custom_id.startswith(similar_prefix):
-                # LeetCode format: leetcode_similar_{problem_id}_{domain}
-                parts = custom_id.split("_")
-                if len(parts) < 3:
-                    await interaction.response.send_message("無效的按鈕格式。", ephemeral=True)
-                    return
-                problem_id = parts[2]
-                source = "leetcode"
+            parts = custom_id.split("_")
+            direction = parts[2]
+            username = "_".join(parts[3:-1])
+            current_page = int(parts[-1])
+            new_page = current_page - 1 if direction == "prev" else current_page + 1
+
+            cache_key = f"{username}_{interaction.user.id}"
+            cached = self.submissions_cache.get(cache_key)
+
+            if cached and (time.time() - cached[1]) < 300:
+                submissions = cached[0]
             else:
-                # External format: ext_similar|{source}|{problem_id}
-                parts = custom_id.split("|")
-                if len(parts) < 3:
-                    await interaction.response.send_message("無效的題目資訊，無法搜尋相似題目。", ephemeral=True)
+                await interaction.response.defer(ephemeral=True)
+                limit = cached[2] if cached and len(cached) > 2 else 50
+                submissions = await self.bot.lcus.fetch_recent_ac_submissions(username, limit)
+                if not submissions:
+                    await interaction.followup.send(f"找不到使用者 **{username}** 的解題紀錄。", ephemeral=True)
                     return
-                source = parts[1]
-                problem_id = parts[2]
+                self.submissions_cache[cache_key] = (submissions, time.time(), limit)
 
-            # Get SimilarCog
-            similar_cog = self.bot.get_cog("SimilarCog")
-            if not similar_cog:
-                await interaction.response.send_message("相似題目功能尚未啟用，請聯繫管理員。", ephemeral=True)
+            if new_page < 0 or new_page >= len(submissions):
+                await interaction.response.send_message("無效的頁面", ephemeral=True)
                 return
 
-            # Defer the response as this might take some time
-            await interaction.response.defer(ephemeral=True)
-
-            self.logger.debug(f"搜尋相似題目: problem={source}:{problem_id}")
-
-            # Detect source and normalize ID
-            problem_param = f"{source}:{problem_id}"
-            detected_source, normalized_id = detect_source(problem_param)
-            if detected_source == "unknown":
-                await interaction.followup.send(f"無法識別題目編號 `{problem_param}` 的來源。", ephemeral=True)
+            slash_cog = self.bot.get_cog("SlashCommandsCog")
+            if not slash_cog:
+                await interaction.response.send_message("無法載入指令模組", ephemeral=True)
                 return
 
-            # For LeetCode, if normalized_id is a slug, try to resolve it to numeric ID
-            if detected_source == "leetcode" and not normalized_id.isdigit():
-                # Normalize slug to lowercase for consistent lookup
-                normalized_id = normalized_id.lower()
-                resolved_id = await similar_cog.storage.get_problem_id_by_slug(detected_source, normalized_id)
-                if resolved_id:
-                    normalized_id = resolved_id
+            if not interaction.response.is_done():
+                await interaction.response.defer(ephemeral=True)
 
-            # Try to get existing vector
-            vector = await similar_cog.storage.get_vector(detected_source, normalized_id)
-            if not vector:
-                await interaction.followup.send(
-                    f"資料庫中找不到題目 `{detected_source}:{normalized_id}` 的向量索引。\n"
-                    "請確認該題目是否已加入資料庫並完成索引建置。",
-                    ephemeral=True,
-                )
+            detailed = await slash_cog._get_submission_details(submissions[new_page])
+            if not detailed:
+                await interaction.followup.send("無法載入題目詳細資訊", ephemeral=True)
                 return
 
-            embedding = vector
-            display_query = f"{detected_source.title()}: {normalized_id}"
-
-            # Try to get metadata for display purposes
-            meta = await similar_cog.storage.get_embedding_meta(detected_source, normalized_id)
-            rewritten = meta.get("rewritten_content") if meta else None
-
-            # Search for similar problems
-            results = await similar_cog.searcher.search(
-                embedding,
-                None,  # Search all sources
-                similar_cog.similar_config.top_k,
-                similar_cog.similar_config.min_similarity,
-            )
-
-            # Create results embed
-            embed = await similar_cog.create_results_embed(
-                display_query,
-                rewritten,
-                results,
-                None,  # source_filter
-                is_problem_search=True,
-            )
-
-            await interaction.followup.send(embed=embed, ephemeral=True)
-            self.logger.info(f"成功搜尋相似題目: {problem_param}")
-
-        except discord.errors.InteractionResponded:
-            await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
+            embed = create_submission_embed(detailed, new_page, len(submissions), username)
+            view = create_submission_view(detailed, self.bot, new_page, username, len(submissions))
+            await interaction.edit_original_response(embed=embed, view=view)
         except Exception as e:
-            self.logger.error(f"處理相似題目按鈕交互時發生錯誤: {e}", exc_info=True)
+            self.logger.error("Submission nav error: %s", e, exc_info=True)
             try:
                 if not interaction.response.is_done():
-                    await interaction.response.send_message(f"搜尋相似題目時發生錯誤：{str(e)}", ephemeral=True)
+                    await interaction.response.send_message(f"導航時發生錯誤：{e}", ephemeral=True)
                 else:
-                    await interaction.followup.send(f"搜尋相似題目時發生錯誤：{str(e)}", ephemeral=True)
+                    await interaction.followup.send(f"導航時發生錯誤：{e}", ephemeral=True)
             except Exception:
                 pass
 
+    # -- Unified problem action handler --
+
+    async def _handle_problem_action(self, interaction: discord.Interaction, source: str, pid: str, action: str):
+        try:
+            await interaction.response.defer(ephemeral=True)
+        except discord.HTTPException:
+            self.logger.warning("Failed to defer interaction %s", interaction.id)
+            return
+
+        try:
+            if action == "desc":
+                await self._action_desc(interaction, source, pid)
+            elif action == "translate":
+                await self._action_translate(interaction, source, pid)
+            elif action == "inspire":
+                await self._action_inspire(interaction, source, pid)
+            elif action == "similar":
+                await self._action_similar(interaction, source, pid)
+            else:
+                self.logger.debug("Unknown action: %s", action)
+        except ApiProcessingError:
+            await interaction.followup.send("⏳ 資料準備中，請稍後重試。", ephemeral=True)
+        except ApiNetworkError:
+            await interaction.followup.send("🔌 API 連線失敗，請稍後重試。", ephemeral=True)
+        except ApiRateLimitError:
+            await interaction.followup.send("⏱️ 請求頻率過高，請稍後重試。", ephemeral=True)
+        except ApiError as e:
+            self.logger.error("API error %s:%s/%s: %s", source, pid, action, e)
+            await interaction.followup.send("❌ 查詢失敗，請稍後重試。", ephemeral=True)
+        except Exception as e:
+            self.logger.error("Error %s:%s/%s: %s", source, pid, action, e, exc_info=True)
+            try:
+                await interaction.followup.send(f"發生錯誤：{e}", ephemeral=True)
+            except Exception:
+                pass
+
+    async def _action_desc(self, interaction: discord.Interaction, source: str, pid: str):
+        problem = await self.bot.api.get_problem(source, pid)
+        if not problem or not problem.get("content"):
+            await interaction.followup.send("找不到題目或題目無描述內容。", ephemeral=True)
+            return
+
+        content = html_to_text(problem["content"])
+        sep = ". " if source == "leetcode" else ": "
+        header = f"[{problem['id']}{sep}{problem['title']}]({problem['link']})"
+
+        if len(content) < 1900:
+            await interaction.followup.send(f"# {header}\n\n{content}", ephemeral=True)
+        else:
+            if len(content) > 4000:
+                content = content[:4000] + "...\n(內容已截斷，請前往網站查看完整題目)"
+            info = problem.copy()
+            info["description"] = content
+            embed = create_problem_description_embed(info, domain="com", source=source)
+            await interaction.followup.send(
+                "由於題目內容過長，使用嵌入式訊息的方式顯示。", embed=embed, ephemeral=True
+            )
+
+    async def _action_translate(self, interaction: discord.Interaction, source: str, pid: str):
+        if not self.bot.llm:
+            await interaction.followup.send("LLM 翻譯功能尚未啟用。", ephemeral=True)
+            return
+
+        request_key = (interaction.user.id, pid, "translate")
+        if await self._check_duplicate_llm(interaction, request_key, "翻譯"):
+            return
+
+        try:
+            cached = self.bot.llm_translate_db.get_translation(source, pid)
+            if cached:
+                translation = cached["translation"]
+                model_name = cached.get("model_name", "Unknown Model")
+                footer = f"\n\n✨ 由 `{model_name}` 提供翻譯"
+                if len(translation) + len(footer) > 2000:
+                    translation = translation[: 2000 - len(footer)]
+                await interaction.followup.send(translation + footer, ephemeral=True)
+                return
+
+            problem = await self.bot.api.get_problem(source, pid)
+            if not problem or not problem.get("content"):
+                await interaction.followup.send("無法獲取題目描述。", ephemeral=True)
+                return
+
+            text = html_to_text(problem["content"])
+            translation = await self.bot.llm.translate(text, "zh-TW")
+            model_name = getattr(self.bot.llm, "model_name", "Unknown Model")
+            footer = f"\n\n✨ 由 `{model_name}` 提供翻譯"
+            max_len = 2000 - len(footer)
+            if len(translation) > max_len:
+                translation = translation[: max_len - 10] + "...\n(翻譯內容已截斷)"
+
+            self.bot.llm_translate_db.save_translation(source, pid, translation, model_name)
+            await interaction.followup.send(translation + footer, ephemeral=True)
+        except (ApiProcessingError, ApiNetworkError, ApiRateLimitError, ApiError):
+            raise
+        except Exception as e:
+            self.logger.error("LLM translate error: %s", e, exc_info=True)
+            await interaction.followup.send(f"LLM 翻譯失敗：{e}", ephemeral=True)
+        finally:
+            await self._cleanup_request(request_key)
+
+    async def _action_inspire(self, interaction: discord.Interaction, source: str, pid: str):
+        if not self.bot.llm_pro:
+            await interaction.followup.send("LLM 靈感啟發功能尚未啟用。", ephemeral=True)
+            return
+
+        request_key = (interaction.user.id, pid, "inspire")
+        if await self._check_duplicate_llm(interaction, request_key, "靈感啟發"):
+            return
+
+        def fmt(val):
+            return "\n".join(f"- {x}" for x in val) if isinstance(val, list) else str(val)
+
+        try:
+            cached = self.bot.llm_inspire_db.get_inspire(source, pid)
+            problem = await self.bot.api.get_problem(source, pid)
+            if not problem:
+                await interaction.followup.send("無法獲取題目資訊。", ephemeral=True)
+                return
+
+            if cached:
+                model_name = cached.get("model_name", "Unknown Model")
+                inspiration_data = cached.copy()
+            else:
+                if not problem.get("content"):
+                    await interaction.followup.send("無法獲取題目內容。", ephemeral=True)
+                    return
+
+                text = html_to_text(problem["content"])
+                tags = problem.get("tags") or []
+                difficulty = problem.get("difficulty", "")
+
+                llm_output = await self.bot.llm_pro.inspire(text, tags, difficulty)
+                model_name = getattr(self.bot.llm_pro, "model_name", "Unknown Model")
+
+                if not isinstance(llm_output, dict) or not all(
+                    k in llm_output for k in ["thinking", "traps", "algorithms", "inspiration"]
+                ):
+                    raw = str(llm_output.get("raw", llm_output))[:1900]
+                    await interaction.followup.send(raw, ephemeral=True)
+                    return
+
+                self.bot.llm_inspire_db.save_inspire(
+                    source, pid,
+                    fmt(llm_output.get("thinking", "")),
+                    fmt(llm_output.get("traps", "")),
+                    fmt(llm_output.get("algorithms", "")),
+                    fmt(llm_output.get("inspiration", "")),
+                    model_name=model_name,
+                )
+                inspiration_data = llm_output.copy()
+
+            inspiration_data["footer"] = f"由 {model_name} 提供靈感"
+            embed = create_inspiration_embed(inspiration_data, problem)
+            await interaction.followup.send(embed=embed, ephemeral=True)
+        except (ApiProcessingError, ApiNetworkError, ApiRateLimitError, ApiError):
+            raise
+        except Exception as e:
+            self.logger.error("LLM inspire error: %s", e, exc_info=True)
+            await interaction.followup.send(f"LLM 靈感啟發失敗：{e}", ephemeral=True)
+        finally:
+            await self._cleanup_request(request_key)
+
+    async def _action_similar(self, interaction: discord.Interaction, source: str, pid: str):
+        cfg = self.bot.config.get_similar_config()
+        result = await self.bot.api.search_similar_by_id(source, pid, cfg.top_k, cfg.min_similarity)
+        if not result or not result.get("results"):
+            await interaction.followup.send("找不到相似題目。", ephemeral=True)
+            return
+
+        embed = discord.Embed(title="🔍 相似題目", color=0x3498DB)
+        lines = []
+        for r in result["results"]:
+            diff = r.get("difficulty") or "Unknown"
+            emoji = get_difficulty_emoji(diff)
+            sim = f"{r['similarity']:.2f}"
+            lines.append(f"- {emoji} [{r['title']}]({r['link']}) `{sim}`")
+        embed.description = "\n".join(lines)
+
+        if result.get("rewritten_query"):
+            embed.set_footer(text=f"Rewritten: {result['rewritten_query']}")
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    # -- Main listener --
+
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
-        # Ignore non-button interactions
         if interaction.type != discord.InteractionType.component:
             return
 
         custom_id = interaction.data.get("custom_id", "")
 
-        # Config reset buttons
+        # Config reset (preserved)
         if custom_id.startswith("config_reset_confirm|") or custom_id.startswith("config_reset_cancel|"):
             await self._handle_config_reset(interaction)
             return
 
-        def format_inspire_field(val):
-            if isinstance(val, list):
-                return "\n".join(f"- {x}" for x in val)
-            return str(val)
-
-        # Button for displaying LeetCode problem description
-        if custom_id.startswith(self.bot.LEETCODE_DISCRIPTION_BUTTON_PREFIX):
-            self.logger.debug(f"接收到LeetCode按鈕交互: custom_id={custom_id}")
-
-            try:
-                parts = custom_id.split("_")
-                problem_id = parts[2]
-                domain = parts[3] if len(parts) > 3 else "com"
-
-                self.logger.debug(f"嘗試獲取題目: problem_id={problem_id}, domain={domain}")
-
-                client = self.bot.lcus if domain == "com" else self.bot.lccn
-
-                if problem_id and problem_id.isdigit():
-                    problem_info = await client.get_problem(problem_id=problem_id)
-                    if problem_info and problem_info.get("content"):
-                        problem_content = html_to_text(problem_info["content"])
-                        self.logger.debug(f"成功獲取題目內容: length={len(problem_content)}")
-
-                        # Choose response method based on content length
-                        if len(problem_content) < 1900:
-                            # Use original method for short content
-                            formatted_content = (
-                                f"# [{problem_info['id']}. {problem_info['title']}]"
-                                f"({problem_info['link']})\n\n{problem_content}"
-                            )
-                            response_data = {"content": formatted_content}
-                        else:
-                            # Use embed for long content
-                            if len(problem_content) > 4000:
-                                problem_content = (
-                                    problem_content[:4000] + "...\n(內容已截斷，請前往 LeetCode 網站查看完整題目)"
-                                )
-
-                            # Create problem description using a temporary problem_info with description
-                            problem_info_with_desc = problem_info.copy()
-                            problem_info_with_desc["description"] = problem_content
-                            embed = create_problem_description_embed(problem_info_with_desc, domain)
-                            response_data = {
-                                "content": "由於題目內容過長，使用嵌入式訊息的方式顯示。",
-                                "embed": embed,
-                            }
-                    else:
-                        response_data = {"content": "無法獲取題目描述，請前往 LeetCode 網站查看。"}
-                        self.logger.warning(f"題目沒有內容: problem_id={problem_id}")
-                else:
-                    response_data = {"content": "無效的題目ID，無法顯示題目描述。"}
-                    self.logger.warning(f"無效的題目ID: {problem_id}")
-
-                await interaction.response.send_message(ephemeral=True, **response_data)
-                content_length = len(problem_content) if "problem_content" in locals() else 0
-                self.logger.info(
-                    f"成功發送題目描述給 @{interaction.user.name}: channel_id={interaction.channel.id}, "
-                    f"problem_id={problem_id}, domain={domain}, content_length={content_length}"
-                )
-
-            except discord.errors.InteractionResponded:
-                await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
-            except Exception as e:
-                self.logger.error(f"處理按鈕交互時發生錯誤: {e}", exc_info=True)
-                try:
-                    await interaction.response.send_message(f"顯示題目時發生錯誤：{str(e)}", ephemeral=True)
-                except:  # noqa
-                    try:
-                        await interaction.followup.send(f"顯示題目時發生錯誤：{str(e)}", ephemeral=True)
-                    except:  # noqa
-                        pass
-
-        # Button for LLM translation
-        elif custom_id.startswith(self.bot.LEETCODE_TRANSLATE_BUTTON_PREFIX):
-            self.logger.debug(f"接收到LeetCode LLM翻譯按鈕交互: custom_id={custom_id}")
-            try:
-                parts = custom_id.split("_")
-                problem_id = parts[2]
-                domain = parts[3] if len(parts) > 3 else "com"
-
-                # Handle duplicate request prevention
-                request_key = (interaction.user.id, problem_id, "translate")
-                if await self._handle_duplicate_request(interaction, request_key, "translate"):
-                    return
-
-                await interaction.response.defer(ephemeral=True)
-
-                self.logger.debug(f"嘗試獲取題目並進行LLM翻譯: problem_id={problem_id}, domain={domain}")
-
-                client = self.bot.lcus if domain == "com" else self.bot.lccn
-
-                if problem_id and problem_id.isdigit():
-                    translation_data = self.bot.llm_translate_db.get_translation(int(problem_id), domain)
-                    if translation_data:
-                        self.logger.debug(
-                            f"從DB取得LLM翻譯: problem_id={problem_id}, length={len(translation_data['translation'])}"
-                        )
-                        translation = translation_data["translation"]
-                        model_name = translation_data.get("model_name", "Unknown Model")
-
-                        if translation and model_name:
-                            footer_text = f"\n\n✨ 由 `{model_name}` 提供翻譯"
-                            if len(translation) + len(footer_text) > 2000:
-                                translation = translation[: 2000 - len(footer_text)]
-                            translation += footer_text
-
-                        await interaction.followup.send(translation, ephemeral=True)
-                        # Cleanup will be handled by finally block
-                        return
-
-                    problem_info = await client.get_problem(problem_id=problem_id)
-                    if problem_info and problem_info.get("content"):
-                        problem_content_text = html_to_text(problem_info["content"])
-                        try:
-                            translation = await self.bot.llm.translate(problem_content_text, "zh-TW")
-                            model_name = getattr(self.bot.llm, "model_name", "Unknown Model")
-
-                            footer_text = f"\n\n✨ 由 `{model_name}` 提供翻譯"
-                            max_length = 2000 - len(footer_text)
-                            if len(translation) > max_length:
-                                translation = translation[: max_length - 10] + "...\n(翻譯內容已截斷)"
-
-                            self.bot.llm_translate_db.save_translation(int(problem_id), domain, translation, model_name)
-                            translation += footer_text
-
-                            await interaction.followup.send(translation, ephemeral=True)
-                            self.logger.info(
-                                f"成功發送LLM翻譯給 @{interaction.user.name}: channel_id={interaction.channel.id}, "
-                                f"problem_id={problem_id}, domain={domain}, content_length={len(translation)}"
-                            )
-                        except Exception as llm_e:
-                            self.logger.error(f"LLM 翻譯失敗: {llm_e}", exc_info=True)
-                            error_message = f"LLM 翻譯失敗：{str(llm_e)}"
-                            if len(error_message) > 1900:
-                                error_message = error_message[:1900] + "...\n(內容已截斷)"
-                            await interaction.followup.send(error_message, ephemeral=True)
-                    else:
-                        self.logger.warning(f"題目沒有內容: problem_id={problem_id}")
-                        await interaction.followup.send(
-                            "無法獲取題目描述，請前往 LeetCode 網站查看。",
-                            ephemeral=True,
-                        )
-                else:
-                    self.logger.warning(f"無效的題目ID: {problem_id}")
-                    await interaction.followup.send("無效的題目ID，無法顯示翻譯。", ephemeral=True)
-            except discord.errors.InteractionResponded:
-                await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
-            except Exception as e:
-                self.logger.error(f"處理LLM翻譯按鈕交互時發生錯誤: {e}", exc_info=True)
-                try:
-                    await interaction.followup.send(f"LLM 翻譯時發生錯誤：{str(e)}", ephemeral=True)
-                except:  # noqa
-                    pass
-            finally:
-                # Remove from ongoing requests
-                await self._cleanup_request(request_key)
-
-        # Button for LLM inspire
-        elif custom_id.startswith(self.bot.LEETCODE_INSPIRE_BUTTON_PREFIX):
-            self.logger.debug(f"接收到LeetCode 靈感啟發按鈕交互: custom_id={custom_id}")
-
-            try:
-                parts = custom_id.split("_")
-                problem_id = parts[2]
-                domain = parts[3] if len(parts) > 3 else "com"
-
-                # Handle duplicate request prevention
-                request_key = (interaction.user.id, problem_id, "inspire")
-                if await self._handle_duplicate_request(interaction, request_key, "inspire"):
-                    return
-
-                await interaction.response.defer(ephemeral=True)
-
-                self.logger.debug(f"嘗試獲取題目並進行LLM靈感啟發: problem_id={problem_id}, domain={domain}")
-
-                if not problem_id or not problem_id.isdigit():
-                    self.logger.warning(f"無效的題目ID: {problem_id}")
-                    await interaction.followup.send("無效的題目ID，無法顯示靈感啟發。", ephemeral=True)
-                    # Cleanup will be handled by finally block
-                    return
-
-                inspire_result_data = self.bot.llm_inspire_db.get_inspire(int(problem_id), domain)
-                model_name = "Unknown Model"  # Default model name
-
-                # Always fetch problem_info as it's needed for the embed
-                client = self.bot.lcus if domain == "com" else self.bot.lccn
-                problem_info = await client.get_problem(problem_id=problem_id)
-                if not problem_info:
-                    self.logger.warning(f"題目沒有資訊: problem_id={problem_id}")
-                    await interaction.followup.send("無法獲取題目資訊。", ephemeral=True)
-                    # Cleanup will be handled by finally block
-                    return
-
-                if inspire_result_data:
-                    self.logger.debug(f"Get inspire result from DB: problem_id={problem_id}")
-                    model_name = inspire_result_data.get("model_name", "Unknown Model")
-                    # 從DB讀取時，inspire_result_data 已經是包含 "thinking", "traps" 等鍵的字典
-                    inspire_result_content = inspire_result_data
-                else:
-                    if not problem_info.get("content"):
-                        self.logger.warning(f"題目沒有內容: problem_id={problem_id}")
-                        await interaction.followup.send("無法獲取題目資訊。", ephemeral=True)
-                        # Cleanup will be handled by finally block
-                        return
-
-                    problem_content_text = html_to_text(problem_info["content"])
-                    tags = problem_info.get("tags", [])
-                    difficulty = problem_info.get("difficulty", "")
-
-                    try:
-                        llm_output = await self.bot.llm_pro.inspire(problem_content_text, tags, difficulty)
-                        model_name = getattr(self.bot.llm_pro, "model_name", "Unknown Model")
-
-                        if not isinstance(llm_output, dict) or not all(
-                            k in llm_output for k in ["thinking", "traps", "algorithms", "inspiration"]
-                        ):
-                            raw_response = llm_output.get("raw", str(llm_output))
-                            raw_response = str(raw_response)
-                            if len(raw_response) > 1900:
-                                raw_response = raw_response[:1900] + "...\n(內容已截斷)"
-                            await interaction.followup.send(raw_response, ephemeral=True)
-                            self.logger.debug(f"發送原始 LLM 靈感回覆: problem_id={problem_id}")
-                            # Cleanup will be handled by finally block
-                            return
-
-                        # llm_output 是符合預期格式的字典
-                        inspire_result_content = llm_output
-                        # --- DB cache: save inspire result ---
-                        # 確保儲存到DB的也是格式化後的字串
-                        db_thinking = format_inspire_field(inspire_result_content.get("thinking", ""))
-                        db_traps = format_inspire_field(inspire_result_content.get("traps", ""))
-                        db_algorithms = format_inspire_field(inspire_result_content.get("algorithms", ""))
-                        db_inspiration = format_inspire_field(inspire_result_content.get("inspiration", ""))
-
-                        self.bot.llm_inspire_db.save_inspire(
-                            int(problem_id),
-                            domain,
-                            db_thinking,
-                            db_traps,
-                            db_algorithms,
-                            db_inspiration,
-                            model_name=model_name,
-                        )
-                    except Exception as llm_e:
-                        self.logger.error(f"LLM 靈感啟發失敗: {llm_e}", exc_info=True)
-                        error_message = f"LLM 靈感啟發失敗：{str(llm_e)}"
-                        if len(error_message) > 1900:
-                            error_message = error_message[:1900] + "...\n(內容已截斷)"
-                        await interaction.followup.send(error_message, ephemeral=True)
-                        # Cleanup will be handled by finally block
-                        return
-
-                # Prepare inspiration data with footer
-                inspiration_data = inspire_result_content.copy()
-                inspiration_data["footer"] = f"由 {model_name} 提供靈感"
-
-                embed = create_inspiration_embed(inspiration_data, problem_info)
-                await interaction.followup.send(embed=embed, ephemeral=True)
-                self.logger.info(
-                    f"成功發送LLM靈感啟發給 @{interaction.user.name}: channel_id={interaction.channel.id}, "
-                    f"problem_id={problem_id}, domain={domain}"
-                )
-
-            except discord.errors.InteractionResponded:
-                await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
-            except Exception as e:
-                self.logger.error(f"處理LLM靈感啟發按鈕交互時發生錯誤: {e}", exc_info=True)
-                try:
-                    error_message = f"LLM 靈感啟發時發生錯誤：{str(e)}"
-                    if len(error_message) > 1900:
-                        error_message = error_message[:1900] + "...\n(內容已截斷)"
-                    await interaction.followup.send(error_message, ephemeral=True)
-                except Exception:  # noqa
-                    pass
-            finally:
-                # Remove from ongoing requests
-                await self._cleanup_request(request_key)
-
-        # Button for displaying external source problem description (atcoder, codeforces, etc.)
-        elif custom_id.startswith("ext_problem|"):
-            self.logger.debug(f"接收到外部來源題目描述按鈕交互: custom_id={custom_id}")
-
-            try:
-                parts = custom_id.split("|", 2)
-                if len(parts) < 3:
-                    await interaction.response.send_message("無效的題目ID，無法顯示題目描述。", ephemeral=True)
-                    return
-                source = parts[1]
-                problem_id = parts[2]
-
-                if not problem_id:
-                    await interaction.response.send_message("無效的題目ID，無法顯示題目描述。", ephemeral=True)
-                    return
-
-                await interaction.response.defer(ephemeral=True)
-
-                problem_info = self.bot.lcus.problems_db.get_problem(id=problem_id, source=source)
-                source_label = source.capitalize()
-                if not problem_info or not problem_info.get("content"):
-                    await interaction.followup.send(
-                        f"無法獲取題目描述，請前往 {source_label} 網站查看。", ephemeral=True
-                    )
-                    return
-
-                problem_content = html_to_text(problem_info["content"])
-                if len(problem_content) < 1900:
-                    formatted_content = (
-                        f"# [{problem_info['id']}: {problem_info['title']}]({problem_info['link']})"
-                        f"\n\n{problem_content}"
-                    )
-                    response_data = {"content": formatted_content}
-                else:
-                    if len(problem_content) > 4000:
-                        problem_content = (
-                            problem_content[:4000] + f"...\n(內容已截斷，請前往 {source_label} 網站查看完整題目)"
-                        )
-                    problem_info_with_desc = problem_info.copy()
-                    problem_info_with_desc["description"] = problem_content
-                    embed = create_problem_description_embed(problem_info_with_desc, domain="com", source=source)
-                    response_data = {
-                        "content": "由於題目內容過長，使用嵌入式訊息的方式顯示。",
-                        "embed": embed,
-                    }
-
-                await interaction.followup.send(ephemeral=True, **response_data)
-                self.logger.info(
-                    "成功發送 %s 題目描述給 @%s: problem_id=%s, content_length=%s",
-                    source_label,
-                    interaction.user.name,
-                    problem_id,
-                    len(problem_content),
-                )
-
-            except discord.errors.InteractionResponded:
-                await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
-            except Exception as e:
-                self.logger.error(f"處理外部來源描述按鈕交互時發生錯誤: {e}", exc_info=True)
-                try:
-                    await interaction.followup.send(f"顯示題目時發生錯誤：{str(e)}", ephemeral=True)
-                except Exception:  # noqa
-                    pass
-
-        # Button for external source LLM translation
-        elif custom_id.startswith("ext_translate|"):
-            self.logger.debug(f"接收到外部來源 LLM翻譯按鈕交互: custom_id={custom_id}")
-            if not self.bot.llm:
-                await interaction.response.send_message("LLM 翻譯尚未啟用。", ephemeral=True)
-                return
-
-            parts = custom_id.split("|", 2)
-            if len(parts) < 3:
-                await interaction.response.send_message("無效的題目ID，無法顯示翻譯。", ephemeral=True)
-                return
-            source = parts[1]
-            problem_id = parts[2]
-
-            if not problem_id:
-                await interaction.response.send_message("無效的題目ID，無法顯示翻譯。", ephemeral=True)
-                return
-
-            request_key = (interaction.user.id, problem_id, "translate")
-            if await self._handle_duplicate_request(interaction, request_key, "translate"):
-                return
-
-            try:
-                await interaction.response.defer(ephemeral=True)
-                source_label = source.capitalize()
-
-                translation_data = self.bot.llm_translate_db.get_translation(problem_id, source)
-                if translation_data:
-                    translation = translation_data["translation"]
-                    model_name = translation_data.get("model_name", "Unknown Model")
-
-                    if translation and model_name:
-                        footer_text = f"\n\n✨ 由 `{model_name}` 提供翻譯"
-                        if len(translation) + len(footer_text) > 2000:
-                            translation = translation[: 2000 - len(footer_text)]
-                        translation += footer_text
-
-                    await interaction.followup.send(translation, ephemeral=True)
-                    return
-
-                problem_info = self.bot.lcus.problems_db.get_problem(id=problem_id, source=source)
-                if not problem_info or not problem_info.get("content"):
-                    await interaction.followup.send(
-                        f"無法獲取題目描述，請前往 {source_label} 網站查看。",
-                        ephemeral=True,
-                    )
-                    return
-
-                problem_content_text = html_to_text(problem_info["content"])
-                translation = await self.bot.llm.translate(problem_content_text, "zh-TW")
-                model_name = getattr(self.bot.llm, "model_name", "Unknown Model")
-
-                footer_text = f"\n\n✨ 由 `{model_name}` 提供翻譯"
-                max_length = 2000 - len(footer_text)
-                if len(translation) > max_length:
-                    translation = translation[: max_length - 10] + "...\n(翻譯內容已截斷)"
-
-                self.bot.llm_translate_db.save_translation(problem_id, source, translation, model_name)
-                translation += footer_text
-                await interaction.followup.send(translation, ephemeral=True)
-                self.logger.info(
-                    "成功發送 %s LLM 翻譯給 @%s: problem_id=%s, content_length=%s",
-                    source_label,
-                    interaction.user.name,
-                    problem_id,
-                    len(translation),
-                )
-
-            except discord.errors.InteractionResponded:
-                await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
-            except Exception as e:
-                self.logger.error(f"處理外部來源 LLM翻譯按鈕交互時發生錯誤: {e}", exc_info=True)
-                try:
-                    await interaction.followup.send(f"LLM 翻譯時發生錯誤：{str(e)}", ephemeral=True)
-                except Exception:  # noqa
-                    pass
-            finally:
-                await self._cleanup_request(request_key)
-
-        # Button for external source LLM inspire
-        elif custom_id.startswith("ext_inspire|"):
-            self.logger.debug(f"接收到外部來源靈感啟發按鈕交互: custom_id={custom_id}")
-            if not self.bot.llm_pro:
-                await interaction.response.send_message("LLM 靈感啟發尚未啟用。", ephemeral=True)
-                return
-
-            parts = custom_id.split("|", 2)
-            if len(parts) < 3:
-                await interaction.response.send_message("無效的題目ID，無法顯示靈感啟發。", ephemeral=True)
-                return
-            source = parts[1]
-            problem_id = parts[2]
-
-            if not problem_id:
-                await interaction.response.send_message("無效的題目ID，無法顯示靈感啟發。", ephemeral=True)
-                return
-
-            request_key = (interaction.user.id, problem_id, "inspire")
-            if await self._handle_duplicate_request(interaction, request_key, "inspire"):
-                return
-
-            try:
-                await interaction.response.defer(ephemeral=True)
-                source_label = source.capitalize()
-
-                inspire_result_data = self.bot.llm_inspire_db.get_inspire(problem_id, source)
-                model_name = "Unknown Model"
-
-                problem_info = self.bot.lcus.problems_db.get_problem(id=problem_id, source=source)
-                if not problem_info or not problem_info.get("content"):
-                    await interaction.followup.send("無法獲取題目資訊。", ephemeral=True)
-                    return
-
-                if inspire_result_data:
-                    self.logger.debug("Get inspire result from DB: problem_id=%s", problem_id)
-                    model_name = inspire_result_data.get("model_name", "Unknown Model")
-                    inspiration_data = inspire_result_data.copy()
-                else:
-                    problem_content_text = html_to_text(problem_info["content"])
-                    tags = problem_info.get("tags", []) or []
-                    difficulty = problem_info.get("difficulty", "")
-
-                    llm_output = await self.bot.llm_pro.inspire(problem_content_text, tags, difficulty)
-                    model_name = getattr(self.bot.llm_pro, "model_name", "Unknown Model")
-
-                    if not isinstance(llm_output, dict) or not all(
-                        k in llm_output for k in ["thinking", "traps", "algorithms", "inspiration"]
-                    ):
-                        raw_response = llm_output.get("raw", str(llm_output))
-                        raw_response = str(raw_response)
-                        if len(raw_response) > 1900:
-                            raw_response = raw_response[:1900] + "...\n(內容已截斷)"
-                        await interaction.followup.send(raw_response, ephemeral=True)
-                        return
-
-                    inspire_result_content = llm_output
-                    db_thinking = format_inspire_field(inspire_result_content.get("thinking", ""))
-                    db_traps = format_inspire_field(inspire_result_content.get("traps", ""))
-                    db_algorithms = format_inspire_field(inspire_result_content.get("algorithms", ""))
-                    db_inspiration = format_inspire_field(inspire_result_content.get("inspiration", ""))
-
-                    self.bot.llm_inspire_db.save_inspire(
-                        problem_id,
-                        source,
-                        db_thinking,
-                        db_traps,
-                        db_algorithms,
-                        db_inspiration,
-                        model_name=model_name,
-                    )
-
-                    inspiration_data = llm_output.copy()
-                inspiration_data["footer"] = f"由 {model_name} 提供靈感"
-                embed = create_inspiration_embed(inspiration_data, problem_info)
-                await interaction.followup.send(embed=embed, ephemeral=True)
-                self.logger.info(
-                    "成功發送 %s LLM 靈感給 @%s: problem_id=%s",
-                    source_label,
-                    interaction.user.name,
-                    problem_id,
-                )
-
-            except discord.errors.InteractionResponded:
-                await interaction.followup.send("已經回應過此交互，請重新點擊按鈕。", ephemeral=True)
-            except Exception as e:
-                self.logger.error(f"處理外部來源 LLM靈感按鈕交互時發生錯誤: {e}", exc_info=True)
-                try:
-                    await interaction.followup.send(f"LLM 靈感啟發時發生錯誤：{str(e)}", ephemeral=True)
-                except Exception:  # noqa
-                    pass
-            finally:
-                await self._cleanup_request(request_key)
-
-        # Navigation buttons for user submissions
-        elif custom_id.startswith("user_sub_prev_") or custom_id.startswith("user_sub_next_"):
-            self.logger.debug(f"接收到使用者解題紀錄導航按鈕交互: custom_id={custom_id}")
-
-            try:
-                # Parse custom_id: user_sub_[prev/next]_{username}_{current_page}
-                parts = custom_id.split("_")
-                direction = parts[2]  # "prev" or "next"
-                username = "_".join(parts[3:-1])  # Username might contain underscores
-                current_page = int(parts[-1])
-
-                # Calculate new page
-                if direction == "prev":
-                    new_page = current_page - 1
-                else:  # "next"
-                    new_page = current_page + 1
-
-                # Get cached submissions or fetch new ones
-                cache_key = f"{username}_{interaction.user.id}"
-                cached_data = self.submissions_cache.get(cache_key)
-
-                # Check if cache is valid (5 minutes)
-                if cached_data and (time.time() - cached_data[1]) < 300:
-                    submissions = cached_data[0]
-                else:
-                    # Fetch submissions again
-                    await interaction.response.defer(ephemeral=True)
-                    # Use the original limit if available, otherwise default to 50
-                    original_limit = cached_data[2] if cached_data and len(cached_data) > 2 else 50
-                    submissions = await self.bot.lcus.fetch_recent_ac_submissions(username, original_limit)
-                    if not submissions:
-                        await interaction.followup.send(f"找不到使用者 **{username}** 的解題紀錄。", ephemeral=True)
-                        return
-                    # Update cache with limit
-                    self.submissions_cache[cache_key] = (
-                        submissions,
-                        time.time(),
-                        original_limit,
-                    )
-
-                # Validate page number
-                if new_page < 0 or new_page >= len(submissions):
-                    await interaction.response.send_message("無效的頁面", ephemeral=True)
-                    return
-
-                # Create new embed and view
-                slash_cog = self.bot.get_cog("SlashCommandsCog")
-                if not slash_cog:
-                    await interaction.response.send_message("無法載入指令模組", ephemeral=True)
-                    return
-
-                # Defer if not already done
-                if not interaction.response.is_done():
-                    await interaction.response.defer(ephemeral=True)
-
-                # Get detailed info for the new page
-                detailed_submission = await slash_cog._get_submission_details(submissions[new_page])
-                if not detailed_submission:
-                    await interaction.followup.send("無法載入題目詳細資訊", ephemeral=True)
-                    return
-
-                embed = create_submission_embed(detailed_submission, new_page, len(submissions), username)
-                view = create_submission_view(detailed_submission, self.bot, new_page, username, len(submissions))
-
-                # Update the message
-                await interaction.edit_original_response(embed=embed, view=view)
-
-                self.logger.info(
-                    f"使用者 {interaction.user.name} 瀏覽 {username} 的解題紀錄，"
-                    f"第 {new_page + 1}/{len(submissions)} 頁"
-                )
-
-            except Exception as e:
-                self.logger.error(f"處理導航按鈕時發生錯誤: {e}", exc_info=True)
-                try:
-                    if not interaction.response.is_done():
-                        await interaction.response.send_message(f"導航時發生錯誤：{str(e)}", ephemeral=True)
-                    else:
-                        await interaction.followup.send(f"導航時發生錯誤：{str(e)}", ephemeral=True)
-                except Exception:
-                    pass
-
-        # Handle individual problem detail buttons
-        elif custom_id.startswith("problem_detail|") or custom_id.startswith("problem_detail_"):
-            self.logger.debug(f"接收到題目詳細資訊按鈕交互: custom_id={custom_id}")
-
-            try:
-                if custom_id.startswith("problem_detail|"):
-                    parts = custom_id.split("|")
-                    if len(parts) < 4:
-                        await interaction.followup.send("題目資訊格式錯誤，請重新點擊按鈕。", ephemeral=True)
-                        return
-                    _, source, problem_id, domain = parts[:4]
-                else:
-                    # Legacy format: problem_detail_{problem_id}_{domain}
-                    parts = custom_id.split("_")
-                    problem_id = parts[2]
-                    domain = parts[3] if len(parts) > 3 else "com"
-                    source = "leetcode"
-
-                # Defer the response as this might take some time
-                await interaction.response.defer(ephemeral=True)
-
-                if source == "leetcode":
-                    current_client = self.bot.lcus if domain == "com" else self.bot.lccn
-                    problem_info = await current_client.get_problem(problem_id=problem_id)
-                else:
-                    problem_info = self.bot.lcus.problems_db.get_problem(id=problem_id, source=source)
-
-                if not problem_info:
-                    await interaction.followup.send(
-                        f"找不到題目 {problem_id}，請確認題目編號是否正確。",
-                        ephemeral=True,
-                    )
-                    return
-
-                # Create detailed embed and view
-                embed = await create_problem_embed(
-                    problem_info=problem_info,
-                    bot=self.bot,
-                    domain=domain,
-                    is_daily=False,
-                )
-                view = await create_problem_view(problem_info=problem_info, bot=self.bot, domain=domain)
-
-                await interaction.followup.send(embed=embed, view=view, ephemeral=True)
-                self.logger.info(f"使用者 {interaction.user.name} 查看題目 {problem_id} 詳細資訊")
-
-            except Exception as e:
-                self.logger.error(f"處理題目詳細資訊按鈕時發生錯誤: {e}", exc_info=True)
-                try:
-                    if not interaction.response.is_done():
-                        await interaction.response.send_message(f"載入題目詳細資訊時發生錯誤：{str(e)}", ephemeral=True)
-                    else:
-                        await interaction.followup.send(f"載入題目詳細資訊時發生錯誤：{str(e)}", ephemeral=True)
-                except Exception:
-                    pass
-
-        # Button for similar problems search
-        similar_prefix = getattr(self.bot, "LEETCODE_SIMILAR_BUTTON_PREFIX", "leetcode_similar_")
-        if custom_id.startswith(similar_prefix) or custom_id.startswith("ext_similar|"):
-            self.logger.debug(f"接收到相似題目按鈕交互: custom_id={custom_id}")
-            await self._handle_similar_problem_interaction(interaction, custom_id)
+        # Submission navigation (preserved)
+        if custom_id.startswith("user_sub_prev_") or custom_id.startswith("user_sub_next_"):
+            await self._handle_submission_nav(interaction, custom_id)
+            return
+
+        # Unified problem button: problem|{source}|{id}|{action}
+        if custom_id.startswith("problem|"):
+            parts = custom_id.split("|")
+            if len(parts) == 4:
+                _, source, pid, action = parts
+                await self._handle_problem_action(interaction, source, pid, action)
+            else:
+                self.logger.debug("Invalid problem button format: %s", custom_id)
+            return
+
+        # Silently ignore old/unrecognized custom_ids
+        self.logger.debug("Ignoring unrecognized custom_id: %s", custom_id)
 
 
 async def setup(bot: commands.Bot):

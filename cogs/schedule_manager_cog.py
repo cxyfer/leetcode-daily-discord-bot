@@ -1,13 +1,15 @@
 # cogs/schedule_manager_cog.py
+import asyncio
+import random
+
 import pytz
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from discord.ext import commands
 
+from api_client import ApiProcessingError, ApiRateLimitError
 from utils.config import DEFAULT_POST_TIME, DEFAULT_TIMEZONE, parse_timezone
 from utils.logger import get_scheduler_logger
-
-# Import UI helpers
 from utils.ui_helpers import send_daily_challenge
 
 
@@ -110,28 +112,34 @@ class ScheduleManagerCog(commands.Cog):
 
     async def send_daily_challenge_job(self, server_id: int, channel_id: int, role_id: int = None):
         """Job function called by APScheduler to send daily challenges"""
-        try:
-            self.logger.info(f"APScheduler triggered: Sending daily challenge for server {server_id}")
+        self.logger.info(f"APScheduler triggered: Sending daily challenge for server {server_id}")
+        delays = [2, 4, 8]
 
-            # Send the daily challenge
-            challenge_info = await send_daily_challenge(
-                bot=self.bot,
-                channel_id=channel_id,
-                role_id=role_id,
-            )
+        for attempt in range(len(delays) + 1):
+            try:
+                result = await send_daily_challenge(bot=self.bot, channel_id=channel_id, role_id=role_id)
+                if result:
+                    self.logger.info(f"Sent daily challenge for server {server_id}: {result.get('title')}")
+                else:
+                    self.logger.warning(f"Failed to send daily challenge for server {server_id}")
+                return
+            except ApiProcessingError:
+                if attempt < len(delays):
+                    delay = delays[attempt] + random.uniform(-0.5, 0.5)
+                    self.logger.warning(
+                        f"Server {server_id}: API processing (attempt {attempt + 1}/{len(delays) + 1}), "
+                        f"retry in {delay:.1f}s"
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+            except ApiRateLimitError:
+                self.logger.warning(f"Server {server_id}: rate limited, skipping daily challenge")
+                return
+            except Exception as e:
+                self.logger.error(f"Error in send_daily_challenge_job for server {server_id}: {e}", exc_info=True)
+                return
 
-            if challenge_info:
-                self.logger.info(
-                    f"Successfully sent daily challenge for server {server_id}: {challenge_info.get('title')}"
-                )
-            else:
-                self.logger.warning(f"Failed to send daily challenge for server {server_id}")
-
-        except Exception as e:
-            self.logger.error(
-                f"Error in send_daily_challenge_job for server {server_id}: {e}",
-                exc_info=True,
-            )
+        self.logger.warning(f"Server {server_id}: API still processing after {len(delays) + 1} attempts, skipping")
 
     async def reschedule_daily_challenge(self, server_id: int = None):
         """Reschedule the daily challenge for a specific server or all servers"""
