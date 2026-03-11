@@ -57,7 +57,11 @@ The `/similar` command SHALL find problems similar to a given problem or query u
 
 #### Scenario: Result enrichment
 - **WHEN** similar problems are found
-- **THEN** the system SHALL enrich results with problem metadata (title, difficulty, tags, rating)
+- **THEN** the system SHALL enrich results with problem metadata (title, difficulty, tags, rating) and return rewritten_query field when applicable
+
+#### Scenario: Display format consistency
+- **WHEN** similar results are displayed via slash command or button interaction
+- **THEN** both paths SHALL use the same centralized embed builder to ensure consistent formatting
 
 #### Scenario: Over-fetch filtering
 - **WHEN** similarity search is performed

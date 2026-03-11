@@ -22,12 +22,24 @@ The system SHALL provide centralized functions for creating Discord embeds with 
 - **WHEN** server settings are displayed
 - **THEN** the system SHALL create a settings embed showing channel, role, post time, and timezone
 
+#### Scenario: Similar results embed
+- **WHEN** similar problems are displayed
+- **THEN** the system SHALL create a similar results embed with rewritten query or base problem context, numbered result list with source-aware difficulty emoji, problem ID, title, link, source label, and similarity score
+
 ### Requirement: Consistent color and emoji mappings
 The system SHALL use predefined color codes and emoji mappings for difficulty levels and problem attributes.
 
 #### Scenario: Difficulty color coding
 - **WHEN** an embed is created for a problem
 - **THEN** the embed color SHALL match the difficulty level (Easy=green, Medium=orange, Hard=red)
+
+#### Scenario: Source-aware difficulty emoji
+- **WHEN** a problem from any source is displayed
+- **THEN** the system SHALL use source-specific difficulty emoji mappings (LeetCode: Easy/Medium/Hard → 🟢🟡🔴, Luogu: 8-tier color scale, other sources: 🧩)
+
+#### Scenario: Field splitting for readability
+- **WHEN** an embed field contains multiple items
+- **THEN** the system SHALL split items into multiple fields with maximum 5 items per field and enforce 1024-character limit per field value
 
 ### Requirement: Discord limit enforcement
 The system SHALL enforce Discord API limits when constructing embeds and messages.
