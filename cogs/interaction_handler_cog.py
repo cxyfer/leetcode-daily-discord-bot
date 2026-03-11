@@ -10,6 +10,8 @@ from utils.logger import get_commands_logger
 from utils.ui_helpers import (
     create_inspiration_embed,
     create_problem_description_embed,
+    create_problem_embed,
+    create_problem_view,
     create_similar_results_embed,
     create_submission_embed,
     create_submission_view,
@@ -142,7 +144,9 @@ class InteractionHandlerCog(commands.Cog):
             return
 
         try:
-            if action == "desc":
+            if action == "view":
+                await self._action_view(interaction, source, pid)
+            elif action == "desc":
                 await self._action_desc(interaction, source, pid)
             elif action == "translate":
                 await self._action_translate(interaction, source, pid)
@@ -167,6 +171,21 @@ class InteractionHandlerCog(commands.Cog):
                 await interaction.followup.send(f"發生錯誤：{e}", ephemeral=True)
             except Exception:
                 pass
+
+    async def _action_view(self, interaction: discord.Interaction, source: str, pid: str):
+        problem = await self.bot.api.get_problem(source, pid)
+        if not problem:
+            await interaction.followup.send("找不到題目。", ephemeral=True)
+            return
+
+        embed = await create_problem_embed(
+            problem_info=problem,
+            bot=self.bot,
+            domain="com",
+            is_daily=False,
+        )
+        view = await create_problem_view(problem_info=problem, bot=self.bot, domain="com")
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
     async def _action_desc(self, interaction: discord.Interaction, source: str, pid: str):
         problem = await self.bot.api.get_problem(source, pid)

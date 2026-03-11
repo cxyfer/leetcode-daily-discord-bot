@@ -29,10 +29,11 @@ from .ui_constants import (
     INSPIRATION_COLOR,
     INSPIRE_FIELDS,
     LEETCODE_LOGO_URL,
-    MAX_PROBLEMS_PER_OVERVIEW,
-    MAX_SIMILAR_QUESTIONS,
+    LUOGU_DIFFICULTY_COLORS,
     LUOGU_DIFFICULTY_EMOJIS,
     MAX_FIELD_LENGTH,
+    MAX_PROBLEMS_PER_OVERVIEW,
+    MAX_SIMILAR_QUESTIONS,
     NON_DIFFICULTY_EMOJI,
     PROBLEMS_PER_FIELD,
 )
@@ -59,8 +60,11 @@ def get_user_color(user: discord.User) -> int:
     return int(color_hex, 16)
 
 
-def get_difficulty_color(difficulty: str) -> int:
+def get_difficulty_color(difficulty: str, source: str = "leetcode") -> int:
     """獲取難度對應的顏色"""
+    if source == "luogu":
+        normalized = difficulty.replace("\u2212", "-")
+        return LUOGU_DIFFICULTY_COLORS.get(normalized, DEFAULT_COLOR)
     return DIFFICULTY_COLORS.get(difficulty, DEFAULT_COLOR)
 
 
@@ -83,9 +87,9 @@ def get_source_difficulty_emoji(source: str, difficulty: str | None) -> str:
 
 def get_problem_emoji(problem_info: Dict[str, Any]) -> str:
     """依題目來源選擇對應表情符號"""
-    if problem_info.get("source", "leetcode") == "leetcode":
-        return get_difficulty_emoji(problem_info.get("difficulty", ""))
-    return NON_DIFFICULTY_EMOJI
+    source = problem_info.get("source", "leetcode")
+    difficulty = problem_info.get("difficulty")
+    return get_source_difficulty_emoji(source, difficulty)
 
 
 def create_similar_results_embed(
@@ -136,9 +140,10 @@ async def create_problem_embed(
     source = problem_info.get("source", "leetcode")
     if source != "leetcode":
         source_label = "AtCoder" if source == "atcoder" else source.capitalize()
+        embed_color = get_difficulty_color(problem_info.get("difficulty", ""), source) if problem_info.get("difficulty") else DEFAULT_COLOR
         embed = discord.Embed(
             title=f"{FIELD_EMOJIS['link']} {problem_info['id']}: {problem_info['title']}",
-            color=DEFAULT_COLOR,
+            color=embed_color,
             url=problem_info.get("link"),
         )
         if (title or message) and user:
@@ -521,7 +526,7 @@ def create_problems_overview_view(problems: List[Dict[str, Any]], domain: str) -
             style=discord.ButtonStyle.secondary,
             label=f"{problem['id']}",
             emoji=emoji,
-            custom_id=f"problem|{source}|{problem['id']}|desc",
+            custom_id=f"problem|{source}|{problem['id']}|view",
             row=i // 5,
         )
         view.add_item(button)
@@ -552,7 +557,7 @@ def create_problem_description_embed(
     """Create an embed for problem description"""
     if source == "leetcode":
         emoji = get_difficulty_emoji(problem_info["difficulty"])
-        embed_color = get_difficulty_color(problem_info["difficulty"])
+        embed_color = get_difficulty_color(problem_info["difficulty"], source)
         embed = discord.Embed(
             title=f"{emoji} {problem_info['id']}. {problem_info['title']}",
             description=problem_info["description"],
@@ -563,10 +568,13 @@ def create_problem_description_embed(
         return embed
 
     source_label = "AtCoder" if source == "atcoder" else source.capitalize()
+    difficulty = problem_info.get("difficulty")
+    emoji = get_source_difficulty_emoji(source, difficulty)
+    embed_color = get_difficulty_color(difficulty, source) if difficulty else DEFAULT_COLOR
     embed = discord.Embed(
-        title=f"{NON_DIFFICULTY_EMOJI} {problem_info['id']}: {problem_info['title']}",
+        title=f"{emoji} {problem_info['id']}: {problem_info['title']}",
         description=problem_info["description"],
-        color=DEFAULT_COLOR,
+        color=embed_color,
         url=problem_info["link"],
     )
     footer_icon_url = ATCODER_LOGO_URL if source == "atcoder" else None

@@ -25,6 +25,18 @@ LUOGU_DIFFICULTY_EMOJIS = {
     "NOI/NOI+/CTSC": "⚫",
 }
 
+# 洛谷難度顏色映射
+LUOGU_DIFFICULTY_COLORS = {
+    "暂无评定": 0x808080,  # 灰色
+    "入门": 0xFE4C61,  # 紅色
+    "普及-": 0xF39C11,  # 橘色
+    "普及/提高-": 0xFFC116,  # 黃色
+    "普及+/提高": 0x52C41A,  # 綠色
+    "提高+/省选-": 0x3498DB,  # 藍色
+    "省选/NOI-": 0x9D3DCF,  # 紫色
+    "NOI/NOI+/CTSC": 0x0E1D69,  # 黑色
+}
+
 # 無難度題目表情符號
 NON_DIFFICULTY_EMOJI = "🧩"
 
