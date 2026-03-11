@@ -179,11 +179,12 @@ cython_debug/
 
 # AI tools
 .ace-tool/
+.agent/
 .claude/
 .codex/
 .gemini/
+.omx/
 .opsx/
-.agent/
 CLAUDE.md
 
 # Logs
