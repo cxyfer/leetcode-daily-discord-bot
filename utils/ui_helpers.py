@@ -140,9 +140,11 @@ async def create_problem_embed(
     source = problem_info.get("source", "leetcode")
     if source != "leetcode":
         source_label = "AtCoder" if source == "atcoder" else source.capitalize()
-        embed_color = get_difficulty_color(problem_info.get("difficulty", ""), source) if problem_info.get("difficulty") else DEFAULT_COLOR
+        difficulty = problem_info.get("difficulty")
+        title_emoji = get_source_difficulty_emoji(source, difficulty) if source == "luogu" else FIELD_EMOJIS["link"]
+        embed_color = get_difficulty_color(difficulty, source) if difficulty else DEFAULT_COLOR
         embed = discord.Embed(
-            title=f"{FIELD_EMOJIS['link']} {problem_info['id']}: {problem_info['title']}",
+            title=f"{title_emoji} {problem_info['id']}: {problem_info['title']}",
             color=embed_color,
             url=problem_info.get("link"),
         )
