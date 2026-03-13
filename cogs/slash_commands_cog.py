@@ -157,11 +157,6 @@ class SlashCommandsCog(commands.Cog):
                 )
                 return
 
-            sources = {problem.get("source", "leetcode") for problem in problems}
-            leetcode_only = sources == {"leetcode"}
-            atcoder_only = sources == {"atcoder"}
-            luogu_only = sources == {"luogu"}
-
             if len(problems) == 1:
                 embed = await create_problem_embed(
                     problem_info=problems[0], bot=self.bot, domain=domain,
@@ -170,6 +165,11 @@ class SlashCommandsCog(commands.Cog):
                 view = await create_problem_view(problem_info=problems[0], bot=self.bot, domain=domain)
                 await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
                 return
+
+            sources = {problem.get("source", "leetcode") for problem in problems}
+            leetcode_only = sources == {"leetcode"}
+            atcoder_only = sources == {"atcoder"}
+            luogu_only = sources == {"luogu"}
 
             # Multiple problems
             if atcoder_only:
