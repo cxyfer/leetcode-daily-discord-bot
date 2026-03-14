@@ -26,6 +26,7 @@ class TestInteractionHandler:
         bot.llm_inspire_db = MagicMock()
         bot.api = AsyncMock()
         bot.lcus = AsyncMock()
+        bot.lcus.problems_db = MagicMock()
         bot.llm = AsyncMock()
         bot.llm_pro = AsyncMock()
         bot.config = MagicMock()
@@ -210,6 +211,35 @@ class TestInteractionHandler:
         # Only one check should have found the set empty
         assert check_count == 1, f"Expected 1 successful check, got {check_count}"
         assert add_count == 1, f"Expected 1 add operation, got {add_count}"
+
+    @pytest.mark.asyncio
+    async def test_problem_view_button_for_luogu_returns_full_problem_card(self, cog, mock_bot, mock_interaction):
+        """多題 overview 的 Luogu 按鈕應回到完整卡片，而不是 description-only 回覆"""
+        mock_interaction.data = {"custom_id": "problem|luogu|P1001|view"}
+        mock_bot.api.get_problem.return_value = {
+            "id": "P1001",
+            "source": "luogu",
+            "slug": "P1001",
+            "title": "Luogu P1001",
+            "title_cn": "",
+            "difficulty": "入门",
+            "ac_rate": None,
+            "rating": None,
+            "tags": None,
+            "link": "https://www.luogu.com.cn/problem/P1001",
+            "content": None,
+            "content_cn": None,
+            "similar_questions": None,
+        }
+
+        await cog.on_interaction(mock_interaction)
+
+        mock_interaction.response.defer.assert_awaited_once_with(ephemeral=True)
+        _, kwargs = mock_interaction.followup.send.call_args
+        assert "embed" in kwargs
+        assert "view" in kwargs
+        assert kwargs["embed"].title.startswith("🔴 P1001:")
+        assert kwargs["view"].children[0].custom_id == "problem|luogu|P1001|desc"
 
 
 if __name__ == "__main__":

@@ -30,12 +30,16 @@ The system SHALL provide centralized functions for creating Discord embeds with 
 The system SHALL use predefined color codes and emoji mappings for difficulty levels and problem attributes.
 
 #### Scenario: Difficulty color coding
-- **WHEN** an embed is created for a problem
+- **WHEN** an embed is created for a LeetCode problem
 - **THEN** the embed color SHALL match the difficulty level (Easy=green, Medium=orange, Hard=red)
+
+#### Scenario: Source-aware difficulty color coding
+- **WHEN** an embed is created for a Luogu problem with a recognized difficulty
+- **THEN** the embed color SHALL use the Luogu-specific 8-tier difficulty color mapping instead of the default external-source color
 
 #### Scenario: Source-aware difficulty emoji
 - **WHEN** a problem from any source is displayed
-- **THEN** the system SHALL use source-specific difficulty emoji mappings (LeetCode: Easy/Medium/Hard → 🟢🟡🔴, Luogu: 8-tier color scale, other sources: 🧩)
+- **THEN** the system SHALL use source-specific difficulty emoji mappings (LeetCode: Easy/Medium/Hard → 🟢🟡🔴, Luogu: 8-tier difficulty emojis, other sources: 🧩)
 
 #### Scenario: Field splitting for readability
 - **WHEN** an embed field contains multiple items
@@ -61,7 +65,7 @@ The system SHALL create button views with persistent custom_ids that survive bot
 
 #### Scenario: Button custom_id format
 - **WHEN** buttons are created for a problem
-- **THEN** custom_ids SHALL follow the format `{PREFIX}_{problem_id}_{domain}` or `{PREFIX}|{source}|{problem_id}`
+- **THEN** custom_ids SHALL follow the format `problem|{source}|{problem_id}|{action}` for problem actions and `config_reset_confirm|...` / `config_reset_cancel|...` for config reset confirmation buttons
 
 #### Scenario: Button within character limit
 - **WHEN** a custom_id is generated

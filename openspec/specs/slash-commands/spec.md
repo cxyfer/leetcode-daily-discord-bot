@@ -41,6 +41,10 @@ The `/problem` command SHALL fetch and display specific problems by ID, URL, or 
 - **WHEN** a user provides multiple problem IDs (comma or space separated, up to 20)
 - **THEN** the bot SHALL display an overview embed with detail buttons for each problem
 
+#### Scenario: Source-aware multi-problem overview
+- **WHEN** all problems in a multi-problem `/problem` query come from the same supported source
+- **THEN** the overview embed SHALL display that source label and the detail buttons SHALL use source-aware difficulty emoji mappings when available
+
 #### Scenario: Custom title and message
 - **WHEN** a user provides `title` and/or `message` parameters
 - **THEN** the bot SHALL use the custom title for the overview embed and include the message as additional context

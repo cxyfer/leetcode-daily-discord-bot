@@ -1,0 +1,207 @@
+import sys
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
+
+import discord
+import pytest
+from discord.ext import commands
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from cogs.slash_commands_cog import SlashCommandsCog
+from utils.ui_constants import LUOGU_DIFFICULTY_COLORS, LUOGU_DIFFICULTY_EMOJIS, NON_DIFFICULTY_EMOJI
+
+
+def _make_interaction():
+    interaction = AsyncMock(spec=discord.Interaction)
+    interaction.response = AsyncMock()
+    interaction.response.defer = AsyncMock()
+    interaction.response.send_message = AsyncMock()
+    interaction.followup = AsyncMock()
+    interaction.followup.send = AsyncMock()
+    user = MagicMock()
+    user.name = "tester"
+    user.display_name = "tester"
+    user.display_avatar = MagicMock(url="https://example.com/avatar.png")
+    interaction.user = user
+    return interaction
+
+
+def _make_bot():
+    bot = MagicMock(spec=commands.Bot)
+    bot.api = AsyncMock()
+    bot.llm = MagicMock()
+    bot.llm_pro = MagicMock()
+    return bot
+
+
+def _make_atcoder_problem(problem_id: str) -> dict:
+    return {
+        "id": problem_id,
+        "source": "atcoder",
+        "slug": problem_id,
+        "title": "Sample",
+        "title_cn": "",
+        "difficulty": None,
+        "ac_rate": None,
+        "rating": None,
+        "contest": "abc436",
+        "problem_index": "G",
+        "tags": None,
+        "link": f"https://atcoder.jp/contests/abc436/tasks/{problem_id}",
+        "category": "Algorithms",
+        "paid_only": 0,
+        "content": None,
+        "content_cn": None,
+        "similar_questions": None,
+    }
+
+
+def _make_luogu_problem(problem_id: str, difficulty: str = "入门") -> dict:
+    return {
+        "id": problem_id,
+        "source": "luogu",
+        "slug": problem_id,
+        "title": f"Luogu {problem_id}",
+        "title_cn": "",
+        "difficulty": difficulty,
+        "ac_rate": None,
+        "rating": None,
+        "contest": None,
+        "problem_index": None,
+        "tags": None,
+        "link": f"https://www.luogu.com.cn/problem/{problem_id}",
+        "category": "Algorithms",
+        "paid_only": 0,
+        "content": None,
+        "content_cn": None,
+        "similar_questions": None,
+    }
+
+
+@pytest.mark.asyncio
+async def test_problem_command_atcoder_single_sends_with_full_problem_view():
+    bot = _make_bot()
+    bot.api.resolve.return_value = {"problem": _make_atcoder_problem("abc436_g")}
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+
+    await cog.problem_command.callback(
+        cog,
+        interaction,
+        problem_ids="abc436_g",
+        domain="com",
+        public=False,
+        message=None,
+        title=None,
+        source=None,
+    )
+
+    assert interaction.followup.send.call_count == 1
+    _, kwargs = interaction.followup.send.call_args
+    assert "view" in kwargs
+    assert len(kwargs["view"].children) == 4
+    assert kwargs["view"].children[0].custom_id == "problem|atcoder|abc436_g|desc"
+
+
+@pytest.mark.asyncio
+async def test_problem_command_atcoder_multiple_sends_overview_buttons():
+    bot = _make_bot()
+
+    async def _resolve(query):
+        return {"problem": _make_atcoder_problem(query)}
+
+    bot.api.resolve.side_effect = _resolve
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+
+    await cog.problem_command.callback(
+        cog,
+        interaction,
+        problem_ids="abc436_g,abc436_f",
+        domain="com",
+        public=False,
+        message=None,
+        title=None,
+        source=None,
+    )
+
+    assert interaction.followup.send.call_count == 1
+    _, kwargs = interaction.followup.send.call_args
+    assert "view" in kwargs
+    assert len(kwargs["view"].children) == 2
+    for button in kwargs["view"].children:
+        emoji_value = button.emoji.name if hasattr(button.emoji, "name") else str(button.emoji)
+        assert emoji_value == NON_DIFFICULTY_EMOJI
+        assert button.custom_id.startswith("problem|atcoder|")
+        assert button.custom_id.endswith("|view")
+
+
+@pytest.mark.asyncio
+async def test_problem_command_luogu_single_shows_difficulty_card():
+    bot = _make_bot()
+    bot.api.resolve.return_value = {"problem": _make_luogu_problem("P1001", difficulty="入门")}
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+
+    await cog.problem_command.callback(
+        cog,
+        interaction,
+        problem_ids="P1001",
+        domain="com",
+        public=False,
+        message=None,
+        title=None,
+        source="luogu",
+    )
+
+    assert interaction.followup.send.call_count == 1
+    _, kwargs = interaction.followup.send.call_args
+    embed = kwargs["embed"]
+    difficulty_field = next(field for field in embed.fields if field.name == "🔥 Difficulty")
+
+    assert embed.title == f"{LUOGU_DIFFICULTY_EMOJIS['入门']} P1001: Luogu P1001"
+    assert embed.color.value == LUOGU_DIFFICULTY_COLORS["入门"]
+    assert difficulty_field.value == "**入门**"
+    assert kwargs["view"].children[0].custom_id == "problem|luogu|P1001|desc"
+
+
+@pytest.mark.asyncio
+async def test_problem_command_luogu_multiple_uses_difficulty_emojis():
+    bot = _make_bot()
+
+    async def _resolve(query):
+        problems = {
+            "luogu:P1001": _make_luogu_problem("P1001", difficulty="入门"),
+            "luogu:P1002": _make_luogu_problem("P1002", difficulty="普及/提高-"),
+        }
+        return {"problem": problems[query]}
+
+    bot.api.resolve.side_effect = _resolve
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+
+    await cog.problem_command.callback(
+        cog,
+        interaction,
+        problem_ids="P1001,P1002",
+        domain="com",
+        public=False,
+        message=None,
+        title=None,
+        source="luogu",
+    )
+
+    assert interaction.followup.send.call_count == 1
+    _, kwargs = interaction.followup.send.call_args
+    overview_field = kwargs["embed"].fields[0]
+    button_emojis = [
+        button.emoji.name if hasattr(button.emoji, "name") else str(button.emoji) for button in kwargs["view"].children
+    ]
+
+    assert kwargs["embed"].footer.text == "Luogu Problems Overview"
+    assert f"{LUOGU_DIFFICULTY_EMOJIS['入门']} **[P1001: Luogu P1001]" in overview_field.value
+    assert f"{LUOGU_DIFFICULTY_EMOJIS['普及/提高-']} **[P1002: Luogu P1002]" in overview_field.value
+    assert button_emojis == [LUOGU_DIFFICULTY_EMOJIS["入门"], LUOGU_DIFFICULTY_EMOJIS["普及/提高-"]]
+    assert all(button.custom_id.startswith("problem|luogu|") for button in kwargs["view"].children)
+    assert all(button.custom_id.endswith("|view") for button in kwargs["view"].children)

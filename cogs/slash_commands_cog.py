@@ -166,12 +166,18 @@ class SlashCommandsCog(commands.Cog):
                 await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
                 return
 
+            sources = {problem.get("source", "leetcode") for problem in problems}
+            leetcode_only = sources == {"leetcode"}
+            atcoder_only = sources == {"atcoder"}
+            luogu_only = sources == {"luogu"}
+
             # Multiple problems
-            sources = {p.get("source", "leetcode") for p in problems}
-            if sources == {"leetcode"}:
-                source_label, footer_icon = "LeetCode", LEETCODE_LOGO_URL
-            elif sources == {"atcoder"}:
+            if atcoder_only:
                 source_label, footer_icon = "AtCoder", ATCODER_LOGO_URL
+            elif leetcode_only:
+                source_label, footer_icon = "LeetCode", LEETCODE_LOGO_URL
+            elif luogu_only:
+                source_label, footer_icon = "Luogu", None
             else:
                 source_label, footer_icon = "Mixed Sources", None
 
