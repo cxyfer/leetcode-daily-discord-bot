@@ -183,6 +183,7 @@ cython_debug/
 .claude/
 .codex/
 .gemini/
+.omc/
 .omx/
 .opsx/
 CLAUDE.md
