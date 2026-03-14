@@ -12,7 +12,7 @@ The bot SHALL handle button interactions using persistent custom_id prefixes tha
 
 #### Scenario: Custom_id format differentiation
 - **WHEN** a button interaction is received
-- **THEN** the bot SHALL distinguish between LeetCode buttons (`{PREFIX}_{problem_id}_{domain}`), external source buttons (`{PREFIX}|{source}|{problem_id}`), and config reset buttons (`config_reset_confirm|...` / `config_reset_cancel|...`)
+- **THEN** the bot SHALL distinguish between unified problem buttons (`problem|{source}|{problem_id}|{action}`) and config reset buttons (`config_reset_confirm|...` / `config_reset_cancel|...`)
 
 ### Requirement: Problem description button
 The bot SHALL display the full problem description when the description button is clicked.
@@ -65,12 +65,16 @@ The bot SHALL support paginated navigation through user submissions with a 5-min
 - **WHEN** the cached submission data is older than 5 minutes
 - **THEN** the bot SHALL re-fetch submissions from the API
 
-### Requirement: External source buttons
-The bot SHALL handle description, translation, and inspiration buttons for problems from external sources (AtCoder, Codeforces, etc.).
+### Requirement: Unified problem action buttons
+The bot SHALL handle `view`, `desc`, `translate`, `inspire`, and `similar` actions for problems from all supported sources using the unified problem button format.
 
-#### Scenario: External source interaction
-- **WHEN** a user clicks a button on an external source problem
-- **THEN** the bot SHALL parse the source and problem_id from the custom_id and handle the interaction accordingly
+#### Scenario: Unified problem action routing
+- **WHEN** a user clicks a button with custom_id `problem|{source}|{problem_id}|{action}`
+- **THEN** the bot SHALL parse `source`, `problem_id`, and `action` from the custom_id and route the interaction to the matching problem handler
+
+#### Scenario: Overview detail button opens full problem card
+- **WHEN** a user clicks an overview detail button with action `view`
+- **THEN** the bot SHALL fetch the problem and send the full problem card with its interactive problem view instead of a description-only response
 
 ### Requirement: Interaction error handling
 The bot SHALL handle interaction errors gracefully with fallback mechanisms.
