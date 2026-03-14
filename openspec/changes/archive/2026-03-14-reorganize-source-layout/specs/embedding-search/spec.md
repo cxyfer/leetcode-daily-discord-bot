@@ -1,8 +1,5 @@
-# embedding-search Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change init-project-specs. Update Purpose after archive.
-## Requirements
 ### Requirement: Similarity search uses the remote API backend
 The `/similar` command SHALL use the remote API exposed through the application API client as its only similarity-search backend. The runtime SHALL resolve similar problems by calling the API client from the packaged runtime namespace and SHALL NOT depend on local embedding indices, local vector stores, or local embedding generation workflows.
 
@@ -28,4 +25,3 @@ The repository SHALL NOT document or require local embedding build, rebuild, que
 #### Scenario: Documentation guidance
 - **WHEN** runtime or developer documentation describes `/similar`
 - **THEN** it SHALL describe the feature as remote-only and SHALL NOT instruct operators to run `embedding_cli.py`, manage local embedding indices, or install `sqlite-vec` for normal bot operation
-

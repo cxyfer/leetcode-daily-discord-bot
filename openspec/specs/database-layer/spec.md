@@ -40,12 +40,12 @@ The DailyChallengeDatabaseManager SHALL track daily challenges with composite pr
 - **WHEN** a duplicate (date, domain) entry is inserted
 - **THEN** the manager SHALL replace the existing entry
 
-### Requirement: Embedding database management
-The EmbeddingDatabaseManager SHALL manage embedding metadata with composite primary key (source, problem_id).
+### Requirement: No local similarity index persistence
+The database layer SHALL NOT require local embedding metadata tables or vector storage managers for `/similar`.
 
-#### Scenario: Track embedding metadata
-- **WHEN** an embedding is generated
-- **THEN** the manager SHALL store metadata (model, dimensions, timestamp) separately from the vector data
+#### Scenario: Similarity request execution
+- **WHEN** the `/similar` feature is used
+- **THEN** the runtime SHALL delegate similarity search to the remote API instead of persisting local embedding metadata or vectors in SQLite
 
 ### Requirement: LLM cache database management
 The LLMTranslateDatabaseManager and LLMInspireDatabaseManager SHALL cache LLM responses with composite primary key (problem_id, domain).
