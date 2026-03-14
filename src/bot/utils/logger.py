@@ -1,11 +1,14 @@
 import logging
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, Optional
+
+from .paths import get_repo_root, resolve_repo_path
 
 # Global configuration defaults (config.toml overrides are loaded in setup)
 GLOBAL_LOG_LEVEL = logging.INFO
-GLOBAL_LOG_DIR = "./logs"
+GLOBAL_LOG_DIR = str(resolve_repo_path("./logs", get_repo_root()))
 GLOBAL_MODULE_LEVELS = {
     # bot related
     "core": logging.INFO,
@@ -30,6 +33,10 @@ def _resolve_log_level(value: object, default: int) -> int:
     if value is None:
         return default
     return getattr(logging, str(value).upper(), default)
+
+
+def resolve_log_directory(path: str | Path) -> str:
+    return str(resolve_repo_path(path, get_repo_root()))
 
 
 class ColoredFormatter(logging.Formatter):
@@ -115,12 +122,12 @@ class Logger:
         global GLOBAL_LOG_LEVEL, GLOBAL_LOG_DIR, GLOBAL_MODULE_LEVELS
         try:
             # Load config here to avoid circular import during module load
-            from utils.config import get_config
+            from bot.utils.config import get_config
 
             config = get_config()
             logger_config = config.get_section("logging")
             GLOBAL_LOG_LEVEL = _resolve_log_level(logger_config.get("level", "INFO"), logging.INFO)
-            GLOBAL_LOG_DIR = logger_config.get("directory", "./logs")
+            GLOBAL_LOG_DIR = resolve_log_directory(logger_config.get("directory", "./logs"))
             GLOBAL_MODULE_LEVELS = {
                 module: _resolve_log_level(level, logging.INFO)
                 for module, level in logger_config.get("modules", {}).items()

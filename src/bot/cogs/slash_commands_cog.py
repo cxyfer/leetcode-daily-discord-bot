@@ -6,11 +6,11 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
-from utils.config import DEFAULT_POST_TIME, DEFAULT_TIMEZONE, parse_timezone
-from utils.logger import get_commands_logger
-from utils.ui_constants import ATCODER_LOGO_URL, LEETCODE_LOGO_URL
-from utils.ui_helpers import (
+from bot.api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
+from bot.utils.config import DEFAULT_POST_TIME, DEFAULT_TIMEZONE, parse_timezone
+from bot.utils.logger import get_commands_logger
+from bot.utils.ui_constants import ATCODER_LOGO_URL, LEETCODE_LOGO_URL
+from bot.utils.ui_helpers import (
     _fetch_daily_history,
     create_problem_embed,
     create_problem_view,

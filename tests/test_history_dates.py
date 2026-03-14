@@ -2,12 +2,7 @@
 Unit tests for generate_history_dates helper.
 """
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from leetcode import generate_history_dates
+from bot.leetcode import generate_history_dates
 
 
 def test_generate_history_dates_basic():

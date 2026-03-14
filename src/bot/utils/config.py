@@ -13,6 +13,8 @@ from typing import Any, Dict, Optional
 
 import pytz
 
+from .paths import get_repo_root, resolve_repo_path
+
 # Try to use tomllib from Python 3.11+, otherwise fall back to tomli
 if sys.version_info >= (3, 11):
     import tomllib
@@ -41,7 +43,9 @@ class ConfigManager:
         Args:
             config_path: Path to the configuration file
         """
-        self.config_path = Path(config_path)
+        self.repo_root = get_repo_root()
+        raw_config_path = Path(config_path).expanduser()
+        self.config_path = raw_config_path.resolve() if raw_config_path.is_absolute() else resolve_repo_path(raw_config_path, self.repo_root)
         self._config: Dict[str, Any] = {}
         self._load_config()
         self._apply_env_overrides()
@@ -159,7 +163,7 @@ class ConfigManager:
     @property
     def database_path(self) -> str:
         """Get database path"""
-        return self.get("database.path", "data/data.db")
+        return str(resolve_repo_path(self.get("database.path", "data/data.db"), self.repo_root))
 
     @property
     def log_level(self) -> str:
@@ -169,7 +173,7 @@ class ConfigManager:
     @property
     def log_directory(self) -> str:
         """Get logging directory"""
-        return self.get("logging.directory", "./logs")
+        return str(resolve_repo_path(self.get("logging.directory", "./logs"), self.repo_root))
 
     def get_llm_model_config(self, model_type: str = "standard") -> Dict[str, Any]:
         """

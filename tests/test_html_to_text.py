@@ -1,9 +1,4 @@
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from leetcode import html_to_text
+from bot.leetcode import html_to_text
 
 
 def test_html_to_text_atcoder_formatting():

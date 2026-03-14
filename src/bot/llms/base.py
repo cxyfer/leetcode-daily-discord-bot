@@ -4,11 +4,11 @@ from abc import ABC, abstractmethod
 
 from pydantic import BaseModel
 
-from llms.templates import (
+from bot.llms.templates import (
     INSPIRE_JSON_PROMPT_TEMPLATE,
     TRANSLATION_JSON_PROMPT_TEMPLATE,
 )
-from utils.logger import get_llm_logger
+from bot.utils.logger import get_llm_logger
 
 logger = get_llm_logger()
 

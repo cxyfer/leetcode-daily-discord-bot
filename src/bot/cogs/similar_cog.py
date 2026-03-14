@@ -2,9 +2,9 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
-from utils.logger import get_commands_logger
-from utils.ui_helpers import create_similar_results_embed
+from bot.api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
+from bot.utils.logger import get_commands_logger
+from bot.utils.ui_helpers import create_similar_results_embed
 
 
 class SimilarCog(commands.Cog):

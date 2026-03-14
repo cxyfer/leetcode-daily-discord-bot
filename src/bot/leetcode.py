@@ -4,8 +4,8 @@ from datetime import datetime
 import aiohttp
 from bs4 import BeautifulSoup
 
-from utils.html_converter import normalize_math_delimiters
-from utils.logger import get_leetcode_logger
+from bot.utils.html_converter import normalize_math_delimiters
+from bot.utils.logger import get_leetcode_logger
 
 logger = get_leetcode_logger()
 

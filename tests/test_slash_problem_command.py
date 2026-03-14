@@ -1,15 +1,11 @@
-import sys
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest
 from discord.ext import commands
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from cogs.slash_commands_cog import SlashCommandsCog
-from utils.ui_constants import LUOGU_DIFFICULTY_COLORS, LUOGU_DIFFICULTY_EMOJIS, NON_DIFFICULTY_EMOJI
+from bot.cogs.slash_commands_cog import SlashCommandsCog
+from bot.utils.ui_constants import LUOGU_DIFFICULTY_COLORS, LUOGU_DIFFICULTY_EMOJIS, NON_DIFFICULTY_EMOJI
 
 
 def _make_interaction():

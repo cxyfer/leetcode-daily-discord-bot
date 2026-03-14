@@ -5,9 +5,15 @@ import time
 from pathlib import Path
 
 from .logger import get_database_logger
+from .paths import get_repo_root, resolve_repo_path
 
 # Module-level logger
 logger = get_database_logger()
+REPO_ROOT = get_repo_root()
+
+
+def resolve_db_path(db_path: str | Path) -> str:
+    return str(resolve_repo_path(db_path, REPO_ROOT))
 
 
 class SettingsDatabaseManager:
@@ -23,10 +29,10 @@ class SettingsDatabaseManager:
             db_path (str): The path to the database file
         """
 
-        self.db_path = db_path
-        Path(os.path.dirname(db_path)).mkdir(parents=True, exist_ok=True)
+        self.db_path = resolve_db_path(db_path)
+        Path(os.path.dirname(self.db_path)).mkdir(parents=True, exist_ok=True)
         self._init_db()
-        logger.info(f"Database manager initialized with database at {db_path}")
+        logger.info(f"Database manager initialized with database at {self.db_path}")
 
     def _init_db(self):
         """Initialize the database, create necessary tables"""
@@ -172,11 +178,11 @@ class SettingsDatabaseManager:
 class LLMTranslateDatabaseManager:
 
     def __init__(self, db_path="data/data.db", expire_seconds=604800):
-        self.db_path = db_path
+        self.db_path = resolve_db_path(db_path)
         self.expire_seconds = expire_seconds
-        Path(os.path.dirname(db_path)).mkdir(parents=True, exist_ok=True)
+        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
-        logger.info(f"LLMTranslate DB manager initialized with database at {db_path}")
+        logger.info(f"LLMTranslate DB manager initialized with database at {self.db_path}")
 
     def _init_db(self):
         conn = sqlite3.connect(self.db_path)
@@ -239,11 +245,11 @@ class LLMTranslateDatabaseManager:
 class LLMInspireDatabaseManager:
 
     def __init__(self, db_path="data/data.db", expire_seconds=604800):
-        self.db_path = db_path
+        self.db_path = resolve_db_path(db_path)
         self.expire_seconds = expire_seconds
-        Path(os.path.dirname(db_path)).mkdir(parents=True, exist_ok=True)
+        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
-        logger.info(f"LLMInspire DB manager initialized with database at {db_path}")
+        logger.info(f"LLMInspire DB manager initialized with database at {self.db_path}")
 
     def _init_db(self):
         conn = sqlite3.connect(self.db_path)
