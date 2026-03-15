@@ -1,8 +1,6 @@
 import importlib
 import importlib.util
 from pathlib import Path
-from types import SimpleNamespace
-from unittest.mock import AsyncMock
 
 import pytest
 
@@ -66,6 +64,18 @@ def test_find_repo_root_uses_env_override_when_markers_missing(tmp_path, monkeyp
     override_root = tmp_path / "override-root"
     override_root.mkdir()
     monkeypatch.setenv("BOT_REPO_ROOT", str(override_root))
+
+    from bot.utils.paths import find_repo_root
+
+    assert find_repo_root(tmp_path / "unmarked" / "child") == override_root
+
+
+def test_find_repo_root_normalizes_file_override_to_parent(tmp_path, monkeypatch):
+    override_root = tmp_path / "override-root"
+    override_root.mkdir()
+    override_file = override_root / "pyproject.toml"
+    override_file.write_text("[project]\nname = 'override'\n", encoding="utf-8")
+    monkeypatch.setenv("BOT_REPO_ROOT", str(override_file))
 
     from bot.utils.paths import find_repo_root
 

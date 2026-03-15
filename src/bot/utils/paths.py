@@ -31,7 +31,9 @@ def find_repo_root(start: str | Path | None = None) -> Path:
     override = os.getenv("BOT_REPO_ROOT")
     if override:
         override_path = _normalize_path(override)
-        if override_path.exists():
+        if override_path.is_file():
+            override_path = override_path.parent
+        if override_path.is_dir():
             return override_path
         raise RepoRootNotFoundError(f"BOT_REPO_ROOT points to a missing path: {override_path}")
 

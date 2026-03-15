@@ -45,7 +45,11 @@ class ConfigManager:
         """
         self.repo_root = get_repo_root()
         raw_config_path = Path(config_path).expanduser()
-        self.config_path = raw_config_path.resolve() if raw_config_path.is_absolute() else resolve_repo_path(raw_config_path, self.repo_root)
+        self.config_path = (
+            raw_config_path.resolve()
+            if raw_config_path.is_absolute()
+            else resolve_repo_path(raw_config_path, self.repo_root)
+        )
         self._config: Dict[str, Any] = {}
         self._load_config()
         self._apply_env_overrides()

@@ -207,12 +207,13 @@ async def create_bot_runtime(*, config, logger):
         bot.logger = logger
         bot.config = config
 
-        await bot.api.start()
-        await load_extensions(bot)
-        bot.reschedule_daily_challenge = _create_reschedule_helper(bot)
         if not config.discord_token:
             bot.logger.critical("DISCORD_TOKEN is not set. Bot cannot start.")
             return
+
+        await bot.api.start()
+        await load_extensions(bot)
+        bot.reschedule_daily_challenge = _create_reschedule_helper(bot)
 
         try:
             await bot.start(config.discord_token)

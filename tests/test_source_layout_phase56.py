@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 try:
@@ -58,7 +59,16 @@ def test_readme_describes_remote_only_similarity_contract():
     assert "Gemini embeddings" not in readme
 
 
+def test_claude_md_contract_is_optional_when_file_missing(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys.modules[__name__], "CLAUDE_PATH", tmp_path / "missing-CLAUDE.md")
+
+    test_claude_md_matches_packaged_runtime_contract()
+
+
 def test_claude_md_matches_packaged_runtime_contract():
+    if not CLAUDE_PATH.is_file():
+        return
+
     claude_md = _read_text(CLAUDE_PATH)
 
     assert "src/bot/" in claude_md

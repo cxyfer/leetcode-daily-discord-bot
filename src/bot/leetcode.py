@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import datetime
 
@@ -5,9 +6,8 @@ import aiohttp
 from bs4 import BeautifulSoup
 
 from bot.utils.html_converter import normalize_math_delimiters
-from bot.utils.logger import get_leetcode_logger
 
-logger = get_leetcode_logger()
+logger = logging.getLogger("leetcode")
 
 
 def generate_history_dates(anchor_date: str, years: int = 5) -> list[str]:

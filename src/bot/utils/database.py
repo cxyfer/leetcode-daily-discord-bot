@@ -1,14 +1,14 @@
 import json
+import logging
 import os
 import sqlite3
 import time
 from pathlib import Path
 
-from .logger import get_database_logger
 from .paths import get_repo_root, resolve_repo_path
 
 # Module-level logger
-logger = get_database_logger()
+logger = logging.getLogger("database")
 REPO_ROOT = get_repo_root()
 
 
@@ -234,7 +234,8 @@ class LLMTranslateDatabaseManager:
         else:
             translation = str(translation)
         cursor.execute(
-            "INSERT OR REPLACE INTO llm_translate_results (source, problem_id, translation, created_at, model_name) VALUES (?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO llm_translate_results "
+            "(source, problem_id, translation, created_at, model_name) VALUES (?, ?, ?, ?, ?)",
             (source, problem_id, translation, now, model_name),
         )
         conn.commit()
@@ -316,7 +317,16 @@ class LLMInspireDatabaseManager:
             "INSERT OR REPLACE INTO llm_inspire_results "
             "(source, problem_id, thinking, traps, algorithms, inspiration, created_at, model_name) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (source, problem_id, safe_str(thinking), safe_str(traps), safe_str(algorithms), safe_str(inspiration), now, model_name),
+            (
+                source,
+                problem_id,
+                safe_str(thinking),
+                safe_str(traps),
+                safe_str(algorithms),
+                safe_str(inspiration),
+                now,
+                model_name,
+            ),
         )
         conn.commit()
         conn.close()

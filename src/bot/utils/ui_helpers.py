@@ -6,6 +6,7 @@
 import asyncio
 import hashlib
 import json
+import logging
 import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -14,9 +15,8 @@ import discord
 import pytz
 
 from bot.api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
-from bot.leetcode import LeetCodeClient
+from bot.leetcode import generate_history_dates
 
-from .logger import get_ui_logger
 from .ui_constants import (
     ATCODER_LOGO_URL,
     BUTTON_EMOJIS,
@@ -39,7 +39,7 @@ from .ui_constants import (
 )
 
 # Module-level logger
-logger = get_ui_logger()
+logger = logging.getLogger("ui")
 
 
 def get_user_color(user: discord.User) -> int:
@@ -611,7 +611,7 @@ def create_inspiration_embed(inspiration_data: Dict[str, Any], problem_info: Dic
 async def _fetch_daily_history(bot: Any, domain: str, anchor_date: str) -> List[Dict[str, Any]]:
     """Fetch daily challenge history for the same day in previous years."""
     try:
-        history_dates = LeetCodeClient.generate_history_dates(anchor_date)
+        history_dates = generate_history_dates(anchor_date)
     except Exception:
         return []
     if not history_dates:

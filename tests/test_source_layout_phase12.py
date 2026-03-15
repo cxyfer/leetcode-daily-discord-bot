@@ -66,6 +66,32 @@ def test_importing_bot_package_is_side_effect_free(monkeypatch, tmp_path):
     assert not (tmp_path / "data").exists(), "Importing bot package should not create data/ in cwd"
 
 
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "bot.utils.database",
+        "bot.utils.ui_helpers",
+        "bot.leetcode",
+        "bot.llms.base",
+        "bot.llms.gemini",
+    ],
+)
+def test_importing_runtime_submodules_does_not_initialize_logging(monkeypatch, tmp_path, module_name):
+    monkeypatch.chdir(tmp_path)
+
+    for name in [name for name in list(sys.modules) if name == "bot" or name.startswith("bot.")]:
+        sys.modules.pop(name, None)
+
+    logger_module = importlib.import_module("bot.utils.logger")
+    logger_module.Logger._initialized = False
+    logger_module.Logger._loggers.clear()
+
+    importlib.import_module(module_name)
+
+    assert logger_module.Logger._initialized is False
+    assert logger_module.Logger._loggers == {}
+
+
 def test_root_launcher_delegates_to_package_bootstrap(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     launcher = _load_module_from_path("root_launcher_module", PROJECT_ROOT / "bot.py")

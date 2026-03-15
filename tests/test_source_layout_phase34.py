@@ -9,6 +9,9 @@ from bot import app
 
 
 class DummyLogger:
+    def debug(self, *_args, **_kwargs):
+        return None
+
     def info(self, *_args, **_kwargs):
         return None
 
@@ -16,6 +19,9 @@ class DummyLogger:
         return None
 
     def error(self, *_args, **_kwargs):
+        return None
+
+    def critical(self, *_args, **_kwargs):
         return None
 
 
@@ -88,3 +94,75 @@ async def test_owner_commands_reject_path_like_extension_names(invalid_name):
     bot.load_extension.assert_not_awaited()
     assert ctx.send.await_count == 1
     assert "Invalid extension" in ctx.send.await_args.args[0]
+
+
+@pytest.mark.asyncio
+async def test_core_cog_listener_does_not_reprocess_commands(monkeypatch):
+    import bot.cogs.core_cog as core_cog
+
+    monkeypatch.setattr(core_cog, "get_commands_logger", lambda: DummyLogger())
+    bot = SimpleNamespace(user=object(), process_commands=AsyncMock())
+    cog = core_cog.CoreCog(bot)
+    message = SimpleNamespace(author=SimpleNamespace(name="tester"))
+
+    await cog.on_message(message)
+
+    bot.process_commands.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_bot_runtime_checks_token_before_starting_api(monkeypatch):
+    import bot.api_client as api_client
+    import bot.leetcode as leetcode
+    import bot.utils as bot_utils
+    import bot.utils.database as database_module
+
+    class DummyConfig:
+        database_path = "data/data.db"
+        discord_token = None
+        gemini_api_key = None
+        gemini_base_url = None
+        api_base_url = "https://example.com"
+        api_token = None
+        api_timeout = 10
+
+        def get(self, _key, default=None):
+            return default
+
+        def get_cache_expire_seconds(self, _cache_type):
+            return 60
+
+        def get_llm_model_config(self, _model_type):
+            return {}
+
+    class DummyBot:
+        def __init__(self):
+            self.tree = SimpleNamespace(sync=AsyncMock(return_value=[]))
+            self.start = AsyncMock()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        def get_cog(self, _name):
+            return None
+
+    api = SimpleNamespace(start=AsyncMock(), close=AsyncMock())
+    bot = DummyBot()
+
+    monkeypatch.setattr(api_client, "OjApiClient", lambda *args, **kwargs: api)
+    monkeypatch.setattr(leetcode, "LeetCodeClient", lambda *args, **kwargs: SimpleNamespace())
+    monkeypatch.setattr(bot_utils, "SettingsDatabaseManager", lambda *args, **kwargs: SimpleNamespace())
+    monkeypatch.setattr(database_module, "LLMTranslateDatabaseManager", lambda *args, **kwargs: SimpleNamespace())
+    monkeypatch.setattr(database_module, "LLMInspireDatabaseManager", lambda *args, **kwargs: SimpleNamespace())
+    monkeypatch.setattr(app.commands, "Bot", lambda *args, **kwargs: bot)
+    monkeypatch.setattr(app, "_register_runtime_handlers", lambda _bot: None)
+    monkeypatch.setattr(app, "load_extensions", AsyncMock())
+    monkeypatch.setattr(app, "_create_reschedule_helper", lambda _bot: AsyncMock())
+
+    await app.create_bot_runtime(config=DummyConfig(), logger=DummyLogger())
+
+    api.start.assert_not_awaited()
+    bot.start.assert_not_awaited()

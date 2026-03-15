@@ -14,9 +14,7 @@ class CoreCog(commands.Cog):
     async def on_message(self, message: discord.Message):
         if message.author == self.bot.user:
             return
-        # 如果你的 bot 也處理前綴指令，保留這行
-        await self.bot.process_commands(message)
-        self.logger.debug(f"CoreCog: Processed message from {message.author.name}")
+        self.logger.debug(f"CoreCog: Observed message from {message.author.name}")
 
 
 async def setup(bot: commands.Bot):

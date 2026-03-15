@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from abc import ABC, abstractmethod
 
@@ -8,9 +9,8 @@ from bot.llms.templates import (
     INSPIRE_JSON_PROMPT_TEMPLATE,
     TRANSLATION_JSON_PROMPT_TEMPLATE,
 )
-from bot.utils.logger import get_llm_logger
 
-logger = get_llm_logger()
+logger = logging.getLogger("llm")
 
 
 def _parse_json_from_text(text: str) -> dict:

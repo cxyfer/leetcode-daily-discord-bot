@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 
 from google import genai
@@ -6,9 +7,8 @@ from google.genai import types
 from pydantic import BaseModel, Field
 
 from bot.llms.base import InspireOutput, LLMBase, TranslationOutput
-from bot.utils.logger import get_llm_logger
 
-logger = get_llm_logger()
+logger = logging.getLogger("llm")
 
 
 class GeminiBaseModel(BaseModel):
