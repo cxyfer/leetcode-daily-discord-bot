@@ -26,7 +26,7 @@ pip install pytest pytest-asyncio pytest-cov
 
 3. **Run with coverage report:**
    ```bash
-   uv run python -m pytest tests/ -v --cov=leetcode --cov-report=term-missing
+   uv run python -m pytest tests/ -v --cov=src/bot --cov-report=term-missing
    ```
 
 4. **Run specific test method:**

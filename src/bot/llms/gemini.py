@@ -1,26 +1,14 @@
 import asyncio
+import logging
 import os
-import sys
-
-# 添加專案根目錄到 Python 路徑
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-try:
-    from .base import InspireOutput, LLMBase, TranslationOutput  # As a module
-except ImportError:
-    from llms.base import (  # When executed directly
-        InspireOutput,
-        LLMBase,
-        TranslationOutput,
-    )
 
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 
-from utils.logger import get_llm_logger
+from bot.llms.base import InspireOutput, LLMBase, TranslationOutput
 
-logger = get_llm_logger()
+logger = logging.getLogger("llm")
 
 
 class GeminiBaseModel(BaseModel):

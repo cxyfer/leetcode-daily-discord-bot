@@ -1,11 +1,6 @@
-import sys
-from pathlib import Path
-
 from bs4 import BeautifulSoup
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from utils.html_converter import (
+from bot.utils.html_converter import (
     fix_relative_urls_in_soup,
     normalize_math_delimiters,
     normalize_newlines,

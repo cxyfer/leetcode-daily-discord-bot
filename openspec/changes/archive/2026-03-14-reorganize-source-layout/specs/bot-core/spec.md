@@ -1,8 +1,14 @@
-# bot-core Specification
+## ADDED Requirements
 
-## Purpose
-TBD - created by archiving change init-project-specs. Update Purpose after archive.
-## Requirements
+### Requirement: Thin bootstrap entrypoint
+The bot runtime SHALL centralize startup orchestration inside the `bot` package, and repository-root `bot.py` SHALL only delegate to package bootstrap logic.
+
+#### Scenario: Root launcher delegation
+- **WHEN** the bot starts through repository-root `bot.py`
+- **THEN** the launcher SHALL delegate to package bootstrap logic under `bot.*` and SHALL NOT retain direct resource initialization, cog discovery, or shutdown orchestration logic
+
+## MODIFIED Requirements
+
 ### Requirement: Bot initialization and shared resource lifecycle
 The bot SHALL initialize all shared resources through package bootstrap code under `src/bot/` before loading cogs. Shared resources SHALL be attached to the bot instance for cog access via `self.bot.<resource>`, and ordinary package imports SHALL NOT trigger runtime initialization as an import side effect.
 
@@ -17,34 +23,6 @@ The bot SHALL initialize all shared resources through package bootstrap code und
 #### Scenario: Import side-effect isolation
 - **WHEN** a non-bootstrap module under `bot.*` is imported for testing or runtime reuse
 - **THEN** the import SHALL NOT create database files, log files, API sessions, Discord bot instances, or other startup side effects
-
-### Requirement: Discord gateway event handling
-The bot SHALL handle the `on_ready` event to sync slash commands and initialize schedules.
-
-#### Scenario: Bot becomes ready
-- **WHEN** the Discord gateway fires the `on_ready` event
-- **THEN** the bot SHALL sync application commands and call `ScheduleManagerCog.initialize_schedules()`
-
-### Requirement: Graceful degradation for optional features
-The bot SHALL start successfully even if optional LLM-backed features are not configured.
-
-#### Scenario: Missing LLM API key
-- **WHEN** no LLM API key is configured
-- **THEN** the bot SHALL start without LLM features, and LLM-related buttons SHALL be hidden or disabled
-
-### Requirement: Configuration fallback
-The bot SHALL support both `config.toml` and `.env` file for configuration, with `config.toml` as the primary source.
-
-#### Scenario: TOML not found
-- **WHEN** `config.toml` does not exist but `.env` is present
-- **THEN** the bot SHALL load `.env` and use a DummyConfig compatibility wrapper
-
-### Requirement: Discord intents and permissions
-The bot SHALL request Message Content intent and require Send Messages, Embed Links, and Use Slash Commands permissions.
-
-#### Scenario: Required permissions
-- **WHEN** the bot joins a server
-- **THEN** it SHALL function correctly with Send Messages, Embed Links, and Use Slash Commands permissions
 
 ### Requirement: Dynamic cog management
 The bot SHALL provide owner-only commands for dynamic cog loading, unloading, and reloading while preserving the existing bare-name operator workflow.
@@ -63,11 +41,3 @@ The bot SHALL perform cleanup on shutdown, including scheduler shutdown and API 
 #### Scenario: Bot process exit
 - **WHEN** the bot process is terminating
 - **THEN** package bootstrap shutdown logic SHALL close shared runtime resources and shut down the scheduler gracefully
-
-### Requirement: Thin bootstrap entrypoint
-The bot runtime SHALL centralize startup orchestration inside the `bot` package, and repository-root `bot.py` SHALL only delegate to package bootstrap logic.
-
-#### Scenario: Root launcher delegation
-- **WHEN** the bot starts through repository-root `bot.py`
-- **THEN** the launcher SHALL delegate to package bootstrap logic under `bot.*` and SHALL NOT retain direct resource initialization, cog discovery, or shutdown orchestration logic
-

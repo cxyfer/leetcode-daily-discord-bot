@@ -1,4 +1,4 @@
-from utils.database import LLMInspireDatabaseManager, LLMTranslateDatabaseManager
+from bot.utils.database import LLMInspireDatabaseManager, LLMTranslateDatabaseManager
 
 
 def test_translate_cache_accepts_string_id(tmp_path):

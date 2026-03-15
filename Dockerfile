@@ -13,4 +13,4 @@ COPY . /app
 
 RUN mkdir -p /app/data /app/logs
 
-CMD ["python", "bot.py"]
+CMD ["python", "/app/bot.py"]

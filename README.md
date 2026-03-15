@@ -23,7 +23,7 @@
 - 🔍 **Problem Lookup**: Query single or multiple LeetCode problems with custom titles and messages
 - 📈 **Submission Tracking**: View recent accepted submissions for any user
 - 🤖 **AI-Powered Features**: Optional problem translation and inspiration (requires Gemini API key)
-- 🧭 **Similar Problem Search**: Find related problems via Gemini embeddings (requires index build)
+- 🧭 **Similar Problem Search**: Find related problems through the configured remote API backend
 - 💾 **Smart Caching**: Efficient caching system for better performance
 
 ## 🚀 Quick Start
@@ -56,6 +56,8 @@
    uv run bot.py
    ```
 
+   The repository-root `bot.py` is the supported launcher. It adds `src/` to the import path and delegates startup to the packaged runtime under `src/bot/`.
+
 ## 🐳 Docker Image
 
 Official GHCR image: `ghcr.io/cxyfer/leetcode-daily-discord-bot`  
@@ -85,6 +87,7 @@ docker run -d --name leetcode-daily-discord-bot \
   ghcr.io/cxyfer/leetcode-daily-discord-bot:latest
 ```
 
+- The container starts through `python /app/bot.py`, which delegates into the packaged runtime under `src/bot/`.
 - `/app/data` contains `data.db`; keep it mapped to persist settings and cache.
 - `config.toml` is recommended; `.env` is for backward compatibility.
 - Use `:v1.0.0` to pin a specific release; `:latest` tracks the newest image.
@@ -147,7 +150,7 @@ TIMEZONE=UTC     # Optional
 | `/daily_cn [date] [public]` | Display LeetCode.cn (LCCN) daily challenge<br>• Optional: YYYY-MM-DD for historical challenges<br>• Optional: `public` - Show response publicly (default: private) | None |
 | `/problem <problem_ids> [source] [domain] [public] [message] [title]` | Query one or multiple problems<br>• `problem_ids`: Single ID (e.g., `1`) or comma-separated IDs (e.g., `1,2,3`)<br>• Supports `source:id` format (e.g., `atcoder:abc001_a`, `leetcode:1`)<br>• `source`: Problem source - `leetcode` (default) or `atcoder`<br>• `domain`: LeetCode domain - `com` or `cn` (default: `com`)<br>• `public`: Show response publicly (default: private)<br>• `message`: Optional personal message/note (max 500 chars)<br>• `title`: Custom title for multi-problem mode (max 100 chars)<br>• Note: Supports up to 10 problems per query | None |
 | `/recent <username> [limit] [public]` | View recent accepted submissions for a user<br>• `username`: LeetCode username (LCUS only)<br>• `limit`: Number of submissions (1-50, default: 20)<br>• `public`: Show response publicly (default: private) | None |
-| `/similar <query> [top_k] [source] [public]` | Find similar problems from the embedding index<br>• `query`: Problem description or keywords<br>• `top_k`: Number of results (default: 5)<br>• `source`: Problem source (default: leetcode)<br>• `public`: Show response publicly (default: private) | None |
+| `/similar <query> [top_k] [source] [public]` | Find similar problems through the configured remote API backend<br>• `query`: Problem description or keywords<br>• `top_k`: Number of results (default: 5)<br>• `source`: Problem source (default: leetcode)<br>• `public`: Show response publicly (default: private) | None |
 | `/set_channel` | Set notification channel for daily challenges | Manage Channels |
 | `/set_role` | Set role to mention with daily challenges | Manage Roles |
 | `/set_post_time` | Set posting time (HH:MM format) | Manage Guild |
@@ -202,7 +205,7 @@ TIMEZONE=UTC     # Optional
 /similar query:"dp with knapsack" public:true # Show results publicly
 ```
 
-> Note: `/similar` requires an embedding index. Build it with `uv run python embedding_cli.py --build`.
+> Note: `/similar` is remote API-backed. No local embedding build or index maintenance step is required in this repository.
 
 #### Server Configuration
 ```
@@ -220,56 +223,12 @@ TIMEZONE=UTC     # Optional
 3. Set posting time and timezone (Optional)
 4. Verify settings with `/show_settings`
 
-### Embedding CLI
+### Runtime Layout
 
-Use the CLI to build and maintain the embedding index for `/similar`:
-
-```
-uv run python embedding_cli.py --stats
-uv run python embedding_cli.py --build --dry-run
-uv run python embedding_cli.py --build --dry-run --source codeforces
-uv run python embedding_cli.py --build --dry-run --source all
-uv run python embedding_cli.py --build
-uv run python embedding_cli.py --rebuild
-uv run python embedding_cli.py --query "two sum"
-```
-
-### LeetCode CLI (Missing Content)
-
-Fill missing problem statements (Algorithms, free only):
-
-```
-uv run python leetcode.py --missing-content-stats
-uv run python leetcode.py --fill-missing-content
-uv run python leetcode.py --fill-missing-content --fill-missing-content-workers 10
-```
-
-### AtCoder CLI
-
-Fetch AtCoder contests and problem content:
-
-```
-uv run python atcoder.py --sync-kenkoooo
-uv run python atcoder.py --fetch-all --resume
-uv run python atcoder.py --contest abc001
-uv run python atcoder.py --status
-```
-
-### Codeforces CLI
-
-Fetch Codeforces contests and problem content:
-
-```
-uv run python codeforces.py --sync-problemset
-uv run python codeforces.py --fetch-all --resume
-uv run python codeforces.py --contest 2082
-uv run python codeforces.py --status
-uv run python codeforces.py --fill-missing-content
-uv run python codeforces.py --missing-content-stats
-uv run python codeforces.py --reprocess-content
-```
-
-Optional flags: `--include-gym`, `--rate-limit`, `--data-dir`, `--db-path`.
+- `bot.py` is the only supported repository-root runtime entrypoint.
+- The packaged application code lives under `src/bot/`.
+- `/similar` is implemented by `bot.api_client` and `bot.cogs.similar_cog` and uses the configured remote API backend.
+- This repository no longer provides a local similarity maintenance CLI, a local embeddings package, or other repository-root tools for similarity indexing.
 
 ### Multi-Problem Features
 
