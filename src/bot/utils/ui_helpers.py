@@ -199,10 +199,12 @@ def _create_similar_results_view(results: List[Dict[str, Any]]) -> discord.ui.Vi
     view = discord.ui.View(timeout=None)
     for index, item in enumerate(results):
         normalized_source, normalized_problem_id = _normalize_problem_button_segments(item["source"], item["id"])
+        emoji = get_source_difficulty_emoji(normalized_source, item.get("difficulty"))
         view.add_item(
             discord.ui.Button(
                 style=discord.ButtonStyle.secondary,
                 label=normalized_problem_id,
+                emoji=emoji,
                 custom_id=_build_problem_view_custom_id(normalized_source, normalized_problem_id),
                 row=index // 5,
             )

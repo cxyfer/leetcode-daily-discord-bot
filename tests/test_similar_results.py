@@ -47,6 +47,7 @@ async def test_create_similar_results_message_attaches_detail_buttons_for_safe_r
         "problem|luogu|6|view",
     ]
     assert [item.row for item in view.children] == [0, 0, 0, 0, 0, 1]
+    assert [str(item.emoji) for item in view.children] == ["🟢", "🟢", "🧩", "🟢", "🟢", "🔴"]
 
 
 def test_create_similar_results_message_fails_closed_for_invalid_routing_fields():
