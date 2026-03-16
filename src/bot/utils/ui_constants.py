@@ -111,6 +111,9 @@ INSPIRE_FIELDS = {
 
 # 限制常量
 MAX_PROBLEMS_PER_OVERVIEW = 25  # Discord 按鈕限制
+MAX_SIMILAR_RESULT_DETAIL_BUTTONS = MAX_PROBLEMS_PER_OVERVIEW  # 相似題目詳情按鈕上限
+MAX_BUTTON_LABEL_LENGTH = 80  # Discord 按鈕標籤長度限制
+MAX_BUTTON_CUSTOM_ID_LENGTH = 100  # Discord custom_id 長度限制
 PROBLEMS_PER_FIELD = 5  # 每個欄位顯示的題目數量
 MAX_SIMILAR_QUESTIONS = 3  # 最多顯示的相似題目數量
 MAX_FIELD_LENGTH = 1024  # Discord embed 欄位最大長度

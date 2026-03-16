@@ -186,6 +186,7 @@ cython_debug/
 .omc/
 .omx/
 .opsx/
+.worktrees/
 CLAUDE.md
 
 # Logs

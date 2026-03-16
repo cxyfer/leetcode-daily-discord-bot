@@ -12,7 +12,7 @@ from bot.utils.ui_helpers import (
     create_problem_description_embed,
     create_problem_embed,
     create_problem_view,
-    create_similar_results_embed,
+    create_similar_results_message,
     create_submission_embed,
     create_submission_view,
 )
@@ -205,9 +205,7 @@ class InteractionHandlerCog(commands.Cog):
             info = problem.copy()
             info["description"] = content
             embed = create_problem_description_embed(info, domain="com", source=source)
-            await interaction.followup.send(
-                "由於題目內容過長，使用嵌入式訊息的方式顯示。", embed=embed, ephemeral=True
-            )
+            await interaction.followup.send("由於題目內容過長，使用嵌入式訊息的方式顯示。", embed=embed, ephemeral=True)
 
     async def _action_translate(self, interaction: discord.Interaction, source: str, pid: str):
         if not self.bot.llm:
@@ -294,7 +292,8 @@ class InteractionHandlerCog(commands.Cog):
                     return
 
                 self.bot.llm_inspire_db.save_inspire(
-                    source, pid,
+                    source,
+                    pid,
                     fmt(llm_output.get("thinking", "")),
                     fmt(llm_output.get("traps", "")),
                     fmt(llm_output.get("algorithms", "")),
@@ -321,8 +320,8 @@ class InteractionHandlerCog(commands.Cog):
             await interaction.followup.send("找不到相似題目。", ephemeral=True)
             return
 
-        embed = create_similar_results_embed(result, base_source=source, base_id=pid)
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        embed, view = create_similar_results_message(result, base_source=source, base_id=pid)
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
     # -- Main listener --
 
