@@ -1,6 +1,7 @@
 import discord
 import pytest
 
+from bot.utils import ui_helpers as ui_helpers_module
 from bot.utils.ui_helpers import create_similar_results_message
 
 
@@ -129,6 +130,33 @@ async def test_create_similar_results_message_normalizes_trimmed_button_segments
     assert isinstance(embed, discord.Embed)
     assert view is not None
     assert [item.label for item in view.children] == ["42", "43"]
+    assert [item.custom_id for item in view.children] == [
+        "problem|leetcode|42|view",
+        "problem|atcoder|43|view",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_create_similar_results_message_builds_view_custom_ids_without_redundant_helper_call(monkeypatch):
+    payload = _make_similar_payload(
+        [
+            _make_similar_item(" 42 ", source=" leetcode "),
+            _make_similar_item(" 43 ", source=" atcoder ", difficulty=""),
+        ]
+    )
+    original_builder = ui_helpers_module._build_problem_view_custom_id
+
+    def fail_on_redundant_normalized_call(source, problem_id):
+        if str(source) == str(source).strip() and str(problem_id) == str(problem_id).strip():
+            raise AssertionError("_create_similar_results_view should not re-use helper after normalization")
+        return original_builder(source, problem_id)
+
+    monkeypatch.setattr(ui_helpers_module, "_build_problem_view_custom_id", fail_on_redundant_normalized_call)
+
+    embed, view = create_similar_results_message(payload)
+
+    assert isinstance(embed, discord.Embed)
+    assert view is not None
     assert [item.custom_id for item in view.children] == [
         "problem|leetcode|42|view",
         "problem|atcoder|43|view",

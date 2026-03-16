@@ -205,7 +205,7 @@ def _create_similar_results_view(results: List[Dict[str, Any]]) -> discord.ui.Vi
                 style=discord.ButtonStyle.secondary,
                 label=normalized_problem_id,
                 emoji=emoji,
-                custom_id=_build_problem_view_custom_id(normalized_source, normalized_problem_id),
+                custom_id=f"problem|{normalized_source}|{normalized_problem_id}|view",
                 row=index // 5,
             )
         )
