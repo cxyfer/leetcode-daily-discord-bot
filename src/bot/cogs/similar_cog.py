@@ -4,7 +4,7 @@ from discord.ext import commands
 
 from bot.api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
 from bot.utils.logger import get_commands_logger
-from bot.utils.ui_helpers import create_similar_results_embed
+from bot.utils.ui_helpers import create_similar_results_message
 
 
 class SimilarCog(commands.Cog):
@@ -45,7 +45,10 @@ class SimilarCog(commands.Cog):
                     src, pid = problem.split(":", 1)
                 else:
                     resolved = await self.bot.api.resolve(problem)
-                    if resolved:
+                    if resolved and resolved.get("problem"):
+                        problem_info = resolved["problem"]
+                        src, pid = problem_info["source"], problem_info["id"]
+                    elif resolved and resolved.get("source") and resolved.get("id"):
                         src, pid = resolved["source"], resolved["id"]
                     else:
                         src, pid = "leetcode", problem
@@ -58,11 +61,11 @@ class SimilarCog(commands.Cog):
                 return
 
             if problem:
-                embed = create_similar_results_embed(result, base_source=src, base_id=pid)
+                embed, view = create_similar_results_message(result, base_source=src, base_id=pid)
             else:
-                embed = create_similar_results_embed(result)
+                embed, view = create_similar_results_message(result)
 
-            await interaction.followup.send(embed=embed, ephemeral=not public)
+            await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
 
         except ApiProcessingError:
             await interaction.followup.send("⏳ 資料準備中，請稍後重試。", ephemeral=not public)

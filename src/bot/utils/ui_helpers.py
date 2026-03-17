@@ -31,9 +31,12 @@ from .ui_constants import (
     LEETCODE_LOGO_URL,
     LUOGU_DIFFICULTY_COLORS,
     LUOGU_DIFFICULTY_EMOJIS,
+    MAX_BUTTON_CUSTOM_ID_LENGTH,
+    MAX_BUTTON_LABEL_LENGTH,
     MAX_FIELD_LENGTH,
     MAX_PROBLEMS_PER_OVERVIEW,
     MAX_SIMILAR_QUESTIONS,
+    MAX_SIMILAR_RESULT_DETAIL_BUTTONS,
     NON_DIFFICULTY_EMOJI,
     PROBLEMS_PER_FIELD,
 )
@@ -92,13 +95,39 @@ def get_problem_emoji(problem_info: Dict[str, Any]) -> str:
     return get_source_difficulty_emoji(source, difficulty)
 
 
-def create_similar_results_embed(
+def _normalize_similar_result_segment(value: Any, fallback: str) -> str:
+    if value is None:
+        return fallback
+    text = str(value).strip()
+    return text or fallback
+
+
+def _format_similarity(value: Any) -> str:
+    try:
+        return f"{float(value):.2f}"
+    except (TypeError, ValueError):
+        return "?"
+
+
+def _build_similar_result_line(index: int, result_item: Dict[str, Any]) -> str:
+    source = _normalize_similar_result_segment(result_item.get("source"), "unknown")
+    problem_id = _normalize_similar_result_segment(result_item.get("id"), "?")
+    title = _normalize_similar_result_segment(result_item.get("title"), "Unknown problem")
+    emoji = get_source_difficulty_emoji(source, result_item.get("difficulty"))
+    separator = ". " if source == "leetcode" else ": "
+    problem_text = f"{problem_id}{separator}{title}"
+    link = result_item.get("link")
+    if link:
+        problem_text = f"[{problem_text}]({link})"
+    return f"{index}. {emoji} {problem_text} [{source}] · {_format_similarity(result_item.get('similarity'))}"
+
+
+def _build_similar_results_embed(
     result: Dict[str, Any],
     *,
     base_source: str | None = None,
     base_id: str | None = None,
-) -> discord.Embed:
-    """建立相似題目搜尋結果 embed"""
+) -> tuple[discord.Embed, bool]:
     embed = discord.Embed(title="🔍 相似題目", color=0x3498DB)
 
     if result.get("rewritten_query"):
@@ -106,23 +135,106 @@ def create_similar_results_embed(
     elif base_source and base_id:
         embed.add_field(name="🔗 基準題目", value=f"{base_source}:{base_id}", inline=False)
 
-    lines = []
-    for idx, r in enumerate(result["results"], 1):
-        source = r["source"]
-        emoji = get_source_difficulty_emoji(source, r.get("difficulty"))
-        sep = ". " if source == "leetcode" else ": "
-        sim = f"{r['similarity']:.2f}"
-        lines.append(f"{idx}. {emoji} [{r['id']}{sep}{r['title']}]({r['link']}) [{source}] · {sim}")
+    lines = [_build_similar_result_line(index, item) for index, item in enumerate(result.get("results") or [], 1)]
+    was_truncated = False
 
     for i in range(0, len(lines), PROBLEMS_PER_FIELD):
         chunk = lines[i : i + PROBLEMS_PER_FIELD]
         value = "\n".join(chunk)
         if len(value) > MAX_FIELD_LENGTH:
             value = value[: MAX_FIELD_LENGTH - 3] + "..."
+            was_truncated = True
         field_name = f"{FIELD_EMOJIS['problems']} Results" if i == 0 else f"{FIELD_EMOJIS['problems']} Results (cont.)"
         embed.add_field(name=field_name, value=value, inline=False)
 
+    return embed, was_truncated
+
+
+def create_similar_results_embed(
+    result: Dict[str, Any],
+    *,
+    base_source: str | None = None,
+    base_id: str | None = None,
+) -> discord.Embed:
+    """建立相似題目搜尋結果 embed"""
+    embed, _ = _build_similar_results_embed(result, base_source=base_source, base_id=base_id)
     return embed
+
+
+def _is_safe_problem_button_segment(value: Any, *, max_length: int | None = None) -> bool:
+    if value is None:
+        return False
+    text = str(value).strip()
+    if not text or "|" in text:
+        return False
+    if max_length is not None and len(text) > max_length:
+        return False
+    return True
+
+
+# Custom ID formats
+PROBLEM_CUSTOM_ID_FMT = "problem|{source}|{pid}|{action}"
+
+
+def _normalize_problem_button_segments(source: Any, problem_id: Any) -> tuple[str, str]:
+    return str(source).strip(), str(problem_id).strip()
+
+
+def _build_problem_custom_id(source: Any, problem_id: Any, action: str) -> str:
+    """Safe builder that normalizes segments and formats the custom_id."""
+    normalized_source, normalized_problem_id = _normalize_problem_button_segments(source, problem_id)
+    return PROBLEM_CUSTOM_ID_FMT.format(
+        source=normalized_source, pid=normalized_problem_id, action=action
+    )
+
+
+def _can_create_similar_result_view(results: List[Dict[str, Any]], *, was_truncated: bool) -> bool:
+    return (
+        bool(results)
+        and not was_truncated
+        and len(results) <= MAX_SIMILAR_RESULT_DETAIL_BUTTONS
+        and all(
+            _is_safe_problem_button_segment(item.get("source"))
+            and _is_safe_problem_button_segment(item.get("id"), max_length=MAX_BUTTON_LABEL_LENGTH)
+            and len(_build_problem_custom_id(item.get("source"), item.get("id"), "view"))
+            <= MAX_BUTTON_CUSTOM_ID_LENGTH
+            for item in results
+        )
+    )
+
+
+def _create_similar_results_view(results: List[Dict[str, Any]]) -> discord.ui.View:
+    view = discord.ui.View()
+    for index, item in enumerate(results):
+        # Normalize once for label, emoji, and custom_id
+        source, pid = _normalize_problem_button_segments(item["source"], item["id"])
+        emoji = get_source_difficulty_emoji(source, item.get("difficulty"))
+        view.add_item(
+            discord.ui.Button(
+                style=discord.ButtonStyle.secondary,
+                label=pid,
+                emoji=emoji,
+                custom_id=PROBLEM_CUSTOM_ID_FMT.format(source=source, pid=pid, action="view"),
+                row=index // 5,
+            )
+        )
+    return view
+
+
+def create_similar_results_message(
+    result: Dict[str, Any],
+    *,
+    base_source: str | None = None,
+    base_id: str | None = None,
+) -> tuple[discord.Embed, discord.ui.View | None]:
+    embed, was_truncated = _build_similar_results_embed(result, base_source=base_source, base_id=base_id)
+    results = result.get("results") or []
+    view = (
+        _create_similar_results_view(results)
+        if _can_create_similar_result_view(results, was_truncated=was_truncated)
+        else None
+    )
+    return embed, view
 
 
 async def create_problem_embed(
@@ -295,7 +407,7 @@ async def create_problem_embed(
 
 async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: str = "com") -> discord.ui.View:
     """Create a view with buttons for a problem"""
-    view = discord.ui.View(timeout=None)
+    view = discord.ui.View()
     source = problem_info.get("source", "leetcode")
     pid = problem_info["id"]
 
@@ -304,7 +416,7 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
             style=discord.ButtonStyle.primary,
             label="題目描述",
             emoji=BUTTON_EMOJIS["description"],
-            custom_id=f"problem|{source}|{pid}|desc",
+            custom_id=_build_problem_custom_id(source, pid, "desc"),
         )
     )
 
@@ -314,7 +426,7 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
                 style=discord.ButtonStyle.success,
                 label="LLM 翻譯",
                 emoji=BUTTON_EMOJIS["translate"],
-                custom_id=f"problem|{source}|{pid}|translate",
+                custom_id=_build_problem_custom_id(source, pid, "translate"),
             )
         )
 
@@ -324,7 +436,7 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
                 style=discord.ButtonStyle.danger,
                 label="靈感啟發",
                 emoji=BUTTON_EMOJIS["inspire"],
-                custom_id=f"problem|{source}|{pid}|inspire",
+                custom_id=_build_problem_custom_id(source, pid, "inspire"),
             )
         )
 
@@ -333,7 +445,7 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
             style=discord.ButtonStyle.secondary,
             label="相似題目",
             emoji=BUTTON_EMOJIS["similar"],
-            custom_id=f"problem|{source}|{pid}|similar",
+            custom_id=_build_problem_custom_id(source, pid, "similar"),
         )
     )
 
@@ -389,7 +501,7 @@ def create_submission_view(
     total_submissions: Optional[int] = None,
 ) -> discord.ui.View:
     """Create a view for submission navigation"""
-    view = discord.ui.View(timeout=None)
+    view = discord.ui.View()
     show_nav = total_submissions is not None
     source = submission.get("source", "leetcode")
     pid = submission["id"]
@@ -408,7 +520,7 @@ def create_submission_view(
         discord.ui.Button(
             style=discord.ButtonStyle.primary,
             emoji=BUTTON_EMOJIS["description"],
-            custom_id=f"problem|{source}|{pid}|desc",
+            custom_id=_build_problem_custom_id(source, pid, "desc"),
             row=0,
         )
     )
@@ -418,7 +530,7 @@ def create_submission_view(
             discord.ui.Button(
                 style=discord.ButtonStyle.success,
                 emoji=BUTTON_EMOJIS["translate"],
-                custom_id=f"problem|{source}|{pid}|translate",
+                custom_id=_build_problem_custom_id(source, pid, "translate"),
                 row=0,
             )
         )
@@ -428,7 +540,7 @@ def create_submission_view(
             discord.ui.Button(
                 style=discord.ButtonStyle.danger,
                 emoji=BUTTON_EMOJIS["inspire"],
-                custom_id=f"problem|{source}|{pid}|inspire",
+                custom_id=_build_problem_custom_id(source, pid, "inspire"),
                 row=0,
             )
         )
@@ -518,7 +630,7 @@ def create_problems_overview_embed(
 
 def create_problems_overview_view(problems: List[Dict[str, Any]], domain: str) -> discord.ui.View:
     """Create a view with buttons for each problem"""
-    view = discord.ui.View(timeout=None)
+    view = discord.ui.View()
 
     for i, problem in enumerate(problems[:MAX_PROBLEMS_PER_OVERVIEW]):
         emoji = get_problem_emoji(problem)
@@ -528,7 +640,7 @@ def create_problems_overview_view(problems: List[Dict[str, Any]], domain: str) -
             style=discord.ButtonStyle.secondary,
             label=f"{problem['id']}",
             emoji=emoji,
-            custom_id=f"problem|{source}|{problem['id']}|view",
+            custom_id=_build_problem_custom_id(source, problem["id"], "view"),
             row=i // 5,
         )
         view.add_item(button)

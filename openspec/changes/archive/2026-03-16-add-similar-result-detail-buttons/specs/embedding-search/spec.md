@@ -1,8 +1,5 @@
-# embedding-search Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change init-project-specs. Update Purpose after archive.
-## Requirements
 ### Requirement: Similarity search uses the remote API backend
 The `/similar` command SHALL use the remote API exposed through the application API client as its only similarity-search backend. The runtime SHALL resolve similar problems by calling the API client from the packaged runtime namespace and SHALL NOT depend on local embedding indices, local vector stores, or local embedding generation workflows.
 
@@ -39,11 +36,3 @@ The `/similar` command SHALL use the remote API exposed through the application 
 ### Property: Slash clamp independence from UI cap
 - **INVARIANT**: Slash `/similar` input normalization stays bounded by its existing fetch clamp even though the detail-button render cap is 25
 - **FALSIFICATION**: Generate arbitrary slash `top_k` inputs and assert that the remote similarity fetch limit remains clamped to the slash-command policy rather than the render-time button cap
-
-### Requirement: No local similarity maintenance workflow
-The repository SHALL NOT document or require local embedding build, rebuild, query, or vector-storage workflows for `/similar`.
-
-#### Scenario: Documentation guidance
-- **WHEN** runtime or developer documentation describes `/similar`
-- **THEN** it SHALL describe the feature as remote-only and SHALL NOT instruct operators to run `embedding_cli.py`, manage local embedding indices, or install `sqlite-vec` for normal bot operation
-

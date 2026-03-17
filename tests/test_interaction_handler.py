@@ -6,7 +6,9 @@ import discord
 import pytest
 from discord.ext import commands
 
+from bot.cogs import interaction_handler_cog as interaction_handler_module
 from bot.cogs.interaction_handler_cog import InteractionHandlerCog
+from bot.utils.ui_helpers import create_similar_results_message
 
 
 class TestInteractionHandler:
@@ -206,6 +208,125 @@ class TestInteractionHandler:
         # Only one check should have found the set empty
         assert check_count == 1, f"Expected 1 successful check, got {check_count}"
         assert add_count == 1, f"Expected 1 add operation, got {add_count}"
+
+    @pytest.mark.asyncio
+    async def test_action_similar_uses_shared_message_builder_and_configured_top_k(
+        self, cog, mock_bot, mock_interaction, monkeypatch
+    ):
+        """題目卡片的 similar flow 應保留 config-driven fetch，並重用 shared builder"""
+        mock_bot.config.get_similar_config.return_value = MagicMock(top_k=25, min_similarity=0.82)
+        mock_bot.api.search_similar_by_id.return_value = {
+            "results": [
+                {
+                    "id": "1",
+                    "source": "leetcode",
+                    "title": "Two Sum",
+                    "difficulty": "Easy",
+                    "similarity": 0.91,
+                    "link": "https://example.com/1",
+                }
+            ]
+        }
+        sentinel_embed = discord.Embed(title="similar")
+        sentinel_view = MagicMock(children=[])
+        helper_calls = []
+
+        def fake_create_similar_results_message(result, *, base_source=None, base_id=None):
+            helper_calls.append((result, base_source, base_id))
+            return sentinel_embed, sentinel_view
+
+        monkeypatch.setattr(
+            interaction_handler_module,
+            "create_similar_results_message",
+            fake_create_similar_results_message,
+            raising=False,
+        )
+
+        await cog._action_similar(mock_interaction, "leetcode", "42")
+
+        mock_bot.api.search_similar_by_id.assert_awaited_once_with("leetcode", "42", 25, 0.82)
+        assert helper_calls == [(mock_bot.api.search_similar_by_id.return_value, "leetcode", "42")]
+        mock_interaction.followup.send.assert_awaited_once_with(
+            embed=sentinel_embed, view=sentinel_view, ephemeral=True
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "results",
+        [
+            [
+                {
+                    "id": "bad|id",
+                    "source": "leetcode",
+                    "title": "Bad",
+                    "difficulty": "Easy",
+                    "similarity": 0.91,
+                    "link": "https://example.com/bad",
+                }
+            ],
+            [
+                {
+                    "id": str(i),
+                    "source": "leetcode",
+                    "title": f"P{i}",
+                    "difficulty": "Easy",
+                    "similarity": 0.91,
+                    "link": f"https://example.com/{i}",
+                }
+                for i in range(1, 27)
+            ],
+        ],
+    )
+    async def test_action_similar_unsafe_results_degrade_to_embed_only(self, cog, mock_bot, mock_interaction, results):
+        mock_bot.config.get_similar_config.return_value = MagicMock(top_k=25, min_similarity=0.82)
+        mock_bot.api.search_similar_by_id.return_value = {"results": results}
+
+        await cog._action_similar(mock_interaction, "leetcode", "42")
+
+        _, kwargs = mock_interaction.followup.send.call_args
+        assert kwargs["view"] is None
+
+    @pytest.mark.asyncio
+    async def test_similar_result_detail_button_routes_to_existing_full_problem_card_flow(
+        self, cog, mock_bot, mock_interaction
+    ):
+        _, view = create_similar_results_message(
+            {
+                "results": [
+                    {
+                        "id": "P1001",
+                        "source": "luogu",
+                        "title": "Luogu P1001",
+                        "difficulty": "入门",
+                        "similarity": 0.91,
+                        "link": "https://www.luogu.com.cn/problem/P1001",
+                    }
+                ]
+            }
+        )
+        mock_interaction.data = {"custom_id": view.children[0].custom_id}
+        mock_bot.api.get_problem.return_value = {
+            "id": "P1001",
+            "source": "luogu",
+            "slug": "P1001",
+            "title": "Luogu P1001",
+            "title_cn": "",
+            "difficulty": "入门",
+            "ac_rate": None,
+            "rating": None,
+            "tags": None,
+            "link": "https://www.luogu.com.cn/problem/P1001",
+            "content": None,
+            "content_cn": None,
+            "similar_questions": None,
+        }
+
+        await cog.on_interaction(mock_interaction)
+
+        mock_interaction.response.defer.assert_awaited_once_with(ephemeral=True)
+        _, kwargs = mock_interaction.followup.send.call_args
+        assert kwargs["view"].children[0].custom_id == "problem|luogu|P1001|desc"
+        assert kwargs["embed"].title.startswith("🔴 P1001:")
 
     @pytest.mark.asyncio
     async def test_problem_view_button_for_luogu_returns_full_problem_card(self, cog, mock_bot, mock_interaction):
