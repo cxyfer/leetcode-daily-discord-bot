@@ -38,6 +38,7 @@ async def test_create_similar_results_message_attaches_detail_buttons_for_safe_r
 
     assert isinstance(embed, discord.Embed)
     assert view is not None
+    assert view.timeout == 180
     assert [item.label for item in view.children] == ["1", "2", "3", "4", "5", "6"]
     assert [item.custom_id for item in view.children] == [
         "problem|leetcode|1|view",
@@ -144,14 +145,14 @@ async def test_create_similar_results_message_builds_view_custom_ids_without_red
             _make_similar_item(" 43 ", source=" atcoder ", difficulty=""),
         ]
     )
-    original_builder = ui_helpers_module._build_problem_view_custom_id
+    original_builder = ui_helpers_module._build_problem_custom_id
 
-    def fail_on_redundant_normalized_call(source, problem_id):
+    def fail_on_redundant_normalized_call(source, problem_id, action="view"):
         if str(source) == str(source).strip() and str(problem_id) == str(problem_id).strip():
             raise AssertionError("_create_similar_results_view should not re-use helper after normalization")
-        return original_builder(source, problem_id)
+        return original_builder(source, problem_id, action)
 
-    monkeypatch.setattr(ui_helpers_module, "_build_problem_view_custom_id", fail_on_redundant_normalized_call)
+    monkeypatch.setattr(ui_helpers_module, "_build_problem_custom_id", fail_on_redundant_normalized_call)
 
     embed, view = create_similar_results_message(payload)
 

@@ -172,13 +172,24 @@ def _is_safe_problem_button_segment(value: Any, *, max_length: int | None = None
     return True
 
 
+# Discord constants
+MAX_BUTTON_CUSTOM_ID_LENGTH = 100
+MAX_BUTTON_LABEL_LENGTH = 80
+
+# Custom ID formats
+PROBLEM_CUSTOM_ID_FMT = "problem|{source}|{pid}|{action}"
+
+
 def _normalize_problem_button_segments(source: Any, problem_id: Any) -> tuple[str, str]:
     return str(source).strip(), str(problem_id).strip()
 
 
-def _build_problem_view_custom_id(source: Any, problem_id: Any) -> str:
+def _build_problem_custom_id(source: Any, problem_id: Any, action: str) -> str:
+    """Safe builder that normalizes segments and formats the custom_id."""
     normalized_source, normalized_problem_id = _normalize_problem_button_segments(source, problem_id)
-    return f"problem|{normalized_source}|{normalized_problem_id}|view"
+    return PROBLEM_CUSTOM_ID_FMT.format(
+        source=normalized_source, pid=normalized_problem_id, action=action
+    )
 
 
 def _can_create_similar_result_view(results: List[Dict[str, Any]], *, was_truncated: bool) -> bool:
@@ -189,23 +200,25 @@ def _can_create_similar_result_view(results: List[Dict[str, Any]], *, was_trunca
         and all(
             _is_safe_problem_button_segment(item.get("source"))
             and _is_safe_problem_button_segment(item.get("id"), max_length=MAX_BUTTON_LABEL_LENGTH)
-            and len(_build_problem_view_custom_id(item.get("source"), item.get("id"))) <= MAX_BUTTON_CUSTOM_ID_LENGTH
+            and len(_build_problem_custom_id(item.get("source"), item.get("id"), "view"))
+            <= MAX_BUTTON_CUSTOM_ID_LENGTH
             for item in results
         )
     )
 
 
 def _create_similar_results_view(results: List[Dict[str, Any]]) -> discord.ui.View:
-    view = discord.ui.View(timeout=None)
+    view = discord.ui.View()
     for index, item in enumerate(results):
-        normalized_source, normalized_problem_id = _normalize_problem_button_segments(item["source"], item["id"])
-        emoji = get_source_difficulty_emoji(normalized_source, item.get("difficulty"))
+        # Normalize once for label, emoji, and custom_id
+        source, pid = _normalize_problem_button_segments(item["source"], item["id"])
+        emoji = get_source_difficulty_emoji(source, item.get("difficulty"))
         view.add_item(
             discord.ui.Button(
                 style=discord.ButtonStyle.secondary,
-                label=normalized_problem_id,
+                label=pid,
                 emoji=emoji,
-                custom_id=f"problem|{normalized_source}|{normalized_problem_id}|view",
+                custom_id=PROBLEM_CUSTOM_ID_FMT.format(source=source, pid=pid, action="view"),
                 row=index // 5,
             )
         )
@@ -398,7 +411,7 @@ async def create_problem_embed(
 
 async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: str = "com") -> discord.ui.View:
     """Create a view with buttons for a problem"""
-    view = discord.ui.View(timeout=None)
+    view = discord.ui.View()
     source = problem_info.get("source", "leetcode")
     pid = problem_info["id"]
 
@@ -407,7 +420,7 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
             style=discord.ButtonStyle.primary,
             label="題目描述",
             emoji=BUTTON_EMOJIS["description"],
-            custom_id=f"problem|{source}|{pid}|desc",
+            custom_id=_build_problem_custom_id(source, pid, "desc"),
         )
     )
 
@@ -417,7 +430,7 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
                 style=discord.ButtonStyle.success,
                 label="LLM 翻譯",
                 emoji=BUTTON_EMOJIS["translate"],
-                custom_id=f"problem|{source}|{pid}|translate",
+                custom_id=_build_problem_custom_id(source, pid, "translate"),
             )
         )
 
@@ -427,7 +440,7 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
                 style=discord.ButtonStyle.danger,
                 label="靈感啟發",
                 emoji=BUTTON_EMOJIS["inspire"],
-                custom_id=f"problem|{source}|{pid}|inspire",
+                custom_id=_build_problem_custom_id(source, pid, "inspire"),
             )
         )
 
@@ -436,7 +449,7 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
             style=discord.ButtonStyle.secondary,
             label="相似題目",
             emoji=BUTTON_EMOJIS["similar"],
-            custom_id=f"problem|{source}|{pid}|similar",
+            custom_id=_build_problem_custom_id(source, pid, "similar"),
         )
     )
 
@@ -492,7 +505,7 @@ def create_submission_view(
     total_submissions: Optional[int] = None,
 ) -> discord.ui.View:
     """Create a view for submission navigation"""
-    view = discord.ui.View(timeout=None)
+    view = discord.ui.View()
     show_nav = total_submissions is not None
     source = submission.get("source", "leetcode")
     pid = submission["id"]
@@ -511,7 +524,7 @@ def create_submission_view(
         discord.ui.Button(
             style=discord.ButtonStyle.primary,
             emoji=BUTTON_EMOJIS["description"],
-            custom_id=f"problem|{source}|{pid}|desc",
+            custom_id=_build_problem_custom_id(source, pid, "desc"),
             row=0,
         )
     )
@@ -521,7 +534,7 @@ def create_submission_view(
             discord.ui.Button(
                 style=discord.ButtonStyle.success,
                 emoji=BUTTON_EMOJIS["translate"],
-                custom_id=f"problem|{source}|{pid}|translate",
+                custom_id=_build_problem_custom_id(source, pid, "translate"),
                 row=0,
             )
         )
@@ -531,7 +544,7 @@ def create_submission_view(
             discord.ui.Button(
                 style=discord.ButtonStyle.danger,
                 emoji=BUTTON_EMOJIS["inspire"],
-                custom_id=f"problem|{source}|{pid}|inspire",
+                custom_id=_build_problem_custom_id(source, pid, "inspire"),
                 row=0,
             )
         )
@@ -621,7 +634,7 @@ def create_problems_overview_embed(
 
 def create_problems_overview_view(problems: List[Dict[str, Any]], domain: str) -> discord.ui.View:
     """Create a view with buttons for each problem"""
-    view = discord.ui.View(timeout=None)
+    view = discord.ui.View()
 
     for i, problem in enumerate(problems[:MAX_PROBLEMS_PER_OVERVIEW]):
         emoji = get_problem_emoji(problem)
@@ -631,7 +644,7 @@ def create_problems_overview_view(problems: List[Dict[str, Any]], domain: str) -
             style=discord.ButtonStyle.secondary,
             label=f"{problem['id']}",
             emoji=emoji,
-            custom_id=f"problem|{source}|{problem['id']}|view",
+            custom_id=_build_problem_custom_id(source, problem["id"], "view"),
             row=i // 5,
         )
         view.add_item(button)
