@@ -172,10 +172,6 @@ def _is_safe_problem_button_segment(value: Any, *, max_length: int | None = None
     return True
 
 
-# Discord constants
-MAX_BUTTON_CUSTOM_ID_LENGTH = 100
-MAX_BUTTON_LABEL_LENGTH = 80
-
 # Custom ID formats
 PROBLEM_CUSTOM_ID_FMT = "problem|{source}|{pid}|{action}"
 
