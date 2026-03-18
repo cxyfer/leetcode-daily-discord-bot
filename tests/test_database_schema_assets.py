@@ -1,5 +1,5 @@
-from pathlib import Path
 import sqlite3
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = REPO_ROOT / "data"
@@ -33,7 +33,6 @@ def _read_sql(path: Path) -> str:
 def _run_sql_script(db_path: Path, sql: str) -> None:
     with sqlite3.connect(db_path) as connection:
         connection.executescript(sql)
-        connection.commit()
 
 
 def _get_user_tables(db_path: Path) -> set[str]:
