@@ -45,11 +45,20 @@
    # Edit .env with your Discord bot token
    ```
 
-3. Run database migration (if upgrading from older version):
+3. Optional database maintenance:
    ```bash
-   # Migrate server settings from settings.db to data.db
-   sqlite3 data/data.db < data/migrate_settings.sql
+   # Fresh installs do not need any legacy migration step.
+
+   # If you are upgrading an existing data/data.db and want to remove
+   # legacy runtime tables, run this manually while the bot is stopped.
+   sqlite3 data/data.db < data/cleanup_db_schema.sql
+
+   # If you need to initialize an empty database file manually,
+   # apply the current runtime schema yourself.
+   sqlite3 data/data.db < data/init_db_schema.sql
    ```
+
+   These SQL files are operator-facing maintenance assets. The bot runtime does not execute cleanup or init SQL automatically.
 
 4. Run the bot:
    ```bash
