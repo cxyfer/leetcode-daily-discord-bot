@@ -142,8 +142,8 @@ def test_database_manager_resolves_default_path_from_repo_root(tmp_path, monkeyp
 
     manager = database_module.SettingsDatabaseManager()
 
-    assert Path(manager.db_path) == REPO_ROOT / "data" / "settings.db"
-    assert connect_calls[0] == str(REPO_ROOT / "data" / "settings.db")
+    assert Path(manager.db_path) == REPO_ROOT / "data" / "data.db"
+    assert connect_calls[0] == str(REPO_ROOT / "data" / "data.db")
 
 
 def test_bootstrap_env_fallback_uses_repo_root_env_path(monkeypatch):

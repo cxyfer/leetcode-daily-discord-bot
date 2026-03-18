@@ -14,41 +14,22 @@ The SettingsDatabaseManager SHALL manage per-server Discord settings with CRUD o
 - **WHEN** settings are requested for a server
 - **THEN** the manager SHALL return all configured settings for that server_id
 
-### Requirement: Problems database management
-The ProblemsDatabaseManager SHALL store and retrieve problem data with composite primary key (source, id).
+### Requirement: Persisted runtime tables
+The runtime SHALL persist data only in the following SQLite tables: `server_settings`, `llm_translate_results`, and `llm_inspire_results`.
 
-#### Scenario: Upsert problem data
-- **WHEN** problem data is saved
-- **THEN** the manager SHALL use INSERT OR REPLACE to handle both new and updated problems
-
-#### Scenario: Problem ID validation
-- **WHEN** a problem without an ID is saved
-- **THEN** the manager SHALL raise a ValueError
-
-#### Scenario: JSON field serialization
-- **WHEN** complex fields (tags, similar_questions) are stored
-- **THEN** the manager SHALL serialize them as JSON strings
-
-### Requirement: Daily challenge database management
-The DailyChallengeDatabaseManager SHALL track daily challenges with composite primary key (date, domain).
-
-#### Scenario: Store daily challenge
-- **WHEN** a daily challenge is fetched
-- **THEN** the manager SHALL store it with the date and domain as the composite key
-
-#### Scenario: One challenge per day per domain
-- **WHEN** a duplicate (date, domain) entry is inserted
-- **THEN** the manager SHALL replace the existing entry
+#### Scenario: Runtime schema initialization
+- **WHEN** the runtime initializes its database managers
+- **THEN** it SHALL create or reuse only `server_settings`, `llm_translate_results`, and `llm_inspire_results` as persisted runtime tables
 
 ### Requirement: No local similarity index persistence
-The database layer SHALL NOT require local embedding metadata tables or vector storage managers for `/similar`.
+The database layer SHALL NOT require local embedding metadata tables, vector storage managers, or other local similarity persistence for `/similar`.
 
 #### Scenario: Similarity request execution
 - **WHEN** the `/similar` feature is used
 - **THEN** the runtime SHALL delegate similarity search to the remote API instead of persisting local embedding metadata or vectors in SQLite
 
 ### Requirement: LLM cache database management
-The LLMTranslateDatabaseManager and LLMInspireDatabaseManager SHALL cache LLM responses with composite primary key (problem_id, domain).
+The LLMTranslateDatabaseManager and LLMInspireDatabaseManager SHALL cache LLM responses with composite primary key `(source, problem_id)`.
 
 #### Scenario: Cache with TTL
 - **WHEN** a cached LLM response is retrieved

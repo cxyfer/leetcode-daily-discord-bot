@@ -21,7 +21,7 @@ class SettingsDatabaseManager:
     This class manages server settings in the database.
     """
 
-    def __init__(self, db_path="data/settings.db"):
+    def __init__(self, db_path="data/data.db"):
         """
         Initialize the database manager
 

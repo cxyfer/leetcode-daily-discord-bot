@@ -45,11 +45,28 @@
    # Edit .env with your Discord bot token
    ```
 
-3. Run database migration (if upgrading from older version):
+3. Optional database maintenance:
    ```bash
-   # Migrate server settings from settings.db to data.db
-   sqlite3 data/data.db < data/migrate_settings.sql
+   # Fresh installs do not need any legacy migration step.
+
+   # Before cleanup, stop the bot/container.
+   uv run python data/cleanup_runtime_db.py
+
+   # Optional: target a different database or skip VACUUM.
+   uv run python data/cleanup_runtime_db.py --db-path /path/to/data.db --skip-vacuum
+
+   # If you need to initialize an empty database file manually,
+   # apply the current runtime schema yourself.
+   sqlite3 data/data.db < data/init_db_schema.sql
    ```
+
+   The cleanup helper automatically creates a timestamped backup next to the database file, rebuilds a compact runtime-only database from `data/init_db_schema.sql`, copies over `server_settings`, `llm_translate_results`, and `llm_inspire_results` if they exist, replaces the original database file, and runs `VACUUM` unless you pass `--skip-vacuum`.
+
+   This rebuild-based flow is recommended because older databases may still contain the legacy `vec_embeddings` `vec0` virtual table, and direct `DROP TABLE` cleanup can fail with `no such module: vec0` or `SQL logic error` depending on the local SQLite environment.
+
+   Cleanup is only needed when upgrading an older `data/data.db` that still contains legacy tables. Run it while the bot is stopped, then start the bot normally again. If you run the bot in Docker, stop the container first before applying the cleanup command.
+
+   These SQL files are operator-facing maintenance assets. The bot runtime does not execute cleanup or init SQL automatically.
 
 4. Run the bot:
    ```bash
