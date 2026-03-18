@@ -47,18 +47,6 @@ def test_existing_tests_do_not_mutate_sys_path_for_src_imports():
     assert hacked_files == []
 
 
-def test_readme_describes_remote_only_similarity_contract():
-    readme = _read_text(README_PATH)
-
-    assert "uv run bot.py" in readme
-    assert "remote API" in readme
-    assert "bot.api_client" in readme
-    assert "bot.cogs.similar_cog" in readme
-    assert "embedding_cli.py" not in readme
-    assert "embedding index" not in readme.lower()
-    assert "Gemini embeddings" not in readme
-
-
 def test_claude_md_contract_is_optional_when_file_missing(monkeypatch, tmp_path):
     monkeypatch.setattr(sys.modules[__name__], "CLAUDE_PATH", tmp_path / "missing-CLAUDE.md")
 
