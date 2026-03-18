@@ -57,7 +57,6 @@ def test_init_db_schema_sql_creates_only_runtime_tables(tmp_path):
     assert _get_user_tables(db_path) == TARGET_TABLES
 
 
-
 def test_cleanup_db_schema_sql_removes_legacy_tables_and_is_idempotent(tmp_path):
     db_path = tmp_path / "cleanup-schema.sqlite"
 
@@ -76,7 +75,6 @@ def test_cleanup_db_schema_sql_removes_legacy_tables_and_is_idempotent(tmp_path)
 
     _run_sql_script(db_path, cleanup_sql)
     assert _get_user_tables(db_path) == TARGET_TABLES
-
 
 
 def test_table_inspection_excludes_sqlite_internal_tables(tmp_path):

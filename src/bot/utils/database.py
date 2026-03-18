@@ -176,7 +176,6 @@ class SettingsDatabaseManager:
 
 
 class LLMTranslateDatabaseManager:
-
     def __init__(self, db_path="data/data.db", expire_seconds=604800):
         self.db_path = resolve_db_path(db_path)
         self.expire_seconds = expire_seconds
@@ -244,7 +243,6 @@ class LLMTranslateDatabaseManager:
 
 
 class LLMInspireDatabaseManager:
-
     def __init__(self, db_path="data/data.db", expire_seconds=604800):
         self.db_path = resolve_db_path(db_path)
         self.expire_seconds = expire_seconds

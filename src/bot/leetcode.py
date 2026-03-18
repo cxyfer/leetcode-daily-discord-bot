@@ -132,15 +132,17 @@ class LeetCodeClient:
 
                     basic_submissions = []
                     for submission in submissions:
-                        basic_submissions.append({
-                            "submission_id": submission["id"],
-                            "title": submission["title"],
-                            "slug": submission["titleSlug"],
-                            "timestamp": submission["timestamp"],
-                            "submission_time": datetime.fromtimestamp(int(submission["timestamp"])).strftime(
-                                "%Y-%m-%d %H:%M:%S"
-                            ),
-                        })
+                        basic_submissions.append(
+                            {
+                                "submission_id": submission["id"],
+                                "title": submission["title"],
+                                "slug": submission["titleSlug"],
+                                "timestamp": submission["timestamp"],
+                                "submission_time": datetime.fromtimestamp(int(submission["timestamp"])).strftime(
+                                    "%Y-%m-%d %H:%M:%S"
+                                ),
+                            }
+                        )
 
                     return basic_submissions
 

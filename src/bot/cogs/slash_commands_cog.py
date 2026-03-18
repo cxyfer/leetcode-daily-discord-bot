@@ -71,8 +71,12 @@ class SlashCommandsCog(commands.Cog):
 
             history_problems = await _fetch_daily_history(self.bot, domain, date)
             embed = await create_problem_embed(
-                problem_info=challenge_info, bot=self.bot, domain=domain,
-                is_daily=True, date_str=date, history_problems=history_problems,
+                problem_info=challenge_info,
+                bot=self.bot,
+                domain=domain,
+                is_daily=True,
+                date_str=date,
+                history_problems=history_problems,
             )
             view = await create_problem_view(problem_info=challenge_info, bot=self.bot, domain=domain)
             await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
@@ -159,8 +163,13 @@ class SlashCommandsCog(commands.Cog):
 
             if len(problems) == 1:
                 embed = await create_problem_embed(
-                    problem_info=problems[0], bot=self.bot, domain=domain,
-                    is_daily=False, user=interaction.user, title=title, message=message,
+                    problem_info=problems[0],
+                    bot=self.bot,
+                    domain=domain,
+                    is_daily=False,
+                    user=interaction.user,
+                    title=title,
+                    message=message,
                 )
                 view = await create_problem_view(problem_info=problems[0], bot=self.bot, domain=domain)
                 await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
@@ -182,8 +191,14 @@ class SlashCommandsCog(commands.Cog):
                 source_label, footer_icon = "Mixed Sources", None
 
             embed = create_problems_overview_embed(
-                problems, domain, interaction.user, message, title,
-                source_label=source_label, show_instructions=True, footer_icon_url=footer_icon,
+                problems,
+                domain,
+                interaction.user,
+                message,
+                title,
+                source_label=source_label,
+                show_instructions=True,
+                footer_icon_url=footer_icon,
             )
             view = create_problems_overview_view(problems, domain)
             await interaction.followup.send(embed=embed, view=view, ephemeral=not public)

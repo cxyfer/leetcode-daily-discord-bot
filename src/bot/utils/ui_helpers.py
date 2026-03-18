@@ -183,9 +183,7 @@ def _normalize_problem_button_segments(source: Any, problem_id: Any) -> tuple[st
 def _build_problem_custom_id(source: Any, problem_id: Any, action: str) -> str:
     """Safe builder that normalizes segments and formats the custom_id."""
     normalized_source, normalized_problem_id = _normalize_problem_button_segments(source, problem_id)
-    return PROBLEM_CUSTOM_ID_FMT.format(
-        source=normalized_source, pid=normalized_problem_id, action=action
-    )
+    return PROBLEM_CUSTOM_ID_FMT.format(source=normalized_source, pid=normalized_problem_id, action=action)
 
 
 def _can_create_similar_result_view(results: List[Dict[str, Any]], *, was_truncated: bool) -> bool:
@@ -196,8 +194,7 @@ def _can_create_similar_result_view(results: List[Dict[str, Any]], *, was_trunca
         and all(
             _is_safe_problem_button_segment(item.get("source"))
             and _is_safe_problem_button_segment(item.get("id"), max_length=MAX_BUTTON_LABEL_LENGTH)
-            and len(_build_problem_custom_id(item.get("source"), item.get("id"), "view"))
-            <= MAX_BUTTON_CUSTOM_ID_LENGTH
+            and len(_build_problem_custom_id(item.get("source"), item.get("id"), "view")) <= MAX_BUTTON_CUSTOM_ID_LENGTH
             for item in results
         )
     )

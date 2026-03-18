@@ -20,8 +20,7 @@ PRESERVED_TABLES = (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Rebuild an existing runtime SQLite database so it only keeps the currently "
-            "supported runtime tables."
+            "Rebuild an existing runtime SQLite database so it only keeps the currently supported runtime tables."
         )
     )
     parser.add_argument(
@@ -50,7 +49,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-
 def build_backup_path(db_path: Path, backup_path: Path | None) -> Path:
     if backup_path is not None:
         return backup_path
@@ -59,10 +57,8 @@ def build_backup_path(db_path: Path, backup_path: Path | None) -> Path:
     return db_path.with_name(f"{db_path.name}.{timestamp}.bak")
 
 
-
 def build_temp_db_path(db_path: Path) -> Path:
     return db_path.with_name(f"{db_path.stem}.cleanup-tmp{db_path.suffix}")
-
 
 
 def validate_paths(db_path: Path, init_script_path: Path, backup_path: Path, temp_db_path: Path) -> None:
@@ -76,7 +72,6 @@ def validate_paths(db_path: Path, init_script_path: Path, backup_path: Path, tem
         raise SystemExit(f"Temporary database path already exists: {temp_db_path}")
 
 
-
 def table_exists(conn: sqlite3.Connection, schema: str, table_name: str) -> bool:
     row = conn.execute(
         f"SELECT 1 FROM {schema}.sqlite_master WHERE type = 'table' AND name = ?",
@@ -85,16 +80,13 @@ def table_exists(conn: sqlite3.Connection, schema: str, table_name: str) -> bool
     return row is not None
 
 
-
 def get_table_columns(conn: sqlite3.Connection, schema: str, table_name: str) -> list[str]:
     rows = conn.execute(f'PRAGMA {schema}.table_info("{table_name}")').fetchall()
     return [row[1] for row in rows]
 
 
-
 def quote_ident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
-
 
 
 def rebuild_database(db_path: Path, init_script_path: Path, temp_db_path: Path) -> list[str]:
@@ -126,11 +118,9 @@ def rebuild_database(db_path: Path, init_script_path: Path, temp_db_path: Path) 
     return copied_tables
 
 
-
 def vacuum(db_path: Path) -> None:
     with sqlite3.connect(db_path) as conn:
         conn.execute("VACUUM;")
-
 
 
 def main() -> None:
