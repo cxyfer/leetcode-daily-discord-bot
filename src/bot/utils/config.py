@@ -215,7 +215,7 @@ class ConfigManager:
 
     @property
     def api_base_url(self) -> str:
-        return self.get("api.base_url", "https://craboj.zeabur.app/api/v1")
+        return self.get("api.base_url", "https://oj-api.gdst.dev/api/v1")
 
     @property
     def api_token(self) -> str | None:

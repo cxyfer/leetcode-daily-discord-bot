@@ -40,7 +40,7 @@
 
 ### T2: Update config for API settings
 - [x] `utils/config.py`: 新增讀取 `[api]` section 的方法
-  - `api_base_url` → 預設 `"https://craboj.zeabur.app/api/v1"`
+  - `api_base_url` → 預設 `"https://oj-api.gdst.dev/api/v1"`
   - `api_token` → 預設 `None`
   - `api_timeout` → 預設 `10`
   - 環境變數 override: `API_BASE_URL`, `API_TOKEN`

@@ -34,7 +34,7 @@
 ### TD-3: Config 結構
 ```toml
 [api]
-base_url = "https://craboj.zeabur.app/api/v1"
+base_url = "https://oj-api.gdst.dev/api/v1"
 # token = "your_api_token_here"  # Optional
 timeout = 10
 ```

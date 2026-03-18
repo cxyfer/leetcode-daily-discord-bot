@@ -3,7 +3,7 @@
 ## Context
 
 ### User Need
-v2.0 的核心變更：將 problems 相關的爬取、查詢、搜尋從 bot 內建的 LeetCode GraphQL 直連，替換為呼叫外部 REST API（oj-api-rs，部署於 `https://craboj.zeabur.app/api/v1/*`）。目標是將題目資料層與 Discord bot 解耦。
+v2.0 的核心變更：將 problems 相關的爬取、查詢、搜尋從 bot 內建的 LeetCode GraphQL 直連，替換為呼叫外部 REST API（oj-api-rs，部署於 `https://oj-api.gdst.dev/api/v1/*`）。目標是將題目資料層與 Discord bot 解耦。
 
 ### Current Implementation Constraints
 
@@ -243,7 +243,7 @@ v2.0 的核心變更：將 problems 相關的爬取、查詢、搜尋從 bot 內
 - `bot.py`：初始化邏輯調整
 
 ### External
-- oj-api-rs API：`https://craboj.zeabur.app/api/v1/*`
+- oj-api-rs API：`https://oj-api.gdst.dev/api/v1/*`
 - API 可用性為硬依賴——API 不可用時 bot 的題目功能將無法運作
 
 ### Risks
