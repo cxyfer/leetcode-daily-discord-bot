@@ -20,11 +20,14 @@
 - 🔔 **Custom Notifications**: Configurable role mentions and channels
 - 🌍 **Timezone Support**: Server-specific timezone settings
 - 📅 **Historical Challenges**: View past daily challenges by date
-- 🔍 **Problem Lookup**: Query single or multiple LeetCode problems with custom titles and messages
+- 🔍 **Problem Lookup**: Query single or multiple problems from supported sources with custom titles and messages
 - 📈 **Submission Tracking**: View recent accepted submissions for any user
 - 🤖 **AI-Powered Features**: Optional problem translation and inspiration (requires Gemini API key)
 - 🧭 **Similar Problem Search**: Find related problems through the configured remote API backend
 - 💾 **Smart Caching**: Efficient caching system for better performance
+
+> [!IMPORTANT]
+> Starting from **v2.0**, this project uses [cxyfer/oj-api-rs](https://github.com/cxyfer/oj-api-rs) as the external problem provider backend for problem retrieval, identifier resolution, and similar-problem search.
 
 ## 🚀 Quick Start
 
@@ -39,34 +42,35 @@
    # Copy and edit the configuration file
    cp config.toml.example config.toml
    # Edit config.toml with your settings
-   
-   # Alternative: Use environment variables (.env)
-   cp .env.example .env
-   # Edit .env with your Discord bot token
    ```
 
 3. Optional database maintenance:
-   ```bash
-   # Fresh installs do not need any legacy migration step.
 
-   # Before cleanup, stop the bot/container.
+   <details>
+   <summary>Show legacy database cleanup steps</summary>
+
+   Use this only when upgrading an older `data/data.db` that still contains legacy tables such as `vec_embeddings` / `vec0`.
+   Fresh installs do not need this step.
+
+   ```bash
+   # Stop the bot/container before cleanup.
    uv run python data/cleanup_runtime_db.py
 
    # Optional: target a different database or skip VACUUM.
    uv run python data/cleanup_runtime_db.py --db-path /path/to/data.db --skip-vacuum
+   ```
 
-   # If you need to initialize an empty database file manually,
-   # apply the current runtime schema yourself.
+   The helper creates a timestamped backup, rebuilds the runtime schema from `data/init_db_schema.sql`,
+   migrates `server_settings`, `llm_translate_results`, and `llm_inspire_results` when present, and runs `VACUUM`
+   unless you pass `--skip-vacuum`.
+
+   If you need to initialize an empty database manually:
+
+   ```bash
    sqlite3 data/data.db < data/init_db_schema.sql
    ```
 
-   The cleanup helper automatically creates a timestamped backup next to the database file, rebuilds a compact runtime-only database from `data/init_db_schema.sql`, copies over `server_settings`, `llm_translate_results`, and `llm_inspire_results` if they exist, replaces the original database file, and runs `VACUUM` unless you pass `--skip-vacuum`.
-
-   This rebuild-based flow is recommended because older databases may still contain the legacy `vec_embeddings` `vec0` virtual table, and direct `DROP TABLE` cleanup can fail with `no such module: vec0` or `SQL logic error` depending on the local SQLite environment.
-
-   Cleanup is only needed when upgrading an older `data/data.db` that still contains legacy tables. Run it while the bot is stopped, then start the bot normally again. If you run the bot in Docker, stop the container first before applying the cleanup command.
-
-   These SQL files are operator-facing maintenance assets. The bot runtime does not execute cleanup or init SQL automatically.
+   </details>
 
 4. Run the bot:
    ```bash
@@ -92,30 +96,15 @@ docker run -d --name leetcode-daily-discord-bot \
   ghcr.io/cxyfer/leetcode-daily-discord-bot:latest
 ```
 
-### Docker Run (.env)
-
-```bash
-mkdir -p data logs
-docker run -d --name leetcode-daily-discord-bot \
-  --restart unless-stopped \
-  -v /path/to/.env:/app/.env:ro \
-  -v /path/to/data:/app/data \
-  -v /path/to/logs:/app/logs \
-  ghcr.io/cxyfer/leetcode-daily-discord-bot:latest
-```
-
 - The container starts through `python /app/bot.py`, which delegates into the packaged runtime under `src/bot/`.
 - `/app/data` contains `data.db`; keep it mapped to persist settings and cache.
-- `config.toml` is recommended; `.env` is for backward compatibility.
+- `config.toml` is the documented and recommended configuration path.
 - Use `:v1.0.0` to pin a specific release; `:latest` tracks the newest image.
 
 ## 🛠️ Configuration
 
-### Configuration Methods
-
-The bot supports two configuration methods:
-
-#### 1. TOML Configuration (Recommended)
+> [!WARNING]
+> `config.toml` is the only documented configuration format from this point forward. Legacy `.env` loading may still exist in some runtime paths, but support is no longer guaranteed and may change without notice.
 
 Create a `config.toml` file from the example:
 
@@ -126,27 +115,17 @@ token = "your_discord_bot_token_here"
 [llm.gemini]
 api_key = "your_google_gemini_api_key_here"  # Optional, for AI features
 
+[api]
+base_url = "https://oj-api.gdst.dev/api/v1"  # Remote API backend for /similar and problem resolution
+# token = "your_api_token_here"                # Optional Bearer token
+timeout = 10
+
 [schedule]
 post_time = "00:00"  # Default posting time
 timezone = "UTC"     # Default timezone
 ```
 
 See `config.toml.example` for all available options.
-
-#### 2. Environment Variables
-
-For backward compatibility, you can use a `.env` file:
-
-```bash
-DISCORD_TOKEN=your_bot_token_here
-GOOGLE_GEMINI_API_KEY=your_gemini_api_key_here  # Optional
-GOOGLE_API_KEY=your_gemini_api_key_here         # Optional alternative
-GEMINI_API_KEY=your_gemini_api_key_here         # Optional alternative
-POST_TIME=00:00  # Optional
-TIMEZONE=UTC     # Optional
-```
-
-**Note**: Environment variables take precedence over `config.toml` settings.
 
 ### Required Bot Permissions
 - `Send Messages`
@@ -165,26 +144,60 @@ TIMEZONE=UTC     # Optional
 |---------|-------------|---------------------|
 | `/daily [date] [public]` | Display LeetCode.com (LCUS) daily challenge<br>• Optional: YYYY-MM-DD for historical challenges<br>• Optional: `public` - Show response publicly (default: private)<br>• Note: Historical data available from April 2020 onwards | None |
 | `/daily_cn [date] [public]` | Display LeetCode.cn (LCCN) daily challenge<br>• Optional: YYYY-MM-DD for historical challenges<br>• Optional: `public` - Show response publicly (default: private) | None |
-| `/problem <problem_ids> [source] [domain] [public] [message] [title]` | Query one or multiple problems<br>• `problem_ids`: Single ID (e.g., `1`) or comma-separated IDs (e.g., `1,2,3`)<br>• Supports `source:id` format (e.g., `atcoder:abc001_a`, `leetcode:1`)<br>• `source`: Problem source - `leetcode` (default) or `atcoder`<br>• `domain`: LeetCode domain - `com` or `cn` (default: `com`)<br>• `public`: Show response publicly (default: private)<br>• `message`: Optional personal message/note (max 500 chars)<br>• `title`: Custom title for multi-problem mode (max 100 chars)<br>• Note: Supports up to 10 problems per query | None |
+| `/problem <problem_ids> [source] [domain] [public] [message] [title]` | Query one or multiple problems<br>• `problem_ids`: Single ID (e.g., `1`) or comma-separated IDs (e.g., `1,2,3`)<br>• Supports `source:id` format (e.g., `atcoder:abc001_a`, `leetcode:1`)<br>• `source`: Problem source filter or hint (for example `leetcode`, `atcoder`, `luogu`; availability depends on the configured remote API backend)<br>• `domain`: LeetCode domain - `com` or `cn` (default: `com`)<br>• `public`: Show response publicly (default: private)<br>• `message`: Optional personal message/note (max 500 chars)<br>• `title`: Custom title for multi-problem mode (max 100 chars)<br>• Note: Supports up to 20 problems per query | None |
 | `/recent <username> [limit] [public]` | View recent accepted submissions for a user<br>• `username`: LeetCode username (LCUS only)<br>• `limit`: Number of submissions (1-50, default: 20)<br>• `public`: Show response publicly (default: private) | None |
-| `/similar <query> [top_k] [source] [public]` | Find similar problems through the configured remote API backend<br>• `query`: Problem description or keywords<br>• `top_k`: Number of results (default: 5)<br>• `source`: Problem source (default: leetcode)<br>• `public`: Show response publicly (default: private) | None |
-| `/set_channel` | Set notification channel for daily challenges | Manage Channels |
-| `/set_role` | Set role to mention with daily challenges | Manage Roles |
-| `/set_post_time` | Set posting time (HH:MM format) | Manage Guild |
-| `/set_timezone` | Set server timezone for scheduling | Manage Guild |
-| `/show_settings` | Display current server settings | None |
-| `/remove_channel` | Remove channel settings | Manage Channels |
+| `/similar [query] [problem] [top_k] [source] [public]` | Find similar problems through the configured remote API backend<br>• `query`: Problem description or keywords (optional when `problem` is provided)<br>• `problem`: Existing problem ID or URL (for example `1`, `atcoder:abc100_a`)<br>• `top_k`: Number of results (default: 5, capped by the command at 20)<br>• `source`: Problem source filter (leave empty to search across all supported sources)<br>• `public`: Show response publicly (default: private) | None |
+| `/config [channel] [role] [time] [timezone] [clear_role] [reset]` | View or update daily-challenge server settings<br>• No parameters: Show current settings<br>• `channel`: Notification channel (required on first setup)<br>• `role`: Role to mention with daily challenges<br>• `time`: Posting time in `HH:MM` or `H:MM` format<br>• `timezone`: Timezone such as `Asia/Taipei` or `UTC+8`<br>• `clear_role`: Remove the configured role mention<br>• `reset`: Reset all settings and stop scheduling (with confirmation)<br>• `reset` cannot be combined with other options | Manage Guild |
+
+### Multi-Problem Features
+
+The `/problem` command supports querying multiple problems at once with enhanced customization:
+
+#### Overview Mode
+When querying multiple problems, the bot displays:
+- **Grouped Display**: Problems organized in groups of 5 per field
+- **Problem Links**: Direct clickable links to supported problem pages
+- **Difficulty Indicators**: Source-aware difficulty colors or emojis when available
+- **Problem Stats**: Rating and acceptance rate when available
+- **Interactive Buttons**: Click numbered buttons to view detailed problem information
+
+#### Customization Options
+- **Custom Title**: Replace the default title with your own (max 100 characters)
+- **Personal Message**: Add notes, study plans, or context (max 500 characters)
+- **User Attribution**: Shows your name and avatar when title or message is provided
+
+<details>
+<summary>Multi-Problem Use Cases</summary>
+
+```
+# Study plan organization
+/problem problem_ids:70,322,518 title:📚 Dynamic Programming Week 1 message:Focus on bottom-up approach
+
+# Contest preparation
+/problem problem_ids:1,15,42 title:🏆 Weekly Contest #420 Prep message:Practice these before Sunday
+
+# Topic-based practice
+/problem problem_ids:104,226,543 title:🌳 Binary Tree Fundamentals message:Master tree traversal first
+```
+
+</details>
 
 ### Command Examples
 
-#### Daily Challenge Commands
+<details>
+<summary>Daily Challenge Commands</summary>
+
 ```
 /daily                    # Get today's LeetCode.com challenge (private)
 /daily public:true        # Get today's challenge and show response publicly
 /daily date:2024-01-15    # Get historical challenge from Jan 15, 2024
 ```
 
-#### Problem Lookup
+</details>
+
+<details>
+<summary>Problem Lookup</summary>
+
 ```
 # Single problem lookup
 /problem problem_ids:1                    # Get Two Sum problem from LeetCode.com (private)
@@ -208,73 +221,59 @@ TIMEZONE=UTC     # Optional
 /problem problem_ids:1,abc001_a,leetcode:15   # Mix LeetCode and AtCoder
 ```
 
-#### Recent Submissions
+</details>
+
+<details>
+<summary>Recent Submissions</summary>
+
 ```
 /recent username:alice              # View 20 recent submissions (private)
 /recent username:alice limit:50     # View 50 recent submissions
 /recent username:alice limit:50 public:true  # View 50 submissions publicly
 ```
 
-#### Similar Problem Search
+</details>
+
+<details>
+<summary>Similar Problem Search</summary>
+
 ```
-/similar query:"array sorting"                # Find related problems (private)
-/similar query:"two pointers" top_k:3         # Limit results to 3
-/similar query:"dp with knapsack" public:true # Show results publicly
+/similar query:"array sorting"                       # Find related problems by text (private)
+/similar query:"two pointers" top_k:3                # Limit results to 3
+/similar query:"dp with knapsack" public:true        # Show text-query results publicly
+/similar problem:1                                    # Find problems similar to LeetCode 1
+/similar problem:atcoder:abc100_a source:atcoder      # Search by existing problem identifier
 ```
 
-> Note: `/similar` is remote API-backed. No local embedding build or index maintenance step is required in this repository.
+</details>
 
-#### Server Configuration
+<details>
+<summary>Server Configuration</summary>
+
 ```
-/set_channel              # Set current channel for daily notifications
-/set_role                 # Configure role to ping
-/set_post_time time:08:00 # Set daily post time to 8:00 AM
-/set_timezone timezone:America/New_York  # Set timezone
-/show_settings            # View current configuration
+/config                                           # Show current server settings
+/config channel:#general                          # First-time setup with notification channel
+/config channel:#general time:08:00 timezone:UTC+8  # Set channel, time, and timezone together
+/config role:@DailyChallenge                      # Set the role to mention
+/config clear_role:true                           # Remove the configured role mention
+/config reset:true                                # Reset all settings after confirmation
 ```
+
+</details>
 
 ### Server Configuration Steps
 
-1. Set up notification channel using `/set_channel` (Required)
-2. Configure role mentions with `/set_role` (Optional)
-3. Set posting time and timezone (Optional)
-4. Verify settings with `/show_settings`
+1. Run `/config channel:<channel>` for the initial setup (Required)
+2. Optionally add `role`, `time`, and `timezone` in the same command or later updates
+3. Use `/config` with no arguments to review the current configuration
+4. Use `/config reset:true` if you need to reset all settings and stop scheduling
 
-### Runtime Layout
+## 🏗️ Runtime Layout
 
 - `bot.py` is the only supported repository-root runtime entrypoint.
 - The packaged application code lives under `src/bot/`.
 - `/similar` is implemented by `bot.api_client` and `bot.cogs.similar_cog` and uses the configured remote API backend.
 - This repository no longer provides a local similarity maintenance CLI, a local embeddings package, or other repository-root tools for similarity indexing.
-
-### Multi-Problem Features
-
-The `/problem` command supports querying multiple problems at once with enhanced customization:
-
-#### Overview Mode
-When querying multiple problems, the bot displays:
-- **Grouped Display**: Problems organized in groups of 5 per field
-- **Problem Links**: Direct clickable links to LeetCode problems
-- **Difficulty Indicators**: Color-coded emojis (🟢 Easy, 🟡 Medium, 🔴 Hard)
-- **Problem Stats**: Rating and acceptance rate when available
-- **Interactive Buttons**: Click numbered buttons to view detailed problem information
-
-#### Customization Options
-- **Custom Title**: Replace the default title with your own (max 100 characters)
-- **Personal Message**: Add notes, study plans, or context (max 500 characters)
-- **User Attribution**: Shows your name and avatar when title or message is provided
-
-#### Example Use Cases
-```
-# Study plan organization
-/problem problem_ids:70,322,518 title:📚 Dynamic Programming Week 1 message:Focus on bottom-up approach
-
-# Contest preparation
-/problem problem_ids:1,15,42 title:🏆 Weekly Contest #420 Prep message:Practice these before Sunday
-
-# Topic-based practice
-/problem problem_ids:104,226,543 title:🌳 Binary Tree Fundamentals message:Master tree traversal first
-```
 
 ## 🗺️ Development Roadmap
 
@@ -297,7 +296,7 @@ When querying multiple problems, the bot displays:
   - [x] Support server-specific configurations
 - [x] 📝 **Code Optimization**
   - [x] Implement improved runtime logging
-  - [ ] Implement modular architecture
+  - [x] Implement modular architecture
   - [x] Add comprehensive documentation
 - [x] 🇨🇳 **LeetCode.cn Integration**
   - [x] Add slash command `/daily_cn` for LeetCode.cn daily challenge
@@ -314,8 +313,8 @@ When querying multiple problems, the bot displays:
   - [x] Paginated display with clean UI
   - [ ] Allow users to configure tracked LeetCode accounts
   - [ ] Implement server-wide submission leaderboards
-- [ ] 🐳 **Containerization Support**
-  - [ ] Add Docker compose file and image
+- [x] 🐳 **Containerization Support**
+  - [x] Add Docker compose file and image
 - [ ] 🌍 **Internationalization**
   - [ ] Support multiple display languages
 
@@ -355,7 +354,7 @@ uv run ruff format .
 uv run pytest
 
 # Run specific test file
-uv run pytest tests/test_source_detector.py
+uv run pytest tests/test_similar_cog.py
 ```
 
 ## 🤝 Contributing
