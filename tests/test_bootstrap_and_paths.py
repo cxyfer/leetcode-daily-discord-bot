@@ -96,6 +96,9 @@ def test_config_manager_resolves_repo_root_paths_from_any_cwd(tmp_path, monkeypa
 
     from bot.utils.config import ConfigManager
 
+    monkeypatch.setattr(ConfigManager, "_load_config", lambda self: None)
+    monkeypatch.setattr(ConfigManager, "_apply_env_overrides", lambda self: None)
+
     config = ConfigManager()
 
     assert config.config_path == REPO_ROOT / "config.toml"

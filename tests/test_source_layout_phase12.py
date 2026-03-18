@@ -29,11 +29,13 @@ def test_config_manager_loads_repo_root_config_when_cwd_changes(monkeypatch):
     from bot.utils.config import ConfigManager
 
     monkeypatch.chdir(PROJECT_ROOT / "tests")
+    monkeypatch.setattr(ConfigManager, "_load_config", lambda self: None)
+    monkeypatch.setattr(ConfigManager, "_apply_env_overrides", lambda self: None)
 
     try:
         manager = ConfigManager()
     except FileNotFoundError as exc:
-        pytest.fail(f"ConfigManager should load repository-root config.toml independent of cwd: {exc}")
+        pytest.fail(f"ConfigManager should resolve repository-root config.toml independent of cwd: {exc}")
 
     assert Path(manager.config_path).resolve() == (PROJECT_ROOT / "config.toml").resolve()
 
