@@ -1,4 +1,5 @@
 import asyncio
+import re
 import time
 
 import discord
@@ -15,6 +16,14 @@ from bot.utils.ui_helpers import (
     create_similar_results_message,
     create_submission_embed,
     create_submission_view,
+)
+
+LEGACY_LEETCODE_CUSTOM_ID_PATTERNS = (
+    (re.compile(r"^problem_detail_(?P<pid>\d+)_(?P<domain>com|cn)$"), "leetcode", "view"),
+    (re.compile(r"^leetcode_problem_(?P<pid>\d+)_(?P<domain>com|cn)$"), "leetcode", "desc"),
+    (re.compile(r"^leetcode_translate_(?P<pid>\d+)_(?P<domain>com|cn)$"), "leetcode", "translate"),
+    (re.compile(r"^leetcode_inspire_(?P<pid>\d+)_(?P<domain>com|cn)$"), "leetcode", "inspire"),
+    (re.compile(r"^leetcode_similar_(?P<pid>\d+)_(?P<domain>com|cn)$"), "leetcode", "similar"),
 )
 
 
@@ -134,7 +143,12 @@ class InteractionHandlerCog(commands.Cog):
             except Exception:
                 pass
 
-    # -- Unified problem action handler --
+    def _parse_legacy_problem_custom_id(self, custom_id: str) -> tuple[str, str, str] | None:
+        for pattern, source, action in LEGACY_LEETCODE_CUSTOM_ID_PATTERNS:
+            match = pattern.match(custom_id)
+            if match:
+                return source, match.group("pid"), action
+        return None
 
     async def _handle_problem_action(self, interaction: discord.Interaction, source: str, pid: str, action: str):
         try:
@@ -350,6 +364,12 @@ class InteractionHandlerCog(commands.Cog):
                 await self._handle_problem_action(interaction, source, pid, action)
             else:
                 self.logger.debug("Invalid problem button format: %s", custom_id)
+            return
+
+        legacy_problem_action = self._parse_legacy_problem_custom_id(custom_id)
+        if legacy_problem_action:
+            source, pid, action = legacy_problem_action
+            await self._handle_problem_action(interaction, source, pid, action)
             return
 
         # Silently ignore old/unrecognized custom_ids

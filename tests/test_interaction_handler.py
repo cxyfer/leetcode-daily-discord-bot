@@ -210,6 +210,41 @@ class TestInteractionHandler:
         assert add_count == 1, f"Expected 1 add operation, got {add_count}"
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("custom_id", "expected"),
+        [
+            ("problem_detail_1290_com", ("leetcode", "1290", "view")),
+            ("leetcode_problem_3544_com", ("leetcode", "3544", "desc")),
+            ("leetcode_translate_1234_com", ("leetcode", "1234", "translate")),
+            ("leetcode_inspire_1234_com", ("leetcode", "1234", "inspire")),
+            ("leetcode_similar_1234_com", ("leetcode", "1234", "similar")),
+        ],
+    )
+    async def test_legacy_problem_custom_ids_route_to_unified_handler(
+        self, cog, mock_interaction, monkeypatch, custom_id, expected
+    ):
+        handler = AsyncMock()
+        monkeypatch.setattr(cog, "_handle_problem_action", handler)
+        mock_interaction.data = {"custom_id": custom_id}
+
+        await cog.on_interaction(mock_interaction)
+
+        handler.assert_awaited_once_with(mock_interaction, *expected)
+
+    @pytest.mark.asyncio
+    async def test_malformed_legacy_problem_custom_id_is_ignored(self, cog, mock_interaction, monkeypatch):
+        handler = AsyncMock()
+        logger_debug = MagicMock()
+        monkeypatch.setattr(cog, "_handle_problem_action", handler)
+        monkeypatch.setattr(cog.logger, "debug", logger_debug)
+        mock_interaction.data = {"custom_id": "leetcode_problem_bad_com"}
+
+        await cog.on_interaction(mock_interaction)
+
+        handler.assert_not_awaited()
+        logger_debug.assert_called_once_with("Ignoring unrecognized custom_id: %s", "leetcode_problem_bad_com")
+
+    @pytest.mark.asyncio
     async def test_action_similar_uses_shared_message_builder_and_configured_top_k(
         self, cog, mock_bot, mock_interaction, monkeypatch
     ):
