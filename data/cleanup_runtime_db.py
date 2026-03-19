@@ -15,6 +15,10 @@ PRESERVED_TABLES = (
     "llm_translate_results",
     "llm_inspire_results",
 )
+LEGACY_COLUMN_ALIASES = {
+    "llm_translate_results": {"source": "domain"},
+    "llm_inspire_results": {"source": "domain"},
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -89,6 +93,31 @@ def quote_ident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
+def get_select_expressions(
+    table_name: str,
+    destination_columns: list[str],
+    source_columns: set[str],
+) -> list[tuple[str, str]]:
+    aliases = LEGACY_COLUMN_ALIASES.get(table_name, {})
+    expressions: list[tuple[str, str]] = []
+
+    for destination_column in destination_columns:
+        if destination_column in source_columns:
+            expressions.append((destination_column, quote_ident(destination_column)))
+            continue
+
+        source_alias = aliases.get(destination_column)
+        if source_alias and source_alias in source_columns:
+            expressions.append(
+                (
+                    destination_column,
+                    f"{quote_ident(source_alias)} AS {quote_ident(destination_column)}",
+                )
+            )
+
+    return expressions
+
+
 def rebuild_database(db_path: Path, init_script_path: Path, temp_db_path: Path) -> list[str]:
     init_sql = init_script_path.read_text(encoding="utf-8")
     copied_tables: list[str] = []
@@ -103,15 +132,16 @@ def rebuild_database(db_path: Path, init_script_path: Path, temp_db_path: Path) 
 
             destination_columns = get_table_columns(conn, "main", table_name)
             source_columns = set(get_table_columns(conn, "old", table_name))
-            column_names = [column for column in destination_columns if column in source_columns]
+            column_pairs = get_select_expressions(table_name, destination_columns, source_columns)
 
-            if not column_names:
+            if not column_pairs:
                 continue
 
-            quoted_columns = ", ".join(quote_ident(column) for column in column_names)
+            quoted_columns = ", ".join(quote_ident(destination_column) for destination_column, _ in column_pairs)
+            select_columns = ", ".join(select_expression for _, select_expression in column_pairs)
             conn.execute(
                 f"INSERT INTO main.{quote_ident(table_name)} ({quoted_columns}) "
-                f"SELECT {quoted_columns} FROM old.{quote_ident(table_name)}"
+                f"SELECT {select_columns} FROM old.{quote_ident(table_name)}"
             )
             copied_tables.append(table_name)
 

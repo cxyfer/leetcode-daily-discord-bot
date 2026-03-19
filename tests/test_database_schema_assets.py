@@ -1,10 +1,14 @@
+import importlib.util
 import sqlite3
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = REPO_ROOT / "data"
 INIT_SCHEMA_PATH = DATA_DIR / "init_db_schema.sql"
 CLEANUP_SCHEMA_PATH = DATA_DIR / "cleanup_db_schema.sql"
+CLEANUP_RUNTIME_PATH = DATA_DIR / "cleanup_runtime_db.py"
 TARGET_TABLES = {
     "server_settings",
     "llm_translate_results",
@@ -49,6 +53,19 @@ def _get_all_tables(db_path: Path) -> set[str]:
     return {name for (name,) in rows}
 
 
+def _load_module(module_name: str, file_path: Path):
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec is not None and spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(scope="module")
+def cleanup_runtime_module():
+    return _load_module("cleanup_runtime_db", CLEANUP_RUNTIME_PATH)
+
+
 def test_init_db_schema_sql_creates_only_runtime_tables(tmp_path):
     db_path = tmp_path / "init-schema.sqlite"
 
@@ -84,3 +101,60 @@ def test_table_inspection_excludes_sqlite_internal_tables(tmp_path):
 
     assert "sqlite_sequence" in _get_all_tables(db_path)
     assert _get_user_tables(db_path) == {"keeps_me"}
+
+
+@pytest.mark.parametrize(
+    ("table_name", "legacy_columns", "insert_sql", "expected_row"),
+    [
+        (
+            "llm_translate_results",
+            (
+                "problem_id TEXT NOT NULL, translation TEXT, created_at INTEGER NOT NULL, "
+                "model_name TEXT, domain TEXT NOT NULL, PRIMARY KEY (domain, problem_id)"
+            ),
+            (
+                "INSERT INTO llm_translate_results "
+                "(problem_id, translation, created_at, model_name, domain) "
+                "VALUES ('two-sum', '翻譯', 1234567890, 'gemini', 'leetcode')"
+            ),
+            ("leetcode", "two-sum", "翻譯", 1234567890, "gemini"),
+        ),
+        (
+            "llm_inspire_results",
+            (
+                "problem_id TEXT NOT NULL, thinking TEXT, traps TEXT, algorithms TEXT, "
+                "inspiration TEXT, created_at INTEGER NOT NULL, model_name TEXT, "
+                "domain TEXT NOT NULL, PRIMARY KEY (domain, problem_id)"
+            ),
+            (
+                "INSERT INTO llm_inspire_results "
+                "(problem_id, thinking, traps, algorithms, inspiration, created_at, model_name, domain) "
+                "VALUES ('abc100-a', '思路', '陷阱', 'DP', '靈感', 1234567890, 'gemini', 'atcoder')"
+            ),
+            ("atcoder", "abc100-a", "思路", "陷阱", "DP", "靈感", 1234567890, "gemini"),
+        ),
+    ],
+)
+def test_cleanup_runtime_db_rebuilds_legacy_llm_tables_with_source_alias(
+    tmp_path, cleanup_runtime_module, table_name, legacy_columns, insert_sql, expected_row
+):
+    db_path = tmp_path / "legacy-runtime.sqlite"
+    temp_db_path = tmp_path / "legacy-runtime.cleanup-tmp.sqlite"
+
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(f"CREATE TABLE {table_name} ({legacy_columns})")
+        connection.execute(insert_sql)
+        connection.commit()
+
+    copied_tables = cleanup_runtime_module.rebuild_database(
+        db_path,
+        INIT_SCHEMA_PATH,
+        temp_db_path,
+    )
+
+    assert table_name in copied_tables
+
+    with sqlite3.connect(temp_db_path) as connection:
+        row = connection.execute(f"SELECT * FROM {table_name}").fetchone()
+
+    assert row == expected_row
