@@ -80,6 +80,25 @@ The bot SHALL handle `view`, `desc`, `translate`, `inspire`, and `similar` actio
 - **WHEN** a user clicks a similar-result detail button with action `view`
 - **THEN** the bot SHALL fetch the problem and send the full problem card with its interactive problem view instead of a description-only response
 
+### Requirement: Legacy problem button compatibility
+The bot SHALL preserve compatibility for legacy Discord problem button `custom_id` formats from persisted messages while continuing to generate and prefer the unified problem button format for new messages.
+
+#### Scenario: Legacy problem detail button opens full problem card
+- **WHEN** a user clicks a legacy button with custom_id `problem_detail_{problem_id}_{domain}`
+- **THEN** the bot SHALL route it to the `view` problem action flow and send the full problem card with its interactive problem view
+
+#### Scenario: Legacy LeetCode problem button shows description
+- **WHEN** a user clicks a legacy button with custom_id `leetcode_problem_{problem_id}_{domain}`
+- **THEN** the bot SHALL route it to the `desc` problem action flow and send the problem description response
+
+#### Scenario: Legacy LeetCode LLM buttons reuse unified handlers
+- **WHEN** a user clicks a legacy button with custom_id `leetcode_translate_{problem_id}_{domain}`, `leetcode_inspire_{problem_id}_{domain}`, or `leetcode_similar_{problem_id}_{domain}`
+- **THEN** the bot SHALL route it to the matching `translate`, `inspire`, or `similar` unified problem action flow
+
+#### Scenario: Malformed legacy problem button remains ignored
+- **WHEN** a legacy-looking problem button custom_id does not match a supported compatibility pattern
+- **THEN** the bot SHALL ignore it without misrouting it to another handler
+
 ## PBT Properties
 
 ### Property: View-button protocol round-trip

@@ -67,6 +67,10 @@ The system SHALL create button views with persistent custom_ids that survive bot
 - **WHEN** buttons are created for a problem
 - **THEN** custom_ids SHALL follow the format `problem|{source}|{problem_id}|{action}` for problem actions and `config_reset_confirm|...` / `config_reset_cancel|...` for config reset confirmation buttons
 
+#### Scenario: Legacy problem custom_ids are parse-only compatibility
+- **WHEN** the system preserves support for legacy problem button custom_ids from previously sent messages
+- **THEN** it SHALL continue generating only the unified `problem|{source}|{problem_id}|{action}` format for new buttons and SHALL keep legacy formats as interaction-layer compatibility only
+
 #### Scenario: Button within character limit
 - **WHEN** a custom_id is generated
 - **THEN** it SHALL not exceed 100 characters
