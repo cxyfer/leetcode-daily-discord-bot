@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v2.0.1] - 2026-03-19
+### Fixed
+- **Legacy Problem Button Routing**: Restored custom_id routing for legacy problem buttons to ensure compatibility with older interactions.
+
 ## [v2.0.0] - 2026-03-19
 ### Added
 - **Remote API-Backed Similar Search**: Migrated `/similar` and related problem lookups to the configured remote API backend with a shared `OjApiClient` integration.
