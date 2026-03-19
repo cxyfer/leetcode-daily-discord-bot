@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v2.0.0] - 2026-03-19
+### Added
+- **Remote API-Backed Similar Search**: Migrated `/similar` and related problem lookups to the configured remote API backend with a shared `OjApiClient` integration.
+- **Similar Result Detail Buttons**: Added interactive buttons for opening detailed result views directly from similar-problem embeds. (#27)
+- **Luogu UI Enhancements**: Added Luogu difficulty colors and improved multi-problem result navigation.
+
+### Changed
+- **Packaged Runtime Layout**: Moved the bot runtime into `src/bot/` and kept the repository-root `bot.py` as a thin launcher. (#26)
+- **Unified API Flow**: Refactored commands, interaction handlers, and embed rendering to use the same API-backed problem and similarity pipeline.
+- **v2.0 Setup Guidance**: Updated setup and runtime documentation to reflect the v2.0 architecture, default oj-api backend, and current configuration expectations.
+
+### Fixed
+- **Luogu Problem Cards**: Improved Luogu problem card rendering and related button behavior. (#25)
+
+### Removed
+- **Legacy Local Similarity Assets**: Removed deprecated modules, obsolete SQLite schema assets, and unused database managers from the pre-v2.0 local similarity implementation. (#28)
+
+### Maintenance
+- Cleaned up repository internals, refreshed formatting and tests, and archived the completed migration work for the new runtime model.
+
 ## [v1.1.6] - 2026-02-26
 ### Added
 - **Similar Problems Button**: Added "Similar Problems" button to `/daily` and `/problem` command embeds for quick access to related problems. (#23)
