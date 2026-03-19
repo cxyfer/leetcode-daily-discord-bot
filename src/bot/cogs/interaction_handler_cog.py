@@ -18,7 +18,6 @@ from bot.utils.ui_helpers import (
     create_submission_view,
 )
 
-
 LEGACY_LEETCODE_CUSTOM_ID_PATTERNS = (
     (re.compile(r"^problem_detail_(?P<pid>\d+)_(?P<domain>com|cn)$"), "leetcode", "view"),
     (re.compile(r"^leetcode_problem_(?P<pid>\d+)_(?P<domain>com|cn)$"), "leetcode", "desc"),
