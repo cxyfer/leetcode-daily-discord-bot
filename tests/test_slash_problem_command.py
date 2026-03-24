@@ -5,7 +5,13 @@ import pytest
 from discord.ext import commands
 
 from bot.cogs.slash_commands_cog import SlashCommandsCog
-from bot.utils.ui_constants import LUOGU_DIFFICULTY_COLORS, LUOGU_DIFFICULTY_EMOJIS, NON_DIFFICULTY_EMOJI
+from bot.utils.ui_constants import (
+    LUOGU_DIFFICULTY_COLORS,
+    LUOGU_DIFFICULTY_EMOJIS,
+    MAX_DAILY_SIMILAR_FIELD_LENGTH,
+    NON_DIFFICULTY_EMOJI,
+)
+from bot.utils.ui_helpers import create_problem_embed
 
 
 def _make_interaction():
@@ -201,3 +207,77 @@ async def test_problem_command_luogu_multiple_uses_difficulty_emojis():
     assert button_emojis == [LUOGU_DIFFICULTY_EMOJIS["入门"], LUOGU_DIFFICULTY_EMOJIS["普及/提高-"]]
     assert all(button.custom_id.startswith("problem|luogu|") for button in kwargs["view"].children)
     assert all(button.custom_id.endswith("|view") for button in kwargs["view"].children)
+
+
+@pytest.mark.asyncio
+async def test_create_problem_embed_formats_daily_similar_questions_with_id_link_and_rating():
+    bot = _make_bot()
+    problem = {
+        "id": "1",
+        "source": "leetcode",
+        "slug": "two-sum",
+        "title": "Two Sum",
+        "difficulty": "Easy",
+        "ac_rate": 52.34,
+        "rating": 1234,
+        "tags": ["Array", "Hash Table"],
+        "link": "https://leetcode.com/problems/two-sum/",
+        "similar_questions": [
+            {
+                "id": "48",
+                "source": "leetcode",
+                "slug": "rotate-image",
+                "title": "Rotate Image",
+                "difficulty": "Medium",
+                "rating": 2010,
+                "link": "https://leetcode.com/problems/rotate-image/",
+            }
+        ],
+    }
+
+    embed = await create_problem_embed(problem_info=problem, bot=bot, is_daily=True)
+
+    similar_field = next(field for field in embed.fields if field.name == "🔍 Similar Questions (1)")
+    assert similar_field.value == "- 🟡 [48. Rotate Image](https://leetcode.com/problems/rotate-image/) *2010*"
+
+
+@pytest.mark.asyncio
+async def test_create_problem_embed_packs_all_daily_similar_questions_within_length_budget():
+    bot = _make_bot()
+    long_title = "B" * 180
+    similar_questions = []
+    for i in range(1, 10):
+        similar_questions.append(
+            {
+                "id": str(100 + i),
+                "source": "leetcode",
+                "slug": f"sample-problem-{i}",
+                "title": f"{long_title}-{i}",
+                "difficulty": "Medium",
+                "rating": 1800 + i,
+                "link": f"https://leetcode.com/problems/sample-problem-{i}/",
+            }
+        )
+
+    problem = {
+        "id": "1",
+        "source": "leetcode",
+        "slug": "two-sum",
+        "title": "Two Sum",
+        "difficulty": "Easy",
+        "ac_rate": 52.34,
+        "rating": 1234,
+        "tags": ["Array"],
+        "link": "https://leetcode.com/problems/two-sum/",
+        "similar_questions": similar_questions,
+    }
+
+    embed = await create_problem_embed(problem_info=problem, bot=bot, is_daily=True)
+
+    similar_field = next(field for field in embed.fields if field.name == "🔍 Similar Questions (3+)")
+    lines = similar_field.value.split("\n")
+
+    assert len(similar_field.value) <= MAX_DAILY_SIMILAR_FIELD_LENGTH
+    assert len(lines) > 3
+    assert lines[0].startswith("- 🟡 [101. ")
+    assert similar_field.value.endswith("...")

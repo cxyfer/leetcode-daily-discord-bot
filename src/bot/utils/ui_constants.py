@@ -115,6 +115,6 @@ MAX_SIMILAR_RESULT_DETAIL_BUTTONS = MAX_PROBLEMS_PER_OVERVIEW  # 相似題目詳
 MAX_BUTTON_LABEL_LENGTH = 80  # Discord 按鈕標籤長度限制
 MAX_BUTTON_CUSTOM_ID_LENGTH = 100  # Discord custom_id 長度限制
 PROBLEMS_PER_FIELD = 5  # 每個欄位顯示的題目數量
-MAX_SIMILAR_QUESTIONS = 3  # 最多顯示的相似題目數量
+MAX_DAILY_SIMILAR_FIELD_LENGTH = 950  # daily/problem similar_questions 欄位保留安全餘量
 MAX_FIELD_LENGTH = 1024  # Discord embed 欄位最大長度
 MAX_EMBED_LENGTH = 6000  # Discord embed 總長度限制
