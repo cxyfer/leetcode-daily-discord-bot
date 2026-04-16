@@ -281,3 +281,39 @@ async def test_create_problem_embed_packs_all_daily_similar_questions_within_len
     assert len(lines) > 3
     assert lines[0].startswith("- 🟡 [101. ")
     assert similar_field.value.endswith("...")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("slug_key", "slug_value"),
+    [("titleSlug", "rotate-image"), ("slug", "best-time-to-buy-and-sell-stock")],
+)
+async def test_create_problem_embed_builds_daily_similar_question_link_from_slug_when_link_missing(
+    slug_key: str, slug_value: str
+):
+    bot = _make_bot()
+    problem = {
+        "id": "1",
+        "source": "leetcode",
+        "slug": "two-sum",
+        "title": "Two Sum",
+        "difficulty": "Easy",
+        "ac_rate": 52.34,
+        "rating": 1234,
+        "tags": ["Array"],
+        "link": "https://leetcode.com/problems/two-sum/",
+        "similar_questions": [
+            {
+                "id": "48",
+                "source": "leetcode",
+                "title": "Similar Problem",
+                "difficulty": "Medium",
+                slug_key: slug_value,
+            }
+        ],
+    }
+
+    embed = await create_problem_embed(problem_info=problem, bot=bot, is_daily=True)
+
+    similar_field = next(field for field in embed.fields if field.name == "🔍 Similar Questions (1)")
+    assert similar_field.value == f"- 🟡 [48. Similar Problem](https://leetcode.com/problems/{slug_value}/)"
