@@ -153,18 +153,20 @@ def _join_lines_with_ellipsis(lines: List[str], *, max_length: int) -> tuple[str
         return "", 0, False
 
     rendered_lines: List[str] = []
+    current_length = 0
     for line in lines:
-        candidate = "\n".join(rendered_lines + [line])
-        if len(candidate) <= max_length:
+        needed_length = len(line) + (1 if rendered_lines else 0)
+        if current_length + needed_length <= max_length:
             rendered_lines.append(line)
+            current_length += needed_length
             continue
 
         if not rendered_lines:
             return line[: max_length - 3] + "...", 1, True
 
-        joined = "\n".join(rendered_lines)
         ellipsis_suffix = "\n..."
-        if len(joined) + len(ellipsis_suffix) <= max_length:
+        joined = "\n".join(rendered_lines)
+        if current_length + len(ellipsis_suffix) <= max_length:
             return joined + ellipsis_suffix, len(rendered_lines), True
         return joined[: max_length - 3] + "...", len(rendered_lines), True
 
