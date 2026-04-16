@@ -33,9 +33,9 @@ from .ui_constants import (
     LUOGU_DIFFICULTY_EMOJIS,
     MAX_BUTTON_CUSTOM_ID_LENGTH,
     MAX_BUTTON_LABEL_LENGTH,
+    MAX_DAILY_SIMILAR_FIELD_LENGTH,
     MAX_FIELD_LENGTH,
     MAX_PROBLEMS_PER_OVERVIEW,
-    MAX_SIMILAR_QUESTIONS,
     MAX_SIMILAR_RESULT_DETAIL_BUTTONS,
     NON_DIFFICULTY_EMOJI,
     PROBLEMS_PER_FIELD,
@@ -107,6 +107,70 @@ def _format_similarity(value: Any) -> str:
         return f"{float(value):.2f}"
     except (TypeError, ValueError):
         return "?"
+
+
+def _format_problem_rating(value: Any) -> str | None:
+    try:
+        rating = round(float(value))
+    except (TypeError, ValueError):
+        return None
+    return str(int(rating)) if rating > 0 else None
+
+
+def _build_daily_similar_question_line(question: Dict[str, Any]) -> str | None:
+    if not isinstance(question, dict):
+        return None
+
+    title = _normalize_similar_result_segment(question.get("title"), "")
+    problem_id = _normalize_similar_result_segment(question.get("id"), "")
+    difficulty = question.get("difficulty", "")
+    emoji = get_difficulty_emoji(difficulty)
+
+    if problem_id and title:
+        display_text = f"{problem_id}. {title}"
+    else:
+        display_text = problem_id or title
+
+    if not display_text:
+        return None
+
+    link = question.get("link")
+    if not link:
+        slug = question.get("titleSlug") or question.get("slug", "")
+        if slug:
+            link = f"https://leetcode.com/problems/{slug}/"
+
+    line_text = f"[{display_text}]({link})" if link else display_text
+    rating = _format_problem_rating(question.get("rating"))
+    if rating:
+        line_text += f" *{rating}*"
+
+    return f"- {emoji} {line_text}"
+
+
+def _join_lines_with_ellipsis(lines: List[str], *, max_length: int) -> tuple[str, int, bool]:
+    if not lines:
+        return "", 0, False
+
+    rendered_lines: List[str] = []
+    current_length = 0
+    for line in lines:
+        needed_length = len(line) + (1 if rendered_lines else 0)
+        if current_length + needed_length <= max_length:
+            rendered_lines.append(line)
+            current_length += needed_length
+            continue
+
+        if not rendered_lines:
+            return line[: max_length - 3] + "...", 1, True
+
+        ellipsis_suffix = "\n..."
+        joined = "\n".join(rendered_lines)
+        if current_length + len(ellipsis_suffix) <= max_length:
+            return joined + ellipsis_suffix, len(rendered_lines), True
+        return joined[: max_length - 3] + "...", len(rendered_lines), True
+
+    return "\n".join(rendered_lines), len(rendered_lines), False
 
 
 def _build_similar_result_line(index: int, result_item: Dict[str, Any]) -> str:
@@ -347,19 +411,18 @@ async def create_problem_embed(
     # Similar questions (use data directly from API response)
     if problem_info.get("similar_questions"):
         similar_q_list = []
-        for sq in problem_info["similar_questions"][:MAX_SIMILAR_QUESTIONS]:
-            if isinstance(sq, dict):
-                sq_title = sq.get("title", "")
-                sq_slug = sq.get("titleSlug") or sq.get("slug", "")
-                sq_diff = sq.get("difficulty", "")
-                emoji = get_difficulty_emoji(sq_diff)
-                link = f"https://leetcode.com/problems/{sq_slug}/" if sq_slug else ""
-                sq_text = f"- {emoji} [{sq_title}]({link})" if link else f"- {emoji} {sq_title}"
-                similar_q_list.append(sq_text)
+        for sq in problem_info["similar_questions"]:
+            line = _build_daily_similar_question_line(sq)
+            if line:
+                similar_q_list.append(line)
         if similar_q_list:
+            similar_value, rendered_count, was_truncated = _join_lines_with_ellipsis(
+                similar_q_list, max_length=MAX_DAILY_SIMILAR_FIELD_LENGTH
+            )
+            count_suffix = "+" if was_truncated else ""
             embed.add_field(
-                name=f"{FIELD_EMOJIS['similar']} Similar Questions",
-                value="\n".join(similar_q_list),
+                name=f"{FIELD_EMOJIS['similar']} Similar Questions ({rendered_count}{count_suffix})",
+                value=similar_value,
                 inline=False,
             )
 
