@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v2.0.2] - 2026-04-17
+### Changed
+- **Similar Question Packing**: Replaced the fixed 3-item cap with a 950-character budget so `/daily` and `/problem` embeds can show more related problems without overflowing Discord field limits.
+- **Richer Similar Question Entries**: Added problem IDs, clickable links, ratings, and adaptive `(N)` / `(N+)` labels to make truncated related-problem lists easier to scan.
+
+### Fixed
+- **Missing Similar Question Links**: Preserved clickable LeetCode URLs when the API omits a direct `link` field by falling back to `titleSlug` / `slug`.
+
+### Improved
+- **Packing Performance**: Reduced similar-question packing from repeated re-joins to linear length tracking while preserving the same truncation behavior.
+
 ## [v2.0.1] - 2026-03-19
 ### Fixed
 - **Legacy Problem Button Routing**: Restored custom_id routing for legacy problem buttons to ensure compatibility with older interactions.
