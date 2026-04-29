@@ -95,6 +95,92 @@ class SlashCommandsCog(commands.Cog):
             self.logger.error("Error in daily command with date %s: %s", date, e, exc_info=True)
             await interaction.followup.send(f"查詢每日挑戰時發生錯誤：{e}", ephemeral=not public)
 
+    # ── /random ────────────────────────────────────────────────────────
+
+    @app_commands.command(name="random", description="隨機取得一道 LeetCode 題目")
+    @app_commands.describe(
+        difficulty="難度篩選",
+        tags="標籤篩選 (例如: Array)",
+        rating_min="最低評分",
+        rating_max="最高評分",
+        public="是否公開顯示回覆 (預設為私密回覆)",
+    )
+    @app_commands.choices(
+        difficulty=[
+            app_commands.Choice(name="Easy", value="Easy"),
+            app_commands.Choice(name="Medium", value="Medium"),
+            app_commands.Choice(name="Hard", value="Hard"),
+        ]
+    )
+    async def random_command(
+        self,
+        interaction: discord.Interaction,
+        difficulty: str = None,
+        tags: str = None,
+        rating_min: int = None,
+        rating_max: int = None,
+        public: bool = False,
+    ):
+        if rating_min is not None and rating_max is not None and rating_min > rating_max:
+            rating_min, rating_max = rating_max, rating_min
+
+        await interaction.response.defer(ephemeral=not public)
+
+        try:
+            problem = await self.bot.api.get_random_problem(
+                difficulty=difficulty,
+                tags=tags,
+                rating_min=rating_min,
+                rating_max=rating_max,
+            )
+            if not problem:
+                filters = []
+                if difficulty:
+                    filters.append(f"difficulty:{difficulty}")
+                if tags:
+                    filters.append(f"tags:{discord.utils.escape_markdown(tags)}")
+                if rating_min is not None or rating_max is not None:
+                    r_min = str(rating_min) if rating_min is not None else "不限"
+                    r_max = str(rating_max) if rating_max is not None else "不限"
+                    filters.append(f"rating:{r_min}-{r_max}")
+                filter_text = ", ".join(filters) if filters else "無篩選條件"
+                await interaction.followup.send(
+                    f"沒有找到符合 {filter_text} 的題目，請調整篩選條件後重試。",
+                    ephemeral=True,
+                    allowed_mentions=discord.AllowedMentions.none(),
+                )
+                return
+
+            source = problem.get("source", "leetcode")
+            domain = "cn" if source == "leetcode" and problem.get("domain") == "cn" else "com"
+            embed = await create_problem_embed(
+                problem_info=problem,
+                bot=self.bot,
+                domain=domain,
+                is_daily=False,
+                user=interaction.user,
+            )
+            view = await create_problem_view(problem_info=problem, bot=self.bot, domain=domain)
+            await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
+            self.logger.info("Sent random problem to user %s", interaction.user.name)
+
+        except ApiProcessingError:
+            await interaction.followup.send("⏳ 資料準備中，請稍後重試。", ephemeral=not public)
+        except ApiNetworkError:
+            await interaction.followup.send("🔌 API 連線失敗，請稍後重試。", ephemeral=not public)
+        except ApiRateLimitError:
+            await interaction.followup.send("⏱️ 請求頻率過高，請稍後重試。", ephemeral=not public)
+        except ApiError as e:
+            self.logger.error("API error in random command: %s", e)
+            await interaction.followup.send("❌ 查詢失敗，請稍後重試。", ephemeral=not public)
+        except Exception as e:
+            self.logger.error("Error in random_command: %s", e, exc_info=True)
+            await interaction.followup.send(
+                "❌ 隨機題目時發生未預期錯誤，請稍後重試。",
+                ephemeral=not public,
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+
     # ── /problem ──────────────────────────────────────────────────────
 
     @app_commands.command(name="problem", description="根據題號查詢題目資訊")
