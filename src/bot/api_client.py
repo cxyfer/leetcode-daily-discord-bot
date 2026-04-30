@@ -152,6 +152,21 @@ class OjApiClient:
             params["source"] = source
         return await self._request("GET", "similar", params=params)
 
+    @staticmethod
+    def _list_total(response: dict) -> int:
+        total = response.get("total")
+        if total is None:
+            total = (response.get("meta") or {}).get("total")
+        return int(total or 0)
+
+    @staticmethod
+    def _list_items(response: dict) -> list:
+        for key in ("results", "items", "data"):
+            items = response.get(key)
+            if isinstance(items, list):
+                return items
+        return []
+
     async def get_random_problem(
         self,
         *,
@@ -182,7 +197,7 @@ class OjApiClient:
         if not count_resp:
             return None
 
-        total = count_resp.get("total") or 0
+        total = self._list_total(count_resp)
         if total == 0:
             return None
 
@@ -192,13 +207,13 @@ class OjApiClient:
         if not result:
             return None
 
-        items = result.get("results", result.get("items", [])) or []
+        items = self._list_items(result)
         if not items:
             # TOCTOU fallback: dataset shrank between count and fetch
             page_params["page"] = 1
             result = await self._request("GET", "problems/leetcode", params=page_params)
             if not result:
                 return None
-            items = result.get("results", result.get("items", [])) or []
+            items = self._list_items(result)
 
         return items[0] if items else None
