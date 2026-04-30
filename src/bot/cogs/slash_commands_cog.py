@@ -409,8 +409,14 @@ class SlashCommandsCog(commands.Cog):
             tz = settings.get("timezone", DEFAULT_TIMEZONE)
             lang = settings.get("language", "zh-TW")
             embed = create_settings_embed(
-                interaction.guild.name, ch_mention, role_mention, post_time, tz,
-                language=lang, bot=self.bot, locale=locale,
+                interaction.guild.name,
+                ch_mention,
+                role_mention,
+                post_time,
+                tz,
+                language=lang,
+                bot=self.bot,
+                locale=locale,
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
@@ -430,8 +436,14 @@ class SlashCommandsCog(commands.Cog):
             tz = settings.get("timezone", DEFAULT_TIMEZONE)
             lang = settings.get("language", "zh-TW")
             preview_embed = create_settings_embed(
-                interaction.guild.name, ch_mention, role_mention, post_time, tz,
-                language=lang, bot=self.bot, locale=locale,
+                interaction.guild.name,
+                ch_mention,
+                role_mention,
+                post_time,
+                tz,
+                language=lang,
+                bot=self.bot,
+                locale=locale,
             )
 
             exp_unix = int(time.time()) + 180
@@ -528,9 +540,14 @@ class SlashCommandsCog(commands.Cog):
             role_display = r.mention if r else i18n.t("ui.settings.unknown_role", locale, id=base["role_id"])
 
         embed = create_settings_embed(
-            interaction.guild.name, ch_display, role_display,
-            base["post_time"], base["timezone"],
-            language=base["language"], bot=self.bot, locale=locale,
+            interaction.guild.name,
+            ch_display,
+            role_display,
+            base["post_time"],
+            base["timezone"],
+            language=base["language"],
+            bot=self.bot,
+            locale=locale,
         )
         updated_msg = i18n.t("errors.config.settings_updated", locale)
         await interaction.response.send_message(content=updated_msg, embed=embed, ephemeral=True)
