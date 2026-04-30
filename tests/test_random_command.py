@@ -54,6 +54,18 @@ def _sample_problem(problem_id: str = "1", difficulty: str = "Easy") -> dict:
     }
 
 
+def _problem_list_response(total: int, problems: list[dict] | None = None, page: int = 1) -> dict:
+    return {
+        "data": problems or [],
+        "meta": {
+            "total": total,
+            "page": page,
+            "per_page": 1,
+            "total_pages": total,
+        },
+    }
+
+
 # -- get_random_problem tests --
 
 
@@ -61,7 +73,7 @@ def _sample_problem(problem_id: str = "1", difficulty: str = "Easy") -> dict:
 async def test_get_random_problem_returns_none_on_zero_count():
     api = OjApiClient("http://test")
     api._session = AsyncMock()
-    api._request = AsyncMock(return_value={"total": 0, "results": []})
+    api._request = AsyncMock(return_value=_problem_list_response(0))
 
     result = await api.get_random_problem()
     assert result is None
@@ -88,8 +100,8 @@ async def test_get_random_problem_swaps_rating_when_min_exceeds_max():
         params = kwargs.get("params", {})
         captured_params.append(params)
         if "page" not in params:
-            return {"total": 5, "results": []}
-        return {"total": 5, "results": [_sample_problem()]}
+            return _problem_list_response(5)
+        return _problem_list_response(5, [_sample_problem()], page=params["page"])
 
     api._request = AsyncMock(side_effect=fake_request)
 
@@ -111,8 +123,8 @@ async def test_get_random_problem_passes_all_filters():
         params = kwargs.get("params", {})
         captured_params.append(params)
         if "page" not in params:
-            return {"total": 3, "results": []}
-        return {"total": 3, "results": [_sample_problem()]}
+            return _problem_list_response(3)
+        return _problem_list_response(3, [_sample_problem()], page=params["page"])
 
     api._request = AsyncMock(side_effect=fake_request)
 
@@ -136,8 +148,8 @@ async def test_get_random_problem_uses_random_page(monkeypatch):
         params = kwargs.get("params", {})
         captured_params.append(params)
         if "page" not in params:
-            return {"total": 10, "results": []}
-        return {"total": 10, "results": [_sample_problem()]}
+            return _problem_list_response(10)
+        return _problem_list_response(10, [_sample_problem()], page=params["page"])
 
     api._request = AsyncMock(side_effect=fake_request)
     monkeypatch.setattr(random, "randint", lambda a, b: 7)
@@ -180,16 +192,45 @@ async def test_get_random_problem_fallback_on_empty_page():
         call_count += 1
         params = kwargs.get("params", {})
         if "page" not in params:
-            return {"total": 5, "results": []}
+            return _problem_list_response(5)
         if call_count == 2:
-            return {"total": 5, "results": []}  # random page is empty
-        return {"total": 5, "results": [_sample_problem()]}  # fallback page=1
+            return _problem_list_response(5, [], page=params["page"])  # random page is empty
+        return _problem_list_response(5, [_sample_problem()], page=params["page"])  # fallback page=1
 
     api._request = AsyncMock(side_effect=fake_request)
 
     result = await api.get_random_problem()
     assert result is not None
     assert call_count == 3  # count + empty page + fallback
+
+
+def test_list_items_uses_first_list_value():
+    response = {"results": {"unexpected": "dict"}, "items": "unexpected string", "data": [_sample_problem()]}
+
+    assert OjApiClient._list_items(response) == [_sample_problem()]
+
+
+def test_list_items_returns_empty_list_for_unexpected_types():
+    response = {"results": {"unexpected": "dict"}, "items": "unexpected string", "data": {"id": "1"}}
+
+    assert OjApiClient._list_items(response) == []
+
+
+@pytest.mark.asyncio
+async def test_get_random_problem_accepts_legacy_results_shape():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+
+    async def fake_request(method, path, **kwargs):
+        params = kwargs.get("params", {})
+        if "page" not in params:
+            return {"total": 2, "results": []}
+        return {"total": 2, "results": [_sample_problem()]}
+
+    api._request = AsyncMock(side_effect=fake_request)
+
+    result = await api.get_random_problem()
+    assert result is not None
 
 
 # -- /random command tests --
