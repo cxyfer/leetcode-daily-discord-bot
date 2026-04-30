@@ -1,0 +1,187 @@
+{
+  "errors": {
+    "api": {
+      "processing": "⏳ Data is being prepared, please try again later.",
+      "network": "🔌 API connection failed, please try again later.",
+      "rate_limit": "⏱️ Rate limit exceeded, please try again later.",
+      "generic": "❌ Query failed, please try again later."
+    },
+    "validation": {
+      "date_format": "Invalid date format. Please use YYYY-MM-DD (e.g., 2025-07-01).",
+      "not_found_for_date": "No daily challenge found for {date}.",
+      "domain_invalid": "Domain parameter must be 'com' or 'cn'.",
+      "title_too_long": "Custom title cannot exceed 100 characters.",
+      "message_too_long": "Personal message cannot exceed 500 characters.",
+      "problem_ids_empty": "Please provide at least one problem ID.",
+      "too_many_problems": "You can query up to 20 problems at once.",
+      "problem_not_found": "No valid problems found. Please check the problem IDs or ensure they are public.",
+      "no_description": "Problem not found or has no description content.",
+      "no_submissions": "No submissions found for user **{username}**. Please check the username.",
+      "invalid_page": "Invalid page.",
+      "module_load_error": "Unable to load command module.",
+      "submission_detail_error": "Unable to load problem details.",
+      "content_truncated": "(Content truncated, please visit the website for the full problem.)",
+      "similar_not_found": "No similar problems found.",
+      "no_query_provided": "Please provide at least a problem description (query) or problem ID (problem)."
+    },
+    "config": {
+      "not_configured": "Daily challenge channel not configured yet. Use /config channel:<channel> to get started.",
+      "reset_conflict": "`reset` cannot be used with other configuration parameters.",
+      "role_clear_conflict": "`role` and `clear_role` cannot be used together.",
+      "time_format_error": "Invalid time format. Please use HH:MM (e.g., 08:00 or 23:59).",
+      "timezone_error": "Invalid timezone: {error}",
+      "first_setup_required": "You must specify the `channel` parameter for initial setup.\nExample: `/config channel:#general time:08:00 timezone:UTC+8`",
+      "settings_error": "An error occurred while saving settings. Please try again later.",
+      "permission_denied": "You need the **Manage Server** permission to use this command.",
+      "dm_restricted": "This command cannot be used in direct messages.",
+      "not_setup": "This server has no settings to reset.",
+      "settings_updated": "✅ Settings updated."
+    },
+    "reset": {
+      "invalid_action": "Invalid action.",
+      "wrong_user": "This action is only available to the original requester.",
+      "expired": "This confirmation has expired. Please use /config reset:True again.",
+      "cancelled": "Reset operation cancelled.",
+      "permission_denied": "You need the **Manage Server** permission to perform this action.",
+      "error": "An error occurred while resetting settings. Please try again later.",
+      "success": "✅ All settings have been reset and scheduling has been stopped.",
+      "confirm_message": "⚠️ Are you sure you want to reset all settings for this server? This will stop the daily challenge schedule."
+    },
+    "navigation": {
+      "error": "Navigation error: {error}"
+    }
+  },
+  "ui": {
+    "buttons": {
+      "description": "Description",
+      "translate": "LLM Translate",
+      "inspire": "Inspiration",
+      "similar": "Similar",
+      "confirm_reset": "Confirm Reset",
+      "cancel": "Cancel"
+    },
+    "embed": {
+      "similar_title": "🔍 Similar Problems",
+      "rewritten_search": "✨ Rewritten Search",
+      "base_problem": "🔗 Base Problem",
+      "results": "📋 Results",
+      "source": "Source",
+      "difficulty": "🔥 Difficulty",
+      "rating": "⭐ Rating",
+      "ac_rate": "📈 AC Rate",
+      "tags": "🏷️ Tags",
+      "similar_questions": "🔍 Similar Questions ({count}{suffix})",
+      "history_problems": "📅 History Problems",
+      "daily_footer": "LeetCode Daily Challenge | {date}",
+      "problem_footer": "LeetCode Problem",
+      "instructions": "💡 Instructions",
+      "instructions_text": "Click the buttons below to view detailed information for each problem.",
+      "problems": "📋 Problems",
+      "problems_part": "📋 Part {number}",
+      "problems_overview": "{source_label} Problems Overview",
+      "problems_found": "🔍 {source_label} Problems ({count} found)",
+      "submission_author": "{username}'s Recent Submissions",
+      "submission_footer": "Problem {current} of {total}",
+      "description_author": "LeetCode Problem",
+      "atcoder_problem": "AtCoder Problem",
+      "source_label": "Source",
+      "solve_on": "> Solve on [{alt_name} ({alt_full_name})]({link}).",
+      "not_found": "Daily challenge not found."
+    },
+    "settings": {
+      "title": "{guild_name} LeetCode Challenge Settings",
+      "channel": "Channel",
+      "role": "Role",
+      "time": "Post Time",
+      "language": "Language",
+      "not_set": "Not set",
+      "unknown_channel": "Unknown Channel (ID: {id})",
+      "unknown_role": "Unknown Role (ID: {id})"
+    },
+    "inspire": {
+      "title": "💡 Inspiration",
+      "thinking": "🧠 Thinking",
+      "traps": "⚠️ Pitfalls",
+      "algorithms": "🛠️ Recommended Algorithms",
+      "inspiration": "✨ Other Insights",
+      "footer": "Inspired by {model}",
+      "default_footer": "Problem {id} Inspiration"
+    }
+  },
+  "llm": {
+    "duplicate_translate": "Processing your translation request, please wait...",
+    "duplicate_inspire": "Processing your inspiration request, please wait...",
+    "translation_not_enabled": "LLM translation feature is not enabled.",
+    "inspire_not_enabled": "LLM inspiration feature is not enabled.",
+    "cannot_fetch_description": "Unable to fetch problem description.",
+    "cannot_fetch_info": "Unable to fetch problem information.",
+    "cannot_fetch_content": "Unable to fetch problem content.",
+    "provided_by_model": "\n\n✨ Translated by `{model}`",
+    "translation_truncated": "...\n(Translation content truncated)",
+    "translate_error": "LLM translation failed: {error}",
+    "inspire_error": "LLM inspiration failed: {error}",
+    "prompts": {
+      "output_language_names": {
+        "zh-TW": "繁體中文",
+        "en-US": "English",
+        "zh-CN": "简体中文"
+      }
+    }
+  },
+  "daily": {
+    "error": "Error sending daily challenge: {error}"
+  },
+  "commands": {
+    "daily": {
+      "description": "Get LeetCode Daily Challenge (LCUS)",
+      "date": "Query daily challenge for a specific date (YYYY-MM-DD format), defaults to today, earliest 2020-04-01",
+      "public": "Whether to show the reply publicly (default: private)"
+    },
+    "daily_cn": {
+      "description": "Get LeetCode Daily Challenge (LCCN)",
+      "date": "Query daily challenge for a specific date (YYYY-MM-DD format), defaults to today, earliest 2020-04-01",
+      "public": "Whether to show the reply publicly (default: private)"
+    },
+    "problem": {
+      "description": "Query problem information by ID",
+      "problem_ids": "Problem IDs, comma-separated (e.g., 1, two-sum, abc321_a, atcoder:abc321_a)",
+      "domain": "Select LeetCode domain (deprecated)",
+      "public": "Whether to show the reply publicly (default: private)",
+      "title": "Custom title (replaces default title in multi-problem mode, max 100 characters)",
+      "message": "Optional personal message or note (max 500 characters)",
+      "source": "Problem source (e.g., leetcode/atcoder/codeforces), or use source: prefix before problem ID"
+    },
+    "config": {
+      "description": "Configure all LeetCode Daily Challenge settings",
+      "channel": "Channel to send daily challenges",
+      "role": "Role to mention",
+      "time": "Send time (HH:MM or H:MM, e.g., 08:00)",
+      "timezone": "Timezone (e.g., Asia/Taipei or UTC+8)",
+      "clear_role": "Clear role mention setting",
+      "reset": "Reset all settings and stop scheduling (requires confirmation)",
+      "language": "Set the bot's display language",
+      "language_current": "Current language: {locale}",
+      "language_updated": "✅ Language updated to {locale}"
+    },
+    "recent": {
+      "description": "View recent submissions for a LeetCode user (LCUS only)",
+      "username": "LeetCode username",
+      "limit": "Number of problems to display (default 20, max 50)",
+      "public": "Whether to show the reply publicly (default: private)"
+    },
+    "similar": {
+      "description": "Search for similar problems",
+      "query": "Problem description or keywords (optional if problem is specified)",
+      "problem": "Problem ID or URL (e.g., 1, atcoder:abc100_a)",
+      "top_k": "Number of results to return (default 5)",
+      "source": "Problem source (leave empty for all)",
+      "public": "Whether to show the reply publicly (default: private)"
+    }
+  },
+  "locale": {
+    "name": "English",
+    "zh-TW": "繁體中文",
+    "en-US": "English",
+    "zh-CN": "简体中文"
+  }
+}

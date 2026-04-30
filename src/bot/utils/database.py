@@ -47,10 +47,17 @@ class SettingsDatabaseManager:
             role_id INTEGER,
             post_time TEXT DEFAULT '00:00',
             timezone TEXT DEFAULT 'UTC',
+            language TEXT NOT NULL DEFAULT 'zh-TW',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """)
+
+        # Migrate: add language column if missing
+        columns = {row[1] for row in cursor.execute("PRAGMA table_info(server_settings)").fetchall()}
+        if "language" not in columns:
+            cursor.execute("ALTER TABLE server_settings ADD COLUMN language TEXT NOT NULL DEFAULT 'zh-TW'")
+            logger.info("Added 'language' column to server_settings")
 
         conn.commit()
         conn.close()
@@ -69,7 +76,7 @@ class SettingsDatabaseManager:
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT channel_id, role_id, post_time, timezone FROM server_settings WHERE server_id = ?",
+            "SELECT channel_id, role_id, post_time, timezone, language FROM server_settings WHERE server_id = ?",
             (server_id,),
         )
         result = cursor.fetchone()
@@ -83,10 +90,19 @@ class SettingsDatabaseManager:
                 "role_id": result[1],
                 "post_time": result[2],
                 "timezone": result[3],
+                "language": result[4],
             }
         return None
 
-    def set_server_settings(self, server_id, channel_id, role_id=None, post_time="00:00", timezone="UTC"):
+    def set_server_settings(
+        self,
+        server_id,
+        channel_id,
+        role_id=None,
+        post_time="00:00",
+        timezone="UTC",
+        language="zh-TW",
+    ):
         """Set or update server settings
 
         Args:
@@ -95,6 +111,7 @@ class SettingsDatabaseManager:
             role_id (int, optional): The role ID to mention
             post_time (str, optional): The time to send the daily challenge, format "HH:MM"
             timezone (str, optional): The timezone name
+            language (str, optional): The display language, default "zh-TW"
 
         Returns:
             bool: return True if updated successfully
@@ -105,16 +122,17 @@ class SettingsDatabaseManager:
         try:
             cursor.execute(
                 """
-                INSERT INTO server_settings (server_id, channel_id, role_id, post_time, timezone)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO server_settings (server_id, channel_id, role_id, post_time, timezone, language)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(server_id) DO UPDATE SET
                     channel_id = excluded.channel_id,
                     role_id = excluded.role_id,
                     post_time = excluded.post_time,
                     timezone = excluded.timezone,
+                    language = excluded.language,
                     updated_at = CURRENT_TIMESTAMP
                 """,
-                (server_id, channel_id, role_id, post_time, timezone),
+                (server_id, channel_id, role_id, post_time, timezone, language),
             )
             conn.commit()
             return True
@@ -122,7 +140,7 @@ class SettingsDatabaseManager:
             logger.error(f"Error setting server settings: {e}")
             return False
         finally:
-            logger.debug(f"Server {server_id} settings updated: ({channel_id}, {role_id}, {post_time}, {timezone})")
+            logger.debug(f"Server {server_id} settings updated: ({channel_id}, {role_id}, {post_time}, {timezone}, {language})")
             conn.close()
 
     def get_all_servers(self):
@@ -134,7 +152,7 @@ class SettingsDatabaseManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute("SELECT server_id, channel_id, role_id, post_time, timezone FROM server_settings")
+        cursor.execute("SELECT server_id, channel_id, role_id, post_time, timezone, language FROM server_settings")
         results = cursor.fetchall()
         conn.close()
 
@@ -147,6 +165,7 @@ class SettingsDatabaseManager:
                     "role_id": row[2],
                     "post_time": row[3],
                     "timezone": row[4],
+                    "language": row[5],
                 }
             )
 
@@ -196,23 +215,40 @@ class LLMTranslateDatabaseManager:
         CREATE TABLE IF NOT EXISTS llm_translate_results (
             source TEXT NOT NULL,
             problem_id TEXT NOT NULL,
+            locale TEXT NOT NULL DEFAULT 'zh-TW',
             translation TEXT,
             created_at INTEGER NOT NULL,
             model_name TEXT,
-            PRIMARY KEY (source, problem_id)
+            PRIMARY KEY (source, problem_id, locale)
         )
         """)
+        # Migrate: add locale column if missing (for existing databases)
+        columns = {row[1] for row in cursor.execute("PRAGMA table_info(llm_translate_results)").fetchall()}
+        if "locale" not in columns:
+            cursor.execute("DROP TABLE llm_translate_results")
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS llm_translate_results (
+                source TEXT NOT NULL,
+                problem_id TEXT NOT NULL,
+                locale TEXT NOT NULL DEFAULT 'zh-TW',
+                translation TEXT,
+                created_at INTEGER NOT NULL,
+                model_name TEXT,
+                PRIMARY KEY (source, problem_id, locale)
+            )
+            """)
+            logger.info("Rebuilt llm_translate_results with locale in PK")
         conn.commit()
         conn.close()
 
-    def get_translation(self, source, problem_id, expire_seconds=None):
+    def get_translation(self, source, problem_id, locale="zh-TW", expire_seconds=None):
         if expire_seconds is None:
             expire_seconds = self.expire_seconds
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT translation, created_at, model_name FROM llm_translate_results WHERE source = ? AND problem_id = ?",
-            (source, problem_id),
+            "SELECT translation, created_at, model_name FROM llm_translate_results WHERE source = ? AND problem_id = ? AND locale = ?",
+            (source, problem_id, locale),
         )
         row = cursor.fetchone()
         conn.close()
@@ -222,7 +258,7 @@ class LLMTranslateDatabaseManager:
                 return {"translation": translation, "model_name": model_name}
         return None
 
-    def save_translation(self, source, problem_id, translation, model_name=None):
+    def save_translation(self, source, problem_id, translation, locale="zh-TW", model_name=None):
         now = int(time.time())
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -234,12 +270,12 @@ class LLMTranslateDatabaseManager:
             translation = str(translation)
         cursor.execute(
             "INSERT OR REPLACE INTO llm_translate_results "
-            "(source, problem_id, translation, created_at, model_name) VALUES (?, ?, ?, ?, ?)",
-            (source, problem_id, translation, now, model_name),
+            "(source, problem_id, locale, translation, created_at, model_name) VALUES (?, ?, ?, ?, ?, ?)",
+            (source, problem_id, locale, translation, now, model_name),
         )
         conn.commit()
         conn.close()
-        logger.info(f"Saved LLM translation for {source}/{problem_id}, model={model_name}")
+        logger.info(f"Saved LLM translation for {source}/{problem_id}/{locale}, model={model_name}")
 
 
 class LLMInspireDatabaseManager:
@@ -263,27 +299,47 @@ class LLMInspireDatabaseManager:
         CREATE TABLE IF NOT EXISTS llm_inspire_results (
             source TEXT NOT NULL,
             problem_id TEXT NOT NULL,
+            locale TEXT NOT NULL DEFAULT 'zh-TW',
             thinking TEXT,
             traps TEXT,
             algorithms TEXT,
             inspiration TEXT,
             created_at INTEGER NOT NULL,
             model_name TEXT,
-            PRIMARY KEY (source, problem_id)
+            PRIMARY KEY (source, problem_id, locale)
         )
         """)
+        # Migrate: add locale column if missing (for existing databases)
+        columns = {row[1] for row in cursor.execute("PRAGMA table_info(llm_inspire_results)").fetchall()}
+        if "locale" not in columns:
+            cursor.execute("DROP TABLE llm_inspire_results")
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS llm_inspire_results (
+                source TEXT NOT NULL,
+                problem_id TEXT NOT NULL,
+                locale TEXT NOT NULL DEFAULT 'zh-TW',
+                thinking TEXT,
+                traps TEXT,
+                algorithms TEXT,
+                inspiration TEXT,
+                created_at INTEGER NOT NULL,
+                model_name TEXT,
+                PRIMARY KEY (source, problem_id, locale)
+            )
+            """)
+            logger.info("Rebuilt llm_inspire_results with locale in PK")
         conn.commit()
         conn.close()
 
-    def get_inspire(self, source, problem_id, expire_seconds=None):
+    def get_inspire(self, source, problem_id, locale="zh-TW", expire_seconds=None):
         if expire_seconds is None:
             expire_seconds = self.expire_seconds
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute(
             "SELECT thinking, traps, algorithms, inspiration, created_at, model_name "
-            "FROM llm_inspire_results WHERE source = ? AND problem_id = ?",
-            (source, problem_id),
+            "FROM llm_inspire_results WHERE source = ? AND problem_id = ? AND locale = ?",
+            (source, problem_id, locale),
         )
         row = cursor.fetchone()
         conn.close()
@@ -299,7 +355,7 @@ class LLMInspireDatabaseManager:
                 }
         return None
 
-    def save_inspire(self, source, problem_id, thinking, traps, algorithms, inspiration, model_name=None):
+    def save_inspire(self, source, problem_id, thinking, traps, algorithms, inspiration, locale="zh-TW", model_name=None):
         now = int(time.time())
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -313,11 +369,12 @@ class LLMInspireDatabaseManager:
 
         cursor.execute(
             "INSERT OR REPLACE INTO llm_inspire_results "
-            "(source, problem_id, thinking, traps, algorithms, inspiration, created_at, model_name) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "(source, problem_id, locale, thinking, traps, algorithms, inspiration, created_at, model_name) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 source,
                 problem_id,
+                locale,
                 safe_str(thinking),
                 safe_str(traps),
                 safe_str(algorithms),
@@ -328,7 +385,7 @@ class LLMInspireDatabaseManager:
         )
         conn.commit()
         conn.close()
-        logger.info(f"Saved LLM inspire for {source}/{problem_id}, model={model_name}")
+        logger.info(f"Saved LLM inspire for {source}/{problem_id}/{locale}, model={model_name}")
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ import discord
 import pytz
 
 from bot.api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
+from bot.i18n import I18nService
 from bot.leetcode import generate_history_dates
 
 from .ui_constants import (
@@ -43,6 +44,47 @@ from .ui_constants import (
 
 # Module-level logger
 logger = logging.getLogger("ui")
+
+
+def _get_locale(bot: Any, interaction: discord.Interaction | None = None) -> str:
+    """Resolve locale for the current context."""
+    if not hasattr(bot, "i18n"):
+        return "zh-TW"
+    i18n: I18nService = bot.i18n
+    guild_id = interaction.guild.id if interaction and interaction.guild else None
+    guild_locale = str(interaction.guild_locale) if interaction and interaction.guild_locale else None
+    interaction_locale = str(interaction.locale) if interaction else None
+    config_default = getattr(bot.config, "default_locale", None) if hasattr(bot, "config") else None
+    return i18n.resolve_locale(
+        guild_id=guild_id,
+        guild_locale=guild_locale,
+        interaction_locale=interaction_locale,
+        config_default=config_default,
+    )
+
+
+async def send_api_error(
+    interaction: discord.Interaction,
+    error_kind: str,
+    bot: Any,
+    *,
+    ephemeral: bool = True,
+) -> None:
+    """Send a localized API error message.
+
+    Args:
+        interaction: The Discord interaction
+        error_kind: One of 'processing', 'network', 'rate_limit', 'generic'
+        bot: Bot instance with i18n service
+        ephemeral: Whether the message should be ephemeral
+    """
+    locale = _get_locale(bot, interaction)
+    i18n: I18nService = bot.i18n
+    msg = i18n.t(f"errors.api.{error_kind}", locale)
+    try:
+        await interaction.followup.send(msg, ephemeral=ephemeral)
+    except Exception:
+        pass
 
 
 def get_user_color(user: discord.User) -> int:
@@ -191,13 +233,19 @@ def _build_similar_results_embed(
     *,
     base_source: str | None = None,
     base_id: str | None = None,
+    bot: Any = None,
+    locale: str = "zh-TW",
 ) -> tuple[discord.Embed, bool]:
-    embed = discord.Embed(title="🔍 相似題目", color=0x3498DB)
+    i18n = bot.i18n if bot else None
+    title = i18n.t("ui.embed.similar_title", locale) if i18n else "Similar Problems"
+    embed = discord.Embed(title=title, color=0x3498DB)
 
     if result.get("rewritten_query"):
-        embed.add_field(name="✨ 重寫搜尋", value=result["rewritten_query"], inline=False)
+        field_name = i18n.t("ui.embed.rewritten_search", locale) if i18n else "Rewritten Search"
+        embed.add_field(name=field_name, value=result["rewritten_query"], inline=False)
     elif base_source and base_id:
-        embed.add_field(name="🔗 基準題目", value=f"{base_source}:{base_id}", inline=False)
+        field_name = i18n.t("ui.embed.base_problem", locale) if i18n else "Base Problem"
+        embed.add_field(name=field_name, value=f"{base_source}:{base_id}", inline=False)
 
     lines = [_build_similar_result_line(index, item) for index, item in enumerate(result.get("results") or [], 1)]
     was_truncated = False
@@ -208,7 +256,8 @@ def _build_similar_results_embed(
         if len(value) > MAX_FIELD_LENGTH:
             value = value[: MAX_FIELD_LENGTH - 3] + "..."
             was_truncated = True
-        field_name = f"{FIELD_EMOJIS['problems']} Results" if i == 0 else f"{FIELD_EMOJIS['problems']} Results (cont.)"
+        results_label = i18n.t("ui.embed.results", locale) if i18n else "Results"
+        field_name = f"{FIELD_EMOJIS['problems']} {results_label}" if i == 0 else f"{FIELD_EMOJIS['problems']} {results_label} (cont.)"
         embed.add_field(name=field_name, value=value, inline=False)
 
     return embed, was_truncated
@@ -219,9 +268,11 @@ def create_similar_results_embed(
     *,
     base_source: str | None = None,
     base_id: str | None = None,
+    bot: Any = None,
+    locale: str = "zh-TW",
 ) -> discord.Embed:
     """建立相似題目搜尋結果 embed"""
-    embed, _ = _build_similar_results_embed(result, base_source=base_source, base_id=base_id)
+    embed, _ = _build_similar_results_embed(result, base_source=base_source, base_id=base_id, bot=bot, locale=locale)
     return embed
 
 
@@ -287,8 +338,10 @@ def create_similar_results_message(
     *,
     base_source: str | None = None,
     base_id: str | None = None,
+    bot: Any = None,
+    locale: str = "zh-TW",
 ) -> tuple[discord.Embed, discord.ui.View | None]:
-    embed, was_truncated = _build_similar_results_embed(result, base_source=base_source, base_id=base_id)
+    embed, was_truncated = _build_similar_results_embed(result, base_source=base_source, base_id=base_id, bot=bot, locale=locale)
     results = result.get("results") or []
     view = (
         _create_similar_results_view(results)
@@ -308,8 +361,10 @@ async def create_problem_embed(
     title: Optional[str] = None,
     message: Optional[str] = None,
     history_problems: Optional[List[Dict[str, Any]]] = None,
+    locale: str = "zh-TW",
 ) -> discord.Embed:
     """Create an embed for a LeetCode problem"""
+    i18n = bot.i18n
     source = problem_info.get("source", "leetcode")
     if source != "leetcode":
         source_label = "AtCoder" if source == "atcoder" else source.capitalize()
@@ -325,16 +380,16 @@ async def create_problem_embed(
             embed.set_author(name=f"{user.display_name}", icon_url=user.display_avatar.url)
         if message:
             embed.description = message
-        embed.add_field(name="Source", value=source_label, inline=False)
+        embed.add_field(name=i18n.t("ui.embed.source", locale), value=source_label, inline=False)
         if problem_info.get("difficulty"):
             embed.add_field(
-                name=f"{FIELD_EMOJIS['difficulty']} Difficulty",
+                name=f"{FIELD_EMOJIS['difficulty']} {i18n.t('ui.embed.difficulty', locale)}",
                 value=f"**{problem_info['difficulty']}**",
                 inline=True,
             )
         if problem_info.get("rating") and round(problem_info["rating"]) > 0:
             embed.add_field(
-                name=f"{FIELD_EMOJIS['rating']} Rating",
+                name=f"{FIELD_EMOJIS['rating']} {i18n.t('ui.embed.rating', locale)}",
                 value=f"**{round(problem_info['rating'])}**",
                 inline=True,
             )
@@ -348,15 +403,15 @@ async def create_problem_embed(
             if tags:
                 tags_str = ", ".join([f"||`{tag}`||" for tag in tags])
                 embed.add_field(
-                    name=f"{FIELD_EMOJIS['tags']} Tags",
+                    name=f"{FIELD_EMOJIS['tags']} {i18n.t('ui.embed.tags', locale)}",
                     value=tags_str,
                     inline=False,
                 )
         footer_icon_url = ATCODER_LOGO_URL if source == "atcoder" else None
         if footer_icon_url:
-            embed.set_footer(text=f"{source_label} Problem", icon_url=footer_icon_url)
+            embed.set_footer(text=i18n.t("ui.embed.atcoder_problem", locale), icon_url=footer_icon_url)
         else:
-            embed.set_footer(text=f"{source_label} Problem")
+            embed.set_footer(text=i18n.t("ui.embed.description_author", locale))
         return embed
 
     embed_color = get_difficulty_color(problem_info["difficulty"])
@@ -367,35 +422,32 @@ async def create_problem_embed(
         url=problem_info["link"],
     )
 
-    # Only set author if title or message is provided
     if (title or message) and user:
         embed.set_author(name=f"{user.display_name}", icon_url=user.display_avatar.url)
 
-    # Add alternative domain link
     domain_info = DOMAIN_MAPPING[domain]
     alt_link = problem_info["link"].replace(domain_info["full_name"], domain_info["alt_full_name"])
-    embed.description = f"> Solve on [{domain_info['alt_name']} ({domain_info['alt_full_name']})]({alt_link})."
+    embed.description = i18n.t("ui.embed.solve_on", locale, alt_name=domain_info["alt_name"], alt_full_name=domain_info["alt_full_name"], link=alt_link)
 
     if message:
         embed.description += f"\n{message}"
 
-    # Add problem details
     embed.add_field(
-        name=f"{FIELD_EMOJIS['difficulty']} Difficulty",
+        name=f"{FIELD_EMOJIS['difficulty']} {i18n.t('ui.embed.difficulty', locale)}",
         value=f"**{problem_info['difficulty']}**",
         inline=True,
     )
 
     if problem_info.get("rating") and round(problem_info["rating"]) > 0:
         embed.add_field(
-            name=f"{FIELD_EMOJIS['rating']} Rating",
+            name=f"{FIELD_EMOJIS['rating']} {i18n.t('ui.embed.rating', locale)}",
             value=f"**{round(problem_info['rating'])}**",
             inline=True,
         )
 
     if problem_info.get("ac_rate"):
         embed.add_field(
-            name=f"{FIELD_EMOJIS['ac_rate']} AC Rate",
+            name=f"{FIELD_EMOJIS['ac_rate']} {i18n.t('ui.embed.ac_rate', locale)}",
             value=f"**{round(problem_info['ac_rate'], 2)}%**",
             inline=True,
         )
@@ -403,12 +455,11 @@ async def create_problem_embed(
     if problem_info.get("tags"):
         tags_str = ", ".join([f"||`{tag}`||" for tag in problem_info["tags"]])
         embed.add_field(
-            name=f"{FIELD_EMOJIS['tags']} Tags",
+            name=f"{FIELD_EMOJIS['tags']} {i18n.t('ui.embed.tags', locale)}",
             value=tags_str if tags_str else "N/A",
             inline=False,
         )
 
-    # Similar questions (use data directly from API response)
     if problem_info.get("similar_questions"):
         similar_q_list = []
         for sq in problem_info["similar_questions"]:
@@ -421,7 +472,7 @@ async def create_problem_embed(
             )
             count_suffix = "+" if was_truncated else ""
             embed.add_field(
-                name=f"{FIELD_EMOJIS['similar']} Similar Questions ({rendered_count}{count_suffix})",
+                name=i18n.t("ui.embed.similar_questions", locale, count=rendered_count, suffix=count_suffix),
                 value=similar_value,
                 inline=False,
             )
@@ -447,26 +498,28 @@ async def create_problem_embed(
             history_lines.append(line)
         if history_lines:
             embed.add_field(
-                name=f"{FIELD_EMOJIS['history']} History Problems",
+                name=f"{FIELD_EMOJIS['history']} {i18n.t('ui.embed.history_problems', locale)}",
                 value="\n".join(history_lines),
                 inline=False,
             )
 
-    # Set footer
     if is_daily:
         display_date = date_str or problem_info.get("date", "Today")
         embed.set_footer(
-            text=f"LeetCode Daily Challenge | {display_date}",
+            text=i18n.t("ui.embed.daily_footer", locale, date=display_date),
             icon_url=LEETCODE_LOGO_URL,
         )
     else:
-        embed.set_footer(text="LeetCode Problem", icon_url=LEETCODE_LOGO_URL)
+        embed.set_footer(text=i18n.t("ui.embed.problem_footer", locale), icon_url=LEETCODE_LOGO_URL)
 
     return embed
 
 
-async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: str = "com") -> discord.ui.View:
+async def create_problem_view(
+    problem_info: Dict[str, Any], bot: Any, domain: str = "com", locale: str = "zh-TW"
+) -> discord.ui.View:
     """Create a view with buttons for a problem"""
+    i18n = bot.i18n
     view = discord.ui.View()
     source = problem_info.get("source", "leetcode")
     pid = problem_info["id"]
@@ -474,7 +527,7 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
     view.add_item(
         discord.ui.Button(
             style=discord.ButtonStyle.primary,
-            label="題目描述",
+            label=i18n.t("ui.buttons.description", locale),
             emoji=BUTTON_EMOJIS["description"],
             custom_id=_build_problem_custom_id(source, pid, "desc"),
         )
@@ -484,7 +537,7 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
         view.add_item(
             discord.ui.Button(
                 style=discord.ButtonStyle.success,
-                label="LLM 翻譯",
+                label=i18n.t("ui.buttons.translate", locale),
                 emoji=BUTTON_EMOJIS["translate"],
                 custom_id=_build_problem_custom_id(source, pid, "translate"),
             )
@@ -494,7 +547,7 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
         view.add_item(
             discord.ui.Button(
                 style=discord.ButtonStyle.danger,
-                label="靈感啟發",
+                label=i18n.t("ui.buttons.inspire", locale),
                 emoji=BUTTON_EMOJIS["inspire"],
                 custom_id=_build_problem_custom_id(source, pid, "inspire"),
             )
@@ -503,7 +556,7 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
     view.add_item(
         discord.ui.Button(
             style=discord.ButtonStyle.secondary,
-            label="相似題目",
+            label=i18n.t("ui.buttons.similar", locale),
             emoji=BUTTON_EMOJIS["similar"],
             custom_id=_build_problem_custom_id(source, pid, "similar"),
         )
@@ -512,8 +565,11 @@ async def create_problem_view(problem_info: Dict[str, Any], bot: Any, domain: st
     return view
 
 
-def create_submission_embed(submission: Dict[str, Any], page: int, total: int, username: str) -> discord.Embed:
+def create_submission_embed(
+    submission: Dict[str, Any], page: int, total: int, username: str, bot: Any = None, locale: str = "zh-TW"
+) -> discord.Embed:
     """Create an embed for a user submission"""
+    i18n = bot.i18n if bot else None
     embed_color = get_difficulty_color(submission["difficulty"])
 
     embed = discord.Embed(
@@ -522,33 +578,41 @@ def create_submission_embed(submission: Dict[str, Any], page: int, total: int, u
         url=submission["link"],
     )
 
-    # Add submission details
     embed.add_field(
-        name=f"{FIELD_EMOJIS['difficulty']} Difficulty",
+        name=f"{FIELD_EMOJIS['difficulty']} {i18n.t('ui.embed.difficulty', locale) if i18n else 'Difficulty'}",
         value=f"**{submission['difficulty']}**",
         inline=True,
     )
 
     if submission.get("rating") and round(submission["rating"]) > 0:
         embed.add_field(
-            name=f"{FIELD_EMOJIS['rating']} Rating",
+            name=f"{FIELD_EMOJIS['rating']} {i18n.t('ui.embed.rating', locale) if i18n else 'Rating'}",
             value=f"**{round(submission['rating'])}**",
             inline=True,
         )
 
     if submission.get("ac_rate"):
         embed.add_field(
-            name=f"{FIELD_EMOJIS['ac_rate']} AC Rate",
+            name=f"{FIELD_EMOJIS['ac_rate']} {i18n.t('ui.embed.ac_rate', locale) if i18n else 'AC Rate'}",
             value=f"**{round(submission['ac_rate'], 2)}%**",
             inline=True,
         )
 
     if submission.get("tags"):
         tags_str = ", ".join([f"||`{tag}`||" for tag in submission["tags"]])
-        embed.add_field(name=f"{FIELD_EMOJIS['tags']} Tags", value=tags_str, inline=False)
+        embed.add_field(
+            name=f"{FIELD_EMOJIS['tags']} {i18n.t('ui.embed.tags', locale) if i18n else 'Tags'}",
+            value=tags_str,
+            inline=False,
+        )
 
-    embed.set_author(name=f"{username}'s Recent Submissions", icon_url=LEETCODE_LOGO_URL)
-    embed.set_footer(text=f"Problem {page + 1} of {total}")
+    embed.set_author(
+        name=i18n.t("ui.embed.submission_author", locale, username=username) if i18n else f"{username}'s Recent Submissions",
+        icon_url=LEETCODE_LOGO_URL,
+    )
+    embed.set_footer(
+        text=i18n.t("ui.embed.submission_footer", locale, current=page + 1, total=total) if i18n else f"Problem {page + 1} of {total}"
+    )
 
     return embed
 
@@ -627,9 +691,17 @@ def create_problems_overview_embed(
     source_label: str = "LeetCode",
     show_instructions: bool = True,
     footer_icon_url: Optional[str] = LEETCODE_LOGO_URL,
+    bot: Any = None,
+    locale: str = "zh-TW",
 ) -> discord.Embed:
     """Create an overview embed showing all problems with basic info in user-provided order"""
-    embed_title = title if title else f"{FIELD_EMOJIS['search']} {source_label} Problems ({len(problems)} found)"
+    i18n = bot.i18n if bot else None
+    if title:
+        embed_title = title
+    elif i18n:
+        embed_title = i18n.t("ui.embed.problems_found", locale, source_label=source_label, count=len(problems))
+    else:
+        embed_title = f"{FIELD_EMOJIS['search']} {source_label} Problems ({len(problems)} found)"
 
     embed = discord.Embed(
         title=embed_title,
@@ -637,11 +709,9 @@ def create_problems_overview_embed(
         description=message,
     )
 
-    # Only set author if title or message is provided
     if (title or message) and user:
         embed.set_author(name=f"{user.display_name}", icon_url=user.display_avatar.url)
 
-    # Split problems into chunks
     for i in range(0, len(problems), PROBLEMS_PER_FIELD):
         chunk = problems[i : i + PROBLEMS_PER_FIELD]
         field_number = (i // PROBLEMS_PER_FIELD) + 1
@@ -651,7 +721,6 @@ def create_problems_overview_embed(
             emoji = get_problem_emoji(problem)
             source = problem.get("source", "leetcode")
 
-            # Create line with hyperlink
             if source == "leetcode":
                 line = f"- {emoji} **[{problem['id']}. {problem['title']}]({problem['link']})**"
             else:
@@ -661,28 +730,25 @@ def create_problems_overview_embed(
 
             problem_lines.append(line)
 
-        # Determine field name
         if len(problems) <= PROBLEMS_PER_FIELD:
-            field_name = f"{FIELD_EMOJIS['problems']} Problems"
+            field_name = f"{FIELD_EMOJIS['problems']} {i18n.t('ui.embed.problems', locale) if i18n else 'Problems'}"
         else:
-            field_name = f"{FIELD_EMOJIS['problems']} Part {field_number}"
+            field_name = f"{FIELD_EMOJIS['problems']} {i18n.t('ui.embed.problems_part', locale, number=field_number) if i18n else f'Part {field_number}'}"
 
         embed.add_field(name=field_name, value="\n".join(problem_lines), inline=False)
 
     if show_instructions:
         embed.add_field(
-            name=f"{FIELD_EMOJIS['instructions']} Instructions",
-            value="Click the buttons below to view detailed information for each problem.",
+            name=f"{FIELD_EMOJIS['instructions']} {i18n.t('ui.embed.instructions', locale) if i18n else 'Instructions'}",
+            value=i18n.t("ui.embed.instructions_text", locale) if i18n else "Click the buttons below to view detailed information for each problem.",
             inline=False,
         )
 
+    footer_text = i18n.t("ui.embed.problems_overview", locale, source_label=source_label) if i18n else f"{source_label} Problems Overview"
     if footer_icon_url:
-        embed.set_footer(
-            text=f"{source_label} Problems Overview",
-            icon_url=footer_icon_url,
-        )
+        embed.set_footer(text=footer_text, icon_url=footer_icon_url)
     else:
-        embed.set_footer(text=f"{source_label} Problems Overview")
+        embed.set_footer(text=footer_text)
     embed.timestamp = datetime.now(timezone.utc)
 
     return embed
@@ -714,21 +780,35 @@ def create_settings_embed(
     role_mention: str,
     post_time: str,
     timezone: str,
+    language: str = "zh-TW",
+    bot: Any = None,
+    locale: str = "zh-TW",
 ) -> discord.Embed:
     """Create an embed for server settings display"""
-    embed = discord.Embed(title=f"{guild_name} 的 LeetCode 挑戰設定", color=DEFAULT_COLOR)
+    i18n = bot.i18n if bot else None
+    title = i18n.t("ui.settings.title", locale, guild_name=guild_name) if i18n else f"{guild_name} Settings"
+    embed = discord.Embed(title=title, color=DEFAULT_COLOR)
 
-    embed.add_field(name="發送頻道", value=channel_mention, inline=False)
-    embed.add_field(name="標記身分組", value=role_mention, inline=False)
-    embed.add_field(name="發送時間", value=f"{post_time} ({timezone})", inline=False)
+    channel_label = i18n.t("ui.settings.channel", locale) if i18n else "Channel"
+    role_label = i18n.t("ui.settings.role", locale) if i18n else "Role"
+    time_label = i18n.t("ui.settings.time", locale) if i18n else "Post Time"
+    language_label = i18n.t("ui.settings.language", locale) if i18n else "Language"
+
+    embed.add_field(name=channel_label, value=channel_mention, inline=False)
+    embed.add_field(name=role_label, value=role_mention, inline=False)
+    embed.add_field(name=time_label, value=f"{post_time} ({timezone})", inline=False)
+
+    language_display = i18n.t(f"locale.{language}", locale) if i18n else language
+    embed.add_field(name=language_label, value=language_display, inline=False)
 
     return embed
 
 
 def create_problem_description_embed(
-    problem_info: Dict[str, Any], domain: str, source: str = "leetcode"
+    problem_info: Dict[str, Any], domain: str, source: str = "leetcode", bot: Any = None, locale: str = "zh-TW"
 ) -> discord.Embed:
     """Create an embed for problem description"""
+    i18n = bot.i18n if bot else None
     if source == "leetcode":
         emoji = get_difficulty_emoji(problem_info["difficulty"])
         embed_color = get_difficulty_color(problem_info["difficulty"], source)
@@ -738,7 +818,7 @@ def create_problem_description_embed(
             color=embed_color,
             url=problem_info["link"],
         )
-        embed.set_author(name="LeetCode Problem", icon_url=LEETCODE_LOGO_URL)
+        embed.set_author(name=i18n.t("ui.embed.description_author", locale) if i18n else "LeetCode Problem", icon_url=LEETCODE_LOGO_URL)
         return embed
 
     source_label = "AtCoder" if source == "atcoder" else source.capitalize()
@@ -752,29 +832,33 @@ def create_problem_description_embed(
         url=problem_info["link"],
     )
     footer_icon_url = ATCODER_LOGO_URL if source == "atcoder" else None
+    footer_text = i18n.t("ui.embed.atcoder_problem", locale) if i18n and source == "atcoder" else f"{source_label} Problem"
     if footer_icon_url:
-        embed.set_footer(text=f"{source_label} Problem", icon_url=footer_icon_url)
+        embed.set_footer(text=footer_text, icon_url=footer_icon_url)
     else:
-        embed.set_footer(text=f"{source_label} Problem")
+        embed.set_footer(text=footer_text)
     return embed
 
 
-def create_inspiration_embed(inspiration_data: Dict[str, Any], problem_info: Dict[str, Any]) -> discord.Embed:
+def create_inspiration_embed(
+    inspiration_data: Dict[str, Any], problem_info: Dict[str, Any], bot: Any = None, locale: str = "zh-TW"
+) -> discord.Embed:
     """Create an embed for LLM inspiration"""
-    embed = discord.Embed(title=f"{FIELD_EMOJIS['instructions']} 靈感啟發", color=INSPIRATION_COLOR)
+    i18n = bot.i18n if bot else None
+    title = i18n.t("ui.inspire.title", locale) if i18n else "Inspiration"
+    embed = discord.Embed(title=title, color=INSPIRATION_COLOR)
 
-    # Add inspiration content fields in fixed order
-    for field_key in ["thinking", "traps", "algorithms", "inspiration"]:
+    field_keys = ["thinking", "traps", "algorithms", "inspiration"]
+    for field_key in field_keys:
         if field_key in inspiration_data and inspiration_data[field_key]:
-            # Get the Chinese field name from mapping
-            field_name = INSPIRE_FIELDS.get(field_key, field_key)
+            field_name = i18n.t(f"ui.inspire.{field_key}", locale) if i18n else field_key.capitalize()
             content = inspiration_data[field_key]
-            # Format content with proper spacing
             val_formatted = content.replace("\n\n", "\n").strip()
             embed.add_field(name=field_name, value=val_formatted, inline=False)
 
-    # Set footer
-    footer_text = inspiration_data.get("footer", f"Problem {problem_info['id']} 靈感啟發")
+    footer_text = inspiration_data.get("footer")
+    if not footer_text:
+        footer_text = i18n.t("ui.inspire.default_footer", locale, id=problem_info["id"]) if i18n else f"Problem {problem_info['id']} Inspiration"
     embed.set_footer(text=footer_text, icon_url=GEMINI_LOGO_URL)
 
     return embed
@@ -809,8 +893,17 @@ async def send_daily_challenge(
     interaction: discord.Interaction = None,
     domain: str = "com",
     ephemeral: bool = True,
+    guild_locale: str = None,
 ):
     """Fetches and sends the daily challenge via API."""
+    if interaction:
+        locale = _get_locale(bot, interaction)
+    elif guild_locale:
+        locale = guild_locale
+    else:
+        locale = getattr(bot.config, "default_locale", None) or "zh-TW"
+    i18n = bot.i18n
+
     try:
         logger.info("Attempting to send daily challenge. Domain: %s, Channel: %s", domain, channel_id)
 
@@ -822,7 +915,7 @@ async def send_daily_challenge(
         if not challenge_info:
             logger.error("No daily challenge for domain %s", domain)
             if interaction:
-                await interaction.followup.send("找不到今日挑戰。", ephemeral=ephemeral)
+                await interaction.followup.send(i18n.t("ui.embed.not_found", locale), ephemeral=ephemeral)
             return None
 
         logger.info("Got daily challenge: %s. %s for domain %s", challenge_info["id"], challenge_info["title"], domain)
@@ -836,8 +929,9 @@ async def send_daily_challenge(
             domain=domain,
             is_daily=True,
             history_problems=history_problems,
+            locale=locale,
         )
-        view = await create_problem_view(problem_info=challenge_info, bot=bot, domain=domain)
+        view = await create_problem_view(problem_info=challenge_info, bot=bot, domain=domain, locale=locale)
 
         if interaction:
             await interaction.followup.send(embed=embed, view=view, ephemeral=ephemeral)
@@ -867,26 +961,20 @@ async def send_daily_challenge(
     except (ApiProcessingError, ApiRateLimitError) as e:
         logger.warning("API error in send_daily_challenge: %s", e)
         if interaction:
-            msg = "⏳ 資料準備中，請稍後重試。" if isinstance(e, ApiProcessingError) else "⏱️ 請求頻率過高，請稍後重試。"
-            try:
-                await interaction.followup.send(msg, ephemeral=ephemeral)
-            except Exception:
-                pass
+            error_kind = "processing" if isinstance(e, ApiProcessingError) else "rate_limit"
+            await send_api_error(interaction, error_kind, bot, ephemeral=ephemeral)
             return None
         raise
     except (ApiNetworkError, ApiError) as e:
         logger.error("API error in send_daily_challenge: %s", e)
         if interaction:
-            try:
-                await interaction.followup.send("❌ 查詢失敗，請稍後重試。", ephemeral=ephemeral)
-            except Exception:
-                pass
+            await send_api_error(interaction, "generic", bot, ephemeral=ephemeral)
         return None
     except Exception as e:
         logger.error("Error in send_daily_challenge: %s", e, exc_info=True)
         if interaction:
             try:
-                await interaction.followup.send(f"發送每日挑戰時發生錯誤：{e}", ephemeral=ephemeral)
+                await interaction.followup.send(i18n.t("daily.error", locale, error=e), ephemeral=ephemeral)
             except Exception:
                 pass
         return None

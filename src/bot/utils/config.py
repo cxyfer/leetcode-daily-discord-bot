@@ -226,6 +226,14 @@ class ConfigManager:
     def api_timeout(self) -> int:
         return self.get("api.timeout", 10)
 
+    @property
+    def default_locale(self) -> str:
+        return self.get("i18n.default_locale", "zh-TW")
+
+    @property
+    def supported_locales(self) -> list[str]:
+        return self.get("i18n.supported_locales", ["zh-TW", "en-US", "zh-CN"])
+
 
 @dataclass
 class SimilarConfig:

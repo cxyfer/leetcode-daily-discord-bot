@@ -27,6 +27,10 @@ class TestInteractionHandler:
         bot.llm = AsyncMock()
         bot.llm_pro = AsyncMock()
         bot.config = MagicMock()
+        bot.config.default_locale = "zh-TW"
+        bot.i18n = MagicMock()
+        bot.i18n.t = MagicMock(side_effect=lambda key, locale, **kwargs: key.replace(".", "_"))
+        bot.i18n.resolve_locale = MagicMock(return_value="zh-TW")
         return bot
 
     @pytest.fixture
@@ -44,6 +48,10 @@ class TestInteractionHandler:
         interaction.response = AsyncMock()
         interaction.followup = AsyncMock()
         interaction.type = discord.InteractionType.component
+        interaction.guild = MagicMock()
+        interaction.guild.id = 987654321
+        interaction.guild_locale = None
+        interaction.locale = discord.Locale.taiwan_chinese
         return interaction
 
     @pytest.mark.asyncio
@@ -51,32 +59,34 @@ class TestInteractionHandler:
         """Test that duplicate translation requests are prevented"""
         # Setup
         mock_interaction.data = {"custom_id": "leetcode_translate_1234_com"}
+        msg = "正在處理您的翻譯請求，請稍候..."
 
         # First request should succeed
-        result1 = await cog._check_duplicate_llm(mock_interaction, (123456789, "1234", "translate"), "translate")
+        result1 = await cog._check_duplicate_llm(mock_interaction, (123456789, "1234", "translate"), msg)
         assert result1 is False  # Not a duplicate
         assert (123456789, "1234", "translate") in cog.ongoing_llm_requests
 
         # Second request should be blocked
-        result2 = await cog._check_duplicate_llm(mock_interaction, (123456789, "1234", "translate"), "translate")
+        result2 = await cog._check_duplicate_llm(mock_interaction, (123456789, "1234", "translate"), msg)
         assert result2 is True  # Is a duplicate
-        mock_interaction.followup.send.assert_called_with("正在處理您的translate請求，請稍候...", ephemeral=True)
+        mock_interaction.followup.send.assert_called_with(msg, ephemeral=True)
 
     @pytest.mark.asyncio
     async def test_duplicate_request_prevention_inspire(self, cog, mock_interaction):
         """Test that duplicate inspiration requests are prevented"""
         # Setup
         mock_interaction.data = {"custom_id": "leetcode_inspire_1234_com"}
+        msg = "正在處理您的靈感啟發請求，請稍候..."
 
         # First request should succeed
-        result1 = await cog._check_duplicate_llm(mock_interaction, (123456789, "1234", "inspire"), "inspire")
+        result1 = await cog._check_duplicate_llm(mock_interaction, (123456789, "1234", "inspire"), msg)
         assert result1 is False  # Not a duplicate
         assert (123456789, "1234", "inspire") in cog.ongoing_llm_requests
 
         # Second request should be blocked
-        result2 = await cog._check_duplicate_llm(mock_interaction, (123456789, "1234", "inspire"), "inspire")
+        result2 = await cog._check_duplicate_llm(mock_interaction, (123456789, "1234", "inspire"), msg)
         assert result2 is True  # Is a duplicate
-        mock_interaction.followup.send.assert_called_with("正在處理您的inspire請求，請稍候...", ephemeral=True)
+        mock_interaction.followup.send.assert_called_with(msg, ephemeral=True)
 
     @pytest.mark.asyncio
     async def test_cleanup_request(self, cog):
@@ -266,7 +276,7 @@ class TestInteractionHandler:
         sentinel_view = MagicMock(children=[])
         helper_calls = []
 
-        def fake_create_similar_results_message(result, *, base_source=None, base_id=None):
+        def fake_create_similar_results_message(result, *, base_source=None, base_id=None, **kwargs):
             helper_calls.append((result, base_source, base_id))
             return sentinel_embed, sentinel_view
 

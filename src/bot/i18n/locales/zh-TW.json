@@ -1,0 +1,187 @@
+{
+  "errors": {
+    "api": {
+      "processing": "⏳ 資料準備中，請稍後重試。",
+      "network": "🔌 API 連線失敗，請稍後重試。",
+      "rate_limit": "⏱️ 請求頻率過高，請稍後重試。",
+      "generic": "❌ 查詢失敗，請稍後重試。"
+    },
+    "validation": {
+      "date_format": "日期格式錯誤，請使用 YYYY-MM-DD 格式（例如：2025-07-01）",
+      "not_found_for_date": "找不到 {date} 的每日挑戰資料。",
+      "domain_invalid": "網域參數只能是 'com' 或 'cn'",
+      "title_too_long": "自定義標題不能超過 100 個字元",
+      "message_too_long": "個人訊息不能超過 500 個字元",
+      "problem_ids_empty": "請提供至少一個題目編號",
+      "too_many_problems": "一次最多只能查詢 20 個題目",
+      "problem_not_found": "找不到任何有效的題目，請確認題目編號是否正確或是否為公開題目。",
+      "no_description": "找不到題目或題目無描述內容。",
+      "no_submissions": "找不到使用者 **{username}** 的解題紀錄，請確認使用者名稱是否正確。",
+      "invalid_page": "無效的頁面",
+      "module_load_error": "無法載入指令模組",
+      "submission_detail_error": "無法載入題目詳細資訊",
+      "content_truncated": "(內容已截斷，請前往網站查看完整題目)",
+      "similar_not_found": "找不到相似題目。",
+      "no_query_provided": "請至少輸入題目敘述 (query) 或題目編號 (problem)"
+    },
+    "config": {
+      "not_configured": "尚未設定 LeetCode 每日挑戰頻道。使用 /config channel:<頻道> 開始設定。",
+      "reset_conflict": "`reset` 不可與其他設定參數同時使用。",
+      "role_clear_conflict": "`role` 與 `clear_role` 不可同時使用。",
+      "time_format_error": "時間格式錯誤，請使用 HH:MM 格式（例如 08:00 或 23:59）。",
+      "timezone_error": "無效的時區：{error}",
+      "first_setup_required": "首次設定時必須指定 `channel` 參數。\n範例：`/config channel:#general time:08:00 timezone:UTC+8`",
+      "settings_error": "設定時發生錯誤，請稍後再試。",
+      "permission_denied": "您需要「管理伺服器」權限才能使用此指令。",
+      "dm_restricted": "此指令不能在私訊中使用。",
+      "not_setup": "此伺服器尚未設定，無需重置。",
+      "settings_updated": "✅ 設定已更新"
+    },
+    "reset": {
+      "invalid_action": "無效的操作。",
+      "wrong_user": "此操作僅限原發起者使用。",
+      "expired": "此確認已過期，請重新使用 /config reset:True。",
+      "cancelled": "已取消重置操作。",
+      "permission_denied": "您需要「管理伺服器」權限才能執行此操作。",
+      "error": "重置設定時發生錯誤，請稍後再試。",
+      "success": "✅ 已重置所有設定並停止排程。",
+      "confirm_message": "⚠️ 確定要重置此伺服器的所有設定嗎？這將停止每日挑戰排程。"
+    },
+    "navigation": {
+      "error": "導航時發生錯誤：{error}"
+    }
+  },
+  "ui": {
+    "buttons": {
+      "description": "題目描述",
+      "translate": "LLM 翻譯",
+      "inspire": "靈感啟發",
+      "similar": "相似題目",
+      "confirm_reset": "確認重置",
+      "cancel": "取消"
+    },
+    "embed": {
+      "similar_title": "🔍 相似題目",
+      "rewritten_search": "✨ 重寫搜尋",
+      "base_problem": "🔗 基準題目",
+      "results": "📋 Results",
+      "source": "Source",
+      "difficulty": "🔥 Difficulty",
+      "rating": "⭐ Rating",
+      "ac_rate": "📈 AC Rate",
+      "tags": "🏷️ Tags",
+      "similar_questions": "🔍 Similar Questions ({count}{suffix})",
+      "history_problems": "📅 History Problems",
+      "daily_footer": "LeetCode Daily Challenge | {date}",
+      "problem_footer": "LeetCode Problem",
+      "instructions": "💡 Instructions",
+      "instructions_text": "Click the buttons below to view detailed information for each problem.",
+      "problems": "📋 Problems",
+      "problems_part": "📋 Part {number}",
+      "problems_overview": "{source_label} Problems Overview",
+      "problems_found": "🔍 {source_label} Problems ({count} found)",
+      "submission_author": "{username}'s Recent Submissions",
+      "submission_footer": "Problem {current} of {total}",
+      "description_author": "LeetCode Problem",
+      "atcoder_problem": "AtCoder Problem",
+      "source_label": "Source",
+      "solve_on": "> Solve on [{alt_name} ({alt_full_name})]({link}).",
+      "not_found": "找不到今日挑戰。"
+    },
+    "settings": {
+      "title": "{guild_name} 的 LeetCode 挑戰設定",
+      "channel": "發送頻道",
+      "role": "標記身分組",
+      "time": "發送時間",
+      "language": "顯示語言",
+      "not_set": "未設定",
+      "unknown_channel": "未知頻道 (ID: {id})",
+      "unknown_role": "未知身分組 (ID: {id})"
+    },
+    "inspire": {
+      "title": "💡 靈感啟發",
+      "thinking": "🧠 思路",
+      "traps": "⚠️ 陷阱",
+      "algorithms": "🛠️ 推薦演算法",
+      "inspiration": "✨ 其他靈感",
+      "footer": "由 {model} 提供靈感",
+      "default_footer": "Problem {id} 靈感啟發"
+    }
+  },
+  "daily": {
+    "error": "發送每日挑戰時發生錯誤：{error}"
+  },
+  "commands": {
+    "daily": {
+      "description": "取得 LeetCode 每日挑戰 (LCUS)",
+      "date": "查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天，最早為 2020-04-01",
+      "public": "是否公開顯示回覆 (預設為私密回覆)"
+    },
+    "daily_cn": {
+      "description": "取得 LeetCode 每日挑戰 (LCCN)",
+      "date": "查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天，最早為 2020-04-01",
+      "public": "是否公開顯示回覆 (預設為私密回覆)"
+    },
+    "problem": {
+      "description": "根據題號查詢題目資訊",
+      "problem_ids": "題目編號，可用逗號分隔 (例如: 1, two-sum, abc321_a, atcoder:abc321_a)",
+      "domain": "選擇 LeetCode 網域（已棄用）",
+      "public": "是否公開顯示回覆 (預設為私密回覆)",
+      "title": "自定義標題 (多題模式下替換預設標題，最多 100 個字元)",
+      "message": "可選的個人訊息或備註 (最多 500 個字元)",
+      "source": "題庫來源 (例如 leetcode/atcoder/codeforces)，也可以在題號前加上 source: 前綴"
+    },
+    "config": {
+      "description": "設定 LeetCode 每日挑戰的所有配置",
+      "channel": "發送每日挑戰的頻道",
+      "role": "要標記的身分組",
+      "time": "發送時間 (HH:MM 或 H:MM，例如 08:00)",
+      "timezone": "時區 (例如 Asia/Taipei 或 UTC+8)",
+      "clear_role": "清除身分組標記設定",
+      "reset": "重置所有設定並停止排程（需確認）",
+      "language": "設定機器人的顯示語言",
+      "language_current": "目前語言：{locale}",
+      "language_updated": "✅ 語言已更新為 {locale}"
+    },
+    "recent": {
+      "description": "查看 LeetCode 使用者的近期解題紀錄 (僅限 LCUS)",
+      "username": "LeetCode 使用者名稱",
+      "limit": "顯示的題目數量 (預設 20，最多 50)",
+      "public": "是否公開顯示回覆 (預設為私密回覆)"
+    },
+    "similar": {
+      "description": "搜尋相似題目",
+      "query": "題目敘述或關鍵字 (若指定 problem 則此欄位可略過)",
+      "problem": "既有題目編號或網址 (例如: 1, atcoder:abc100_a)",
+      "top_k": "返回結果數量 (預設 5)",
+      "source": "題庫來源 (留空為全部)",
+      "public": "是否公開顯示回覆 (預設為私密回覆)"
+    }
+  },
+  "llm": {
+    "duplicate_translate": "正在處理您的翻譯請求，請稍候...",
+    "duplicate_inspire": "正在處理您的靈感啟發請求，請稍候...",
+    "translation_not_enabled": "LLM 翻譯功能尚未啟用。",
+    "inspire_not_enabled": "LLM 靈感啟發功能尚未啟用。",
+    "cannot_fetch_description": "無法獲取題目描述。",
+    "cannot_fetch_info": "無法獲取題目資訊。",
+    "cannot_fetch_content": "無法獲取題目內容。",
+    "provided_by_model": "\n\n✨ 由 `{model}` 提供翻譯",
+    "translation_truncated": "...\n(翻譯內容已截斷)",
+    "translate_error": "LLM 翻譯失敗：{error}",
+    "inspire_error": "LLM 靈感啟發失敗：{error}",
+    "prompts": {
+      "output_language_names": {
+        "zh-TW": "繁體中文",
+        "en-US": "English",
+        "zh-CN": "简体中文"
+      }
+    }
+  },
+  "locale": {
+    "name": "繁體中文",
+    "zh-TW": "繁體中文",
+    "en-US": "English",
+    "zh-CN": "简体中文"
+  }
+}

@@ -121,8 +121,21 @@ def test_database_manager_resolves_default_path_from_repo_root(tmp_path, monkeyp
     connect_calls = []
 
     class DummyCursor:
+        def __init__(self):
+            self._result = DummyCursorResult()
+
         def execute(self, *_args, **_kwargs):
+            return self._result
+
+        def fetchone(self):
             return None
+
+        def fetchall(self):
+            return []
+
+    class DummyCursorResult:
+        def fetchall(self):
+            return []
 
         def fetchone(self):
             return None

@@ -26,7 +26,67 @@ def _make_interaction():
     user.display_name = "tester"
     user.display_avatar = MagicMock(url="https://example.com/avatar.png")
     interaction.user = user
+    interaction.guild = MagicMock()
+    interaction.guild.id = 987654321
+    interaction.guild_locale = None
+    interaction.locale = discord.Locale.taiwan_chinese
     return interaction
+
+
+_I18N_VALUES = {
+    "ui.embed.difficulty": "Difficulty",
+    "ui.embed.rating": "Rating",
+    "ui.embed.ac_rate": "AC Rate",
+    "ui.embed.tags": "Tags",
+    "ui.embed.source": "Source",
+    "ui.embed.similar_questions": "Similar Questions ({count}{suffix})",
+    "ui.embed.history_problems": "History Problems",
+    "ui.embed.daily_footer": "LeetCode Daily Challenge | {date}",
+    "ui.embed.problem_footer": "LeetCode Problem",
+    "ui.embed.description_author": "LeetCode Problem",
+    "ui.embed.atcoder_problem": "AtCoder Problem",
+    "ui.embed.solve_on": "> Solve on [{alt_name} ({alt_full_name})]({link}).",
+    "ui.embed.similar_title": "🔍 相似題目",
+    "ui.embed.rewritten_search": "✨ 重寫搜尋",
+    "ui.embed.base_problem": "🔗 基準題目",
+    "ui.embed.results": "Results",
+    "ui.embed.instructions": "Instructions",
+    "ui.embed.instructions_text": "Click the buttons below to view detailed information for each problem.",
+    "ui.embed.problems": "Problems",
+    "ui.embed.problems_part": "Part {number}",
+    "ui.embed.problems_overview": "{source_label} Problems Overview",
+    "ui.embed.problems_found": "🔍 {source_label} Problems ({count} found)",
+    "ui.embed.submission_author": "{username}'s Recent Submissions",
+    "ui.embed.submission_footer": "Problem {current} of {total}",
+    "ui.buttons.description": "題目描述",
+    "ui.buttons.translate": "LLM 翻譯",
+    "ui.buttons.inspire": "靈感啟發",
+    "ui.buttons.similar": "相似題目",
+    "ui.buttons.confirm_reset": "確認重置",
+    "ui.buttons.cancel": "取消",
+    "ui.inspire.title": "💡 靈感啟發",
+    "ui.inspire.thinking": "🧠 思路",
+    "ui.inspire.traps": "⚠️ 陷阱",
+    "ui.inspire.algorithms": "🛠️ 推薦演算法",
+    "ui.inspire.inspiration": "✨ 其他靈感",
+    "ui.inspire.footer": "由 {model} 提供靈感",
+    "ui.inspire.default_footer": "Problem {id} 靈感啟發",
+    "ui.settings.title": "{guild_name} 的 LeetCode 挑戰設定",
+    "ui.settings.channel": "發送頻道",
+    "ui.settings.role": "標記身分組",
+    "ui.settings.time": "發送時間",
+    "ui.settings.not_set": "未設定",
+    "ui.settings.unknown_channel": "未知頻道 (ID: {id})",
+    "ui.settings.unknown_role": "未知身分組 (ID: {id})",
+}
+
+
+def _i18n_t(key, locale, **kwargs):
+    template = _I18N_VALUES.get(key, key)
+    try:
+        return template.format(**kwargs)
+    except (KeyError, IndexError):
+        return template
 
 
 def _make_bot():
@@ -34,6 +94,11 @@ def _make_bot():
     bot.api = AsyncMock()
     bot.llm = MagicMock()
     bot.llm_pro = MagicMock()
+    bot.config = MagicMock()
+    bot.config.default_locale = "zh-TW"
+    bot.i18n = MagicMock()
+    bot.i18n.t = MagicMock(side_effect=_i18n_t)
+    bot.i18n.resolve_locale = MagicMock(return_value="zh-TW")
     return bot
 
 
@@ -237,7 +302,7 @@ async def test_create_problem_embed_formats_daily_similar_questions_with_id_link
 
     embed = await create_problem_embed(problem_info=problem, bot=bot, is_daily=True)
 
-    similar_field = next(field for field in embed.fields if field.name == "🔍 Similar Questions (1)")
+    similar_field = next(field for field in embed.fields if field.name == "Similar Questions (1)")
     assert similar_field.value == "- 🟡 [48. Rotate Image](https://leetcode.com/problems/rotate-image/) *2010*"
 
 
@@ -274,7 +339,7 @@ async def test_create_problem_embed_packs_all_daily_similar_questions_within_len
 
     embed = await create_problem_embed(problem_info=problem, bot=bot, is_daily=True)
 
-    similar_field = next(field for field in embed.fields if field.name == "🔍 Similar Questions (3+)")
+    similar_field = next(field for field in embed.fields if field.name == "Similar Questions (3+)")
     lines = similar_field.value.split("\n")
 
     assert len(similar_field.value) <= MAX_DAILY_SIMILAR_FIELD_LENGTH
@@ -315,5 +380,5 @@ async def test_create_problem_embed_builds_daily_similar_question_link_from_slug
 
     embed = await create_problem_embed(problem_info=problem, bot=bot, is_daily=True)
 
-    similar_field = next(field for field in embed.fields if field.name == "🔍 Similar Questions (1)")
+    similar_field = next(field for field in embed.fields if field.name == "Similar Questions (1)")
     assert similar_field.value == f"- 🟡 [48. Similar Problem](https://leetcode.com/problems/{slug_value}/)"

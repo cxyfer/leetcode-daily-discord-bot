@@ -38,6 +38,13 @@ class InspireOutput(BaseModel):
     inspiration: str
 
 
+LOCALE_TO_LANGUAGE = {
+    "zh-TW": "繁體中文",
+    "en-US": "English",
+    "zh-CN": "简体中文",
+}
+
+
 class LLMBase(ABC):
     """
     LLMBase is the abstract base class for all LLM implementations.
@@ -103,15 +110,15 @@ class LLMBase(ABC):
         Args:
             content (str): The text to be translated.
             from_lang (str): The source language for translation., default is "auto"
-            target_language (str): The target language for translation, default is "zh-TW"
+            target_language (str): The target language name or locale code for translation
 
         Returns:
             str: The translated text, or the original LLM response if parsing fails.
         """
-
+        lang_name = LOCALE_TO_LANGUAGE.get(target_language, target_language)
         logger.debug(f"Translation text: {content}")
         prompt = TRANSLATION_JSON_PROMPT_TEMPLATE.format(
-            to=target_language,
+            to=lang_name,
             from_lang=from_lang,
             text=content,
         )
@@ -135,19 +142,21 @@ class LLMBase(ABC):
         except Exception:
             return response_text
 
-    async def inspire(self, content: str, tags: list, difficulty: str) -> dict:
+    async def inspire(self, content: str, tags: list, difficulty: str, locale: str = "zh-TW") -> dict:
         """
-        根據題目描述、tags、難度，產生解題靈感（僅繁體中文，禁止程式碼），回傳 JSON dict。
+        根據題目描述、tags、難度，產生解題靈感，回傳 JSON dict。
         Args:
             content (str): 題目描述
             tags (list): 題目標籤
             difficulty (str): 題目難度
+            locale (str): 目標語言代碼，預設 "zh-TW"
         Returns:
             dict: { "thinking": ..., "traps": ..., "algorithms": ..., "inspiration": ... }
                   若解析失敗則回傳 {"raw": response}
         """
+        output_language = LOCALE_TO_LANGUAGE.get(locale, "繁體中文")
         prompt = INSPIRE_JSON_PROMPT_TEMPLATE.format(
-            text=content, tags=", ".join(tags) if tags else "", difficulty=difficulty
+            text=content, tags=", ".join(tags) if tags else "", difficulty=difficulty, output_language=output_language
         )
         structured = await self._invoke_structured_output(prompt, InspireOutput)
         if structured is not None:
