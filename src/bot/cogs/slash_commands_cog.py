@@ -103,13 +103,13 @@ class SlashCommandsCog(commands.Cog):
 
     # ── /random ────────────────────────────────────────────────────────
 
-    @app_commands.command(name="random", description="隨機取得一道 LeetCode 題目")
+    @app_commands.command(name="random", description=app_commands.locale_str("random.description"))
     @app_commands.describe(
-        difficulty="難度篩選",
-        tags="標籤篩選 (例如: Array)",
-        rating_min="最低評分",
-        rating_max="最高評分",
-        public="是否公開顯示回覆 (預設為私密回覆)",
+        difficulty=app_commands.locale_str("random.difficulty"),
+        tags=app_commands.locale_str("random.tags"),
+        rating_min=app_commands.locale_str("random.rating_min"),
+        rating_max=app_commands.locale_str("random.rating_max"),
+        public=app_commands.locale_str("random.public"),
     )
     @app_commands.choices(
         difficulty=[
@@ -127,6 +127,9 @@ class SlashCommandsCog(commands.Cog):
         rating_max: int = None,
         public: bool = False,
     ):
+        locale = _get_locale(self.bot, interaction)
+        i18n = self.bot.i18n
+
         if rating_min is not None and rating_max is not None and rating_min > rating_max:
             rating_min, rating_max = rating_max, rating_min
 
@@ -146,12 +149,12 @@ class SlashCommandsCog(commands.Cog):
                 if tags:
                     filters.append(f"tags:{discord.utils.escape_markdown(tags)}")
                 if rating_min is not None or rating_max is not None:
-                    r_min = str(rating_min) if rating_min is not None else "不限"
-                    r_max = str(rating_max) if rating_max is not None else "不限"
+                    r_min = str(rating_min) if rating_min is not None else "\u221e"
+                    r_max = str(rating_max) if rating_max is not None else "\u221e"
                     filters.append(f"rating:{r_min}-{r_max}")
-                filter_text = ", ".join(filters) if filters else "無篩選條件"
+                filter_text = ", ".join(filters) if filters else i18n.t("errors.validation.random_no_filter", locale)
                 await interaction.followup.send(
-                    f"沒有找到符合 {filter_text} 的題目，請調整篩選條件後重試。",
+                    i18n.t("errors.validation.random_not_found", locale, filters=filter_text),
                     ephemeral=True,
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
@@ -165,24 +168,25 @@ class SlashCommandsCog(commands.Cog):
                 domain=domain,
                 is_daily=False,
                 user=interaction.user,
+                locale=locale,
             )
-            view = await create_problem_view(problem_info=problem, bot=self.bot, domain=domain)
+            view = await create_problem_view(problem_info=problem, bot=self.bot, domain=domain, locale=locale)
             await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
             self.logger.info("Sent random problem to user %s", interaction.user.name)
 
         except ApiProcessingError:
-            await interaction.followup.send("⏳ 資料準備中，請稍後重試。", ephemeral=not public)
+            await send_api_error(interaction, "processing", self.bot, ephemeral=not public)
         except ApiNetworkError:
-            await interaction.followup.send("🔌 API 連線失敗，請稍後重試。", ephemeral=not public)
+            await send_api_error(interaction, "network", self.bot, ephemeral=not public)
         except ApiRateLimitError:
-            await interaction.followup.send("⏱️ 請求頻率過高，請稍後重試。", ephemeral=not public)
+            await send_api_error(interaction, "rate_limit", self.bot, ephemeral=not public)
         except ApiError as e:
             self.logger.error("API error in random command: %s", e)
-            await interaction.followup.send("❌ 查詢失敗，請稍後重試。", ephemeral=not public)
+            await send_api_error(interaction, "generic", self.bot, ephemeral=not public)
         except Exception as e:
             self.logger.error("Error in random_command: %s", e, exc_info=True)
             await interaction.followup.send(
-                "❌ 隨機題目時發生未預期錯誤，請稍後重試。",
+                i18n.t("errors.validation.random_error", locale),
                 ephemeral=not public,
                 allowed_mentions=discord.AllowedMentions.none(),
             )
@@ -368,6 +372,13 @@ class SlashCommandsCog(commands.Cog):
         clear_role=app_commands.locale_str("config.clear_role"),
         language=app_commands.locale_str("config.language"),
         reset=app_commands.locale_str("config.reset"),
+    )
+    @app_commands.choices(
+        language=[
+            app_commands.Choice(name="繁體中文", value="zh-TW"),
+            app_commands.Choice(name="English", value="en-US"),
+            app_commands.Choice(name="简体中文", value="zh-CN"),
+        ]
     )
     @app_commands.rename(post_time="time")
     async def config_command(
@@ -564,11 +575,6 @@ class SlashCommandsCog(commands.Cog):
     async def config_timezone_autocomplete(self, interaction: discord.Interaction, current: str):
         lowered = current.lower()
         return [app_commands.Choice(name=tz, value=tz) for tz in self._TZ_CHOICES if lowered in tz.lower()][:25]
-
-    @config_command.autocomplete("language")
-    async def config_language_autocomplete(self, interaction: discord.Interaction, current: str):
-        lowered = current.lower()
-        return [c for c in self._LANGUAGE_CHOICES if lowered in c.name.lower() or lowered in c.value.lower()]
 
     @config_command.error
     async def config_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):

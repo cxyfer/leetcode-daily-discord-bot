@@ -24,7 +24,10 @@
       "description_too_long": "由于题目内容过长，使用嵌入式消息的方式显示。",
       "similar_not_found": "找不到相似题目。",
       "no_query_provided": "请至少输入题目描述 (query) 或题目编号 (problem)。",
-      "invalid_limit": "数量至少为 1"
+      "invalid_limit": "数量至少为 1",
+      "random_not_found": "没有找到符合 {filters} 的题目，请调整筛选条件后重试。",
+      "random_no_filter": "无筛选条件",
+      "random_error": "❌ 随机题目时发生未预期错误，请稍后重试。"
     },
     "unexpected": "发生未预期错误：{error}",
     "config": {
@@ -179,6 +182,14 @@
       "problem": "既有题目编号或网址 (例如: 1, atcoder:abc100_a)",
       "top_k": "返回结果数量 (默认 5)",
       "source": "题库来源 (留空为全部)",
+      "public": "是否公开显示回复 (默认为私密回复)"
+    },
+    "random": {
+      "description": "随机获取一道 LeetCode 题目",
+      "difficulty": "难度筛选",
+      "tags": "标签筛选 (例如: Array)",
+      "rating_min": "最低评分",
+      "rating_max": "最高评分",
       "public": "是否公开显示回复 (默认为私密回复)"
     }
   },
