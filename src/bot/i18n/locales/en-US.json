@@ -141,12 +141,12 @@
   "commands": {
     "daily": {
       "description": "Get LeetCode Daily Challenge (LCUS)",
-      "date": "Query daily challenge for a specific date (YYYY-MM-DD format), defaults to today, earliest 2020-04-01",
+      "date": "Query daily challenge for a specific date (YYYY-MM-DD), defaults to today, earliest 2020-04-01",
       "public": "Whether to show the reply publicly (default: private)"
     },
     "daily_cn": {
       "description": "Get LeetCode Daily Challenge (LCCN)",
-      "date": "Query daily challenge for a specific date (YYYY-MM-DD format), defaults to today, earliest 2020-04-01",
+      "date": "Query daily challenge for a specific date (YYYY-MM-DD), defaults to today, earliest 2020-04-01",
       "public": "Whether to show the reply publicly (default: private)"
     },
     "problem": {
