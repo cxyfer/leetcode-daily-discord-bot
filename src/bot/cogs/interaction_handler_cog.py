@@ -82,7 +82,8 @@ class InteractionHandlerCog(commands.Cog):
             return
 
         if action == "config_reset_cancel":
-            await interaction.response.edit_message(content=i18n.t("errors.reset.cancelled", locale), embed=None, view=None)
+            cancelled_msg = i18n.t("errors.reset.cancelled", locale)
+            await interaction.response.edit_message(content=cancelled_msg, embed=None, view=None)
             return
 
         if not interaction.user.guild_permissions.manage_guild:
@@ -117,17 +118,20 @@ class InteractionHandlerCog(commands.Cog):
                 limit = cached[2] if cached and len(cached) > 2 else 50
                 submissions = await self.bot.lcus.fetch_recent_ac_submissions(username, limit)
                 if not submissions:
-                    await interaction.followup.send(i18n.t("errors.validation.no_submissions", locale, username=username), ephemeral=True)
+                    no_sub_msg = i18n.t("errors.validation.no_submissions", locale, username=username)
+                    await interaction.followup.send(no_sub_msg, ephemeral=True)
                     return
                 self.submissions_cache[cache_key] = (submissions, time.time(), limit)
 
             if new_page < 0 or new_page >= len(submissions):
-                await interaction.response.send_message(i18n.t("errors.validation.invalid_page", locale), ephemeral=True)
+                invalid_page_msg = i18n.t("errors.validation.invalid_page", locale)
+                await interaction.response.send_message(invalid_page_msg, ephemeral=True)
                 return
 
             slash_cog = self.bot.get_cog("SlashCommandsCog")
             if not slash_cog:
-                await interaction.response.send_message(i18n.t("errors.validation.module_load_error", locale), ephemeral=True)
+                module_err_msg = i18n.t("errors.validation.module_load_error", locale)
+                await interaction.response.send_message(module_err_msg, ephemeral=True)
                 return
 
             if not interaction.response.is_done():
@@ -135,7 +139,8 @@ class InteractionHandlerCog(commands.Cog):
 
             detailed = await slash_cog._get_submission_details(submissions[new_page])
             if not detailed:
-                await interaction.followup.send(i18n.t("errors.validation.submission_detail_error", locale), ephemeral=True)
+                detail_err_msg = i18n.t("errors.validation.submission_detail_error", locale)
+                await interaction.followup.send(detail_err_msg, ephemeral=True)
                 return
 
             embed = create_submission_embed(detailed, new_page, len(submissions), username, bot=self.bot, locale=locale)
@@ -238,7 +243,8 @@ class InteractionHandlerCog(commands.Cog):
             info = problem.copy()
             info["description"] = content
             embed = create_problem_description_embed(info, domain="com", source=source, bot=self.bot, locale=locale)
-            await interaction.followup.send(i18n.t("errors.validation.content_truncated", locale), embed=embed, ephemeral=True)
+            truncated_msg = i18n.t("errors.validation.content_truncated", locale)
+            await interaction.followup.send(truncated_msg, embed=embed, ephemeral=True)
 
     async def _action_translate(self, interaction: discord.Interaction, source: str, pid: str):
         locale = _get_locale(self.bot, interaction)
@@ -363,7 +369,9 @@ class InteractionHandlerCog(commands.Cog):
             await interaction.followup.send(i18n.t("errors.validation.similar_not_found", locale), ephemeral=True)
             return
 
-        embed, view = create_similar_results_message(result, base_source=source, base_id=pid, bot=self.bot, locale=locale)
+        embed, view = create_similar_results_message(
+            result, base_source=source, base_id=pid, bot=self.bot, locale=locale
+        )
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
     # -- Main listener --

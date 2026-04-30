@@ -140,7 +140,9 @@ class SettingsDatabaseManager:
             logger.error(f"Error setting server settings: {e}")
             return False
         finally:
-            logger.debug(f"Server {server_id} settings updated: ({channel_id}, {role_id}, {post_time}, {timezone}, {language})")
+            logger.debug(
+                f"Server {server_id} settings updated: ({channel_id}, {role_id}, {post_time}, {timezone}, {language})"
+            )
             conn.close()
 
     def get_all_servers(self):
@@ -247,7 +249,8 @@ class LLMTranslateDatabaseManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT translation, created_at, model_name FROM llm_translate_results WHERE source = ? AND problem_id = ? AND locale = ?",
+            "SELECT translation, created_at, model_name FROM llm_translate_results "
+            "WHERE source = ? AND problem_id = ? AND locale = ?",
             (source, problem_id, locale),
         )
         row = cursor.fetchone()
@@ -355,7 +358,9 @@ class LLMInspireDatabaseManager:
                 }
         return None
 
-    def save_inspire(self, source, problem_id, thinking, traps, algorithms, inspiration, locale="zh-TW", model_name=None):
+    def save_inspire(
+        self, source, problem_id, thinking, traps, algorithms, inspiration, locale="zh-TW", model_name=None
+    ):
         now = int(time.time())
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()

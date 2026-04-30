@@ -82,7 +82,9 @@ class I18nService:
         locale = locale or self._default_locale
         value = self._resolve(key, locale)
         if value is None and locale != self._default_locale:
-            logger.warning("Missing i18n key '%s' for locale '%s', falling back to %s", key, locale, self._default_locale)
+            logger.warning(
+                "Missing i18n key '%s' for locale '%s', falling back to %s", key, locale, self._default_locale
+            )
             value = self._resolve(key, self._default_locale)
         if value is None:
             logger.error("Missing i18n key '%s' (even in default locale)", key)

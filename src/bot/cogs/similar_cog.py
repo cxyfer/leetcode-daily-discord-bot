@@ -60,11 +60,14 @@ class SimilarCog(commands.Cog):
                 result = await self.bot.api.search_similar_by_text(query, source, top_k, cfg.min_similarity)
 
             if not result or not result.get("results"):
-                await interaction.followup.send(i18n.t("errors.validation.similar_not_found", locale), ephemeral=not public)
+                not_found_msg = i18n.t("errors.validation.similar_not_found", locale)
+                await interaction.followup.send(not_found_msg, ephemeral=not public)
                 return
 
             if problem:
-                embed, view = create_similar_results_message(result, base_source=src, base_id=pid, bot=self.bot, locale=locale)
+                embed, view = create_similar_results_message(
+                    result, base_source=src, base_id=pid, bot=self.bot, locale=locale
+                )
             else:
                 embed, view = create_similar_results_message(result, bot=self.bot, locale=locale)
 

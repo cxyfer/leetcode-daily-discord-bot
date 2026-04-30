@@ -257,7 +257,11 @@ def _build_similar_results_embed(
             value = value[: MAX_FIELD_LENGTH - 3] + "..."
             was_truncated = True
         results_label = i18n.t("ui.embed.results", locale) if i18n else "Results"
-        field_name = f"{FIELD_EMOJIS['problems']} {results_label}" if i == 0 else f"{FIELD_EMOJIS['problems']} {results_label} (cont.)"
+        problems_emoji = FIELD_EMOJIS['problems']
+        if i == 0:
+            field_name = f"{problems_emoji} {results_label}"
+        else:
+            field_name = f"{problems_emoji} {results_label} (cont.)"
         embed.add_field(name=field_name, value=value, inline=False)
 
     return embed, was_truncated
@@ -341,7 +345,9 @@ def create_similar_results_message(
     bot: Any = None,
     locale: str = "zh-TW",
 ) -> tuple[discord.Embed, discord.ui.View | None]:
-    embed, was_truncated = _build_similar_results_embed(result, base_source=base_source, base_id=base_id, bot=bot, locale=locale)
+    embed, was_truncated = _build_similar_results_embed(
+        result, base_source=base_source, base_id=base_id, bot=bot, locale=locale
+    )
     results = result.get("results") or []
     view = (
         _create_similar_results_view(results)
@@ -427,7 +433,12 @@ async def create_problem_embed(
 
     domain_info = DOMAIN_MAPPING[domain]
     alt_link = problem_info["link"].replace(domain_info["full_name"], domain_info["alt_full_name"])
-    embed.description = i18n.t("ui.embed.solve_on", locale, alt_name=domain_info["alt_name"], alt_full_name=domain_info["alt_full_name"], link=alt_link)
+    embed.description = i18n.t(
+        "ui.embed.solve_on", locale,
+        alt_name=domain_info["alt_name"],
+        alt_full_name=domain_info["alt_full_name"],
+        link=alt_link,
+    )
 
     if message:
         embed.description += f"\n{message}"
@@ -606,13 +617,16 @@ def create_submission_embed(
             inline=False,
         )
 
-    embed.set_author(
-        name=i18n.t("ui.embed.submission_author", locale, username=username) if i18n else f"{username}'s Recent Submissions",
-        icon_url=LEETCODE_LOGO_URL,
+    author_name = (
+        i18n.t("ui.embed.submission_author", locale, username=username)
+        if i18n else f"{username}'s Recent Submissions"
     )
-    embed.set_footer(
-        text=i18n.t("ui.embed.submission_footer", locale, current=page + 1, total=total) if i18n else f"Problem {page + 1} of {total}"
+    embed.set_author(name=author_name, icon_url=LEETCODE_LOGO_URL)
+    footer_text = (
+        i18n.t("ui.embed.submission_footer", locale, current=page + 1, total=total)
+        if i18n else f"Problem {page + 1} of {total}"
     )
+    embed.set_footer(text=footer_text)
 
     return embed
 
@@ -730,21 +744,38 @@ def create_problems_overview_embed(
 
             problem_lines.append(line)
 
+        problems_emoji = FIELD_EMOJIS['problems']
         if len(problems) <= PROBLEMS_PER_FIELD:
-            field_name = f"{FIELD_EMOJIS['problems']} {i18n.t('ui.embed.problems', locale) if i18n else 'Problems'}"
+            problems_label = i18n.t('ui.embed.problems', locale) if i18n else 'Problems'
+            field_name = f"{problems_emoji} {problems_label}"
         else:
-            field_name = f"{FIELD_EMOJIS['problems']} {i18n.t('ui.embed.problems_part', locale, number=field_number) if i18n else f'Part {field_number}'}"
+            part_label = (
+                i18n.t('ui.embed.problems_part', locale, number=field_number)
+                if i18n else f'Part {field_number}'
+            )
+            field_name = f"{problems_emoji} {part_label}"
 
         embed.add_field(name=field_name, value="\n".join(problem_lines), inline=False)
 
     if show_instructions:
+        instructions_emoji = FIELD_EMOJIS['instructions']
+        instructions_label = (
+            i18n.t('ui.embed.instructions', locale) if i18n else 'Instructions'
+        )
+        instructions_text = (
+            i18n.t("ui.embed.instructions_text", locale)
+            if i18n else "Click the buttons below to view detailed information for each problem."
+        )
         embed.add_field(
-            name=f"{FIELD_EMOJIS['instructions']} {i18n.t('ui.embed.instructions', locale) if i18n else 'Instructions'}",
-            value=i18n.t("ui.embed.instructions_text", locale) if i18n else "Click the buttons below to view detailed information for each problem.",
+            name=f"{instructions_emoji} {instructions_label}",
+            value=instructions_text,
             inline=False,
         )
 
-    footer_text = i18n.t("ui.embed.problems_overview", locale, source_label=source_label) if i18n else f"{source_label} Problems Overview"
+    footer_text = (
+        i18n.t("ui.embed.problems_overview", locale, source_label=source_label)
+        if i18n else f"{source_label} Problems Overview"
+    )
     if footer_icon_url:
         embed.set_footer(text=footer_text, icon_url=footer_icon_url)
     else:
@@ -818,7 +849,8 @@ def create_problem_description_embed(
             color=embed_color,
             url=problem_info["link"],
         )
-        embed.set_author(name=i18n.t("ui.embed.description_author", locale) if i18n else "LeetCode Problem", icon_url=LEETCODE_LOGO_URL)
+        author_label = i18n.t("ui.embed.description_author", locale) if i18n else "LeetCode Problem"
+        embed.set_author(name=author_label, icon_url=LEETCODE_LOGO_URL)
         return embed
 
     source_label = "AtCoder" if source == "atcoder" else source.capitalize()
@@ -832,7 +864,10 @@ def create_problem_description_embed(
         url=problem_info["link"],
     )
     footer_icon_url = ATCODER_LOGO_URL if source == "atcoder" else None
-    footer_text = i18n.t("ui.embed.atcoder_problem", locale) if i18n and source == "atcoder" else f"{source_label} Problem"
+    footer_text = (
+        i18n.t("ui.embed.atcoder_problem", locale)
+        if i18n and source == "atcoder" else f"{source_label} Problem"
+    )
     if footer_icon_url:
         embed.set_footer(text=footer_text, icon_url=footer_icon_url)
     else:
@@ -858,7 +893,10 @@ def create_inspiration_embed(
 
     footer_text = inspiration_data.get("footer")
     if not footer_text:
-        footer_text = i18n.t("ui.inspire.default_footer", locale, id=problem_info["id"]) if i18n else f"Problem {problem_info['id']} Inspiration"
+        footer_text = (
+            i18n.t("ui.inspire.default_footer", locale, id=problem_info["id"])
+            if i18n else f"Problem {problem_info['id']} Inspiration"
+        )
     embed.set_footer(text=footer_text, icon_url=GEMINI_LOGO_URL)
 
     return embed

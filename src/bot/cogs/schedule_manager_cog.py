@@ -124,7 +124,9 @@ class ScheduleManagerCog(commands.Cog):
 
         for attempt in range(len(delays) + 1):
             try:
-                result = await send_daily_challenge(bot=self.bot, channel_id=channel_id, role_id=role_id, guild_locale=guild_locale)
+                result = await send_daily_challenge(
+                    bot=self.bot, channel_id=channel_id, role_id=role_id, guild_locale=guild_locale
+                )
                 if result:
                     self.logger.info(f"Sent daily challenge for server {server_id}: {result.get('title')}")
                 else:

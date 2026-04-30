@@ -212,21 +212,31 @@ class SlashCommandsCog(commands.Cog):
         i18n = self.bot.i18n
 
         if domain not in ["com", "cn"]:
-            await interaction.response.send_message(i18n.t("errors.validation.domain_invalid", locale), ephemeral=not public)
+            await interaction.response.send_message(
+                i18n.t("errors.validation.domain_invalid", locale), ephemeral=not public
+            )
             return
         if title and len(title) > 100:
-            await interaction.response.send_message(i18n.t("errors.validation.title_too_long", locale), ephemeral=not public)
+            await interaction.response.send_message(
+                i18n.t("errors.validation.title_too_long", locale), ephemeral=not public
+            )
             return
         if message and len(message) > 500:
-            await interaction.response.send_message(i18n.t("errors.validation.message_too_long", locale), ephemeral=not public)
+            await interaction.response.send_message(
+                i18n.t("errors.validation.message_too_long", locale), ephemeral=not public
+            )
             return
 
         id_strings = [s.strip() for s in problem_ids.split(",") if s.strip()]
         if not id_strings:
-            await interaction.response.send_message(i18n.t("errors.validation.problem_ids_empty", locale), ephemeral=not public)
+            await interaction.response.send_message(
+                i18n.t("errors.validation.problem_ids_empty", locale), ephemeral=not public
+            )
             return
         if len(id_strings) > 20:
-            await interaction.response.send_message(i18n.t("errors.validation.too_many_problems", locale), ephemeral=not public)
+            await interaction.response.send_message(
+                i18n.t("errors.validation.too_many_problems", locale), ephemeral=not public
+            )
             return
 
         await interaction.response.defer(ephemeral=not public)
@@ -398,7 +408,10 @@ class SlashCommandsCog(commands.Cog):
             post_time = settings.get("post_time", DEFAULT_POST_TIME)
             tz = settings.get("timezone", DEFAULT_TIMEZONE)
             lang = settings.get("language", "zh-TW")
-            embed = create_settings_embed(interaction.guild.name, ch_mention, role_mention, post_time, tz, language=lang, bot=self.bot, locale=locale)
+            embed = create_settings_embed(
+                interaction.guild.name, ch_mention, role_mention, post_time, tz,
+                language=lang, bot=self.bot, locale=locale,
+            )
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
@@ -416,7 +429,10 @@ class SlashCommandsCog(commands.Cog):
             post_time = settings.get("post_time", DEFAULT_POST_TIME)
             tz = settings.get("timezone", DEFAULT_TIMEZONE)
             lang = settings.get("language", "zh-TW")
-            preview_embed = create_settings_embed(interaction.guild.name, ch_mention, role_mention, post_time, tz, language=lang, bot=self.bot, locale=locale)
+            preview_embed = create_settings_embed(
+                interaction.guild.name, ch_mention, role_mention, post_time, tz,
+                language=lang, bot=self.bot, locale=locale,
+            )
 
             exp_unix = int(time.time()) + 180
             view = discord.ui.View(timeout=180)
@@ -456,14 +472,16 @@ class SlashCommandsCog(commands.Cog):
                     raise ValueError
                 validated_time = f"{hour:02d}:{minute:02d}"
             except (ValueError, IndexError):
-                await interaction.response.send_message(i18n.t("errors.config.time_format_error", locale), ephemeral=True)
+                time_err_msg = i18n.t("errors.config.time_format_error", locale)
+                await interaction.response.send_message(time_err_msg, ephemeral=True)
                 return
 
         if timezone is not None:
             try:
                 parse_timezone(timezone)
             except ValueError as e:
-                await interaction.response.send_message(i18n.t("errors.config.timezone_error", locale, error=e), ephemeral=True)
+                tz_err_msg = i18n.t("errors.config.timezone_error", locale, error=e)
+                await interaction.response.send_message(tz_err_msg, ephemeral=True)
                 return
 
         settings = self.bot.db.get_server_settings(server_id)
@@ -510,9 +528,12 @@ class SlashCommandsCog(commands.Cog):
             role_display = r.mention if r else i18n.t("ui.settings.unknown_role", locale, id=base["role_id"])
 
         embed = create_settings_embed(
-            interaction.guild.name, ch_display, role_display, base["post_time"], base["timezone"], language=base["language"], bot=self.bot, locale=locale
+            interaction.guild.name, ch_display, role_display,
+            base["post_time"], base["timezone"],
+            language=base["language"], bot=self.bot, locale=locale,
         )
-        await interaction.response.send_message(content=i18n.t("errors.config.settings_updated", locale), embed=embed, ephemeral=True)
+        updated_msg = i18n.t("errors.config.settings_updated", locale)
+        await interaction.response.send_message(content=updated_msg, embed=embed, ephemeral=True)
         await self._reschedule_if_available(server_id, "config")
 
     @config_command.autocomplete("timezone")
@@ -558,7 +579,8 @@ class SlashCommandsCog(commands.Cog):
         i18n = self.bot.i18n
 
         if limit < 1:
-            await interaction.response.send_message(i18n.t("errors.validation.invalid_page", locale), ephemeral=not public)
+            invalid_page_msg = i18n.t("errors.validation.invalid_page", locale)
+            await interaction.response.send_message(invalid_page_msg, ephemeral=not public)
             return
         if limit > 50:
             limit = 50
@@ -576,10 +598,13 @@ class SlashCommandsCog(commands.Cog):
 
             first_submission = await self._get_submission_details(submissions[0])
             if not first_submission:
-                await interaction.followup.send(i18n.t("errors.validation.submission_detail_error", locale), ephemeral=not public)
+                detail_err_msg = i18n.t("errors.validation.submission_detail_error", locale)
+                await interaction.followup.send(detail_err_msg, ephemeral=not public)
                 return
 
-            embed = create_submission_embed(first_submission, 0, len(submissions), username, bot=self.bot, locale=locale)
+            embed = create_submission_embed(
+                first_submission, 0, len(submissions), username, bot=self.bot, locale=locale
+            )
             view = create_submission_view(first_submission, self.bot, 0, username, len(submissions))
 
             interaction_cog = self.bot.get_cog("InteractionHandlerCog")
