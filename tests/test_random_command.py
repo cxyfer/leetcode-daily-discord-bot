@@ -31,6 +31,9 @@ def _make_bot():
     bot.api = AsyncMock()
     bot.llm = MagicMock()
     bot.llm_pro = MagicMock()
+    bot.i18n = MagicMock()
+    bot.i18n.t = MagicMock(side_effect=lambda key, locale, **kwargs: key)
+    bot.i18n.resolve_locale = MagicMock(return_value="zh-TW")
     return bot
 
 

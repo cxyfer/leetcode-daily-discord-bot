@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS server_settings (
     role_id INTEGER,
     post_time TEXT DEFAULT '00:00',
     timezone TEXT DEFAULT 'UTC',
+    language TEXT NOT NULL DEFAULT 'zh-TW',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -14,20 +15,22 @@ CREATE TABLE IF NOT EXISTS server_settings (
 CREATE TABLE IF NOT EXISTS llm_translate_results (
     source TEXT NOT NULL,
     problem_id TEXT NOT NULL,
+    locale TEXT NOT NULL DEFAULT 'zh-TW',
     translation TEXT,
     created_at INTEGER NOT NULL,
     model_name TEXT,
-    PRIMARY KEY (source, problem_id)
+    PRIMARY KEY (source, problem_id, locale)
 );
 
 CREATE TABLE IF NOT EXISTS llm_inspire_results (
     source TEXT NOT NULL,
     problem_id TEXT NOT NULL,
+    locale TEXT NOT NULL DEFAULT 'zh-TW',
     thinking TEXT,
     traps TEXT,
     algorithms TEXT,
     inspiration TEXT,
     created_at INTEGER NOT NULL,
     model_name TEXT,
-    PRIMARY KEY (source, problem_id)
+    PRIMARY KEY (source, problem_id, locale)
 );

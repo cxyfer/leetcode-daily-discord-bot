@@ -51,6 +51,12 @@ translation_expire_seconds = 3600
 # Inspiration cache expiration time in seconds (default: 1 day)
 inspiration_expire_seconds = 86400
 
+[i18n]
+# Default locale for the bot (used when no guild/user locale is available)
+default_locale = "zh-TW"
+# Supported locales (must have corresponding JSON files in src/bot/i18n/locales/)
+supported_locales = ["zh-TW", "en-US", "zh-CN"]
+
 [similar]
 # Default top-k results for /similar
 top_k = 5

@@ -12,6 +12,7 @@ from bot.utils.logger import get_commands_logger
 from bot.utils.ui_constants import ATCODER_LOGO_URL, LEETCODE_LOGO_URL
 from bot.utils.ui_helpers import (
     _fetch_daily_history,
+    _get_locale,
     create_problem_embed,
     create_problem_view,
     create_problems_overview_embed,
@@ -19,6 +20,7 @@ from bot.utils.ui_helpers import (
     create_settings_embed,
     create_submission_embed,
     create_submission_view,
+    send_api_error,
     send_daily_challenge,
 )
 
@@ -33,10 +35,10 @@ class SlashCommandsCog(commands.Cog):
 
     # ── /daily ────────────────────────────────────────────────────────
 
-    @app_commands.command(name="daily", description="取得 LeetCode 每日挑戰 (LCUS)")
+    @app_commands.command(name="daily", description=app_commands.locale_str("daily.description"))
     @app_commands.describe(
-        date="查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天，最早為 2020-04-01",
-        public="是否公開顯示回覆 (預設為私密回覆)",
+        date=app_commands.locale_str("daily.date"),
+        public=app_commands.locale_str("daily.public"),
     )
     async def daily_command(self, interaction: discord.Interaction, date: str = None, public: bool = False):
         await interaction.response.defer(ephemeral=not public)
@@ -45,10 +47,10 @@ class SlashCommandsCog(commands.Cog):
         else:
             await send_daily_challenge(bot=self.bot, interaction=interaction, domain="com", ephemeral=not public)
 
-    @app_commands.command(name="daily_cn", description="取得 LeetCode 每日挑戰 (LCCN)")
+    @app_commands.command(name="daily_cn", description=app_commands.locale_str("daily_cn.description"))
     @app_commands.describe(
-        date="查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天，最早為 2020-04-01",
-        public="是否公開顯示回覆 (預設為私密回覆)",
+        date=app_commands.locale_str("daily.date"),
+        public=app_commands.locale_str("daily.public"),
     )
     async def daily_cn_command(self, interaction: discord.Interaction, date: str = None, public: bool = False):
         await interaction.response.defer(ephemeral=not public)
@@ -58,15 +60,18 @@ class SlashCommandsCog(commands.Cog):
             await send_daily_challenge(bot=self.bot, interaction=interaction, domain="cn", ephemeral=not public)
 
     async def _daily_by_date(self, interaction: discord.Interaction, domain: str, date: str, public: bool):
+        locale = _get_locale(self.bot, interaction)
+        i18n = self.bot.i18n
+
         if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
-            await interaction.followup.send(
-                "日期格式錯誤，請使用 YYYY-MM-DD 格式（例如：2025-07-01）", ephemeral=not public
-            )
+            await interaction.followup.send(i18n.t("errors.validation.date_format", locale), ephemeral=not public)
             return
         try:
             challenge_info = await self.bot.api.get_daily(domain, date)
             if not challenge_info:
-                await interaction.followup.send(f"找不到 {date} 的每日挑戰資料。", ephemeral=not public)
+                await interaction.followup.send(
+                    i18n.t("errors.validation.not_found_for_date", locale, date=date), ephemeral=not public
+                )
                 return
 
             history_problems = await _fetch_daily_history(self.bot, domain, date)
@@ -77,23 +82,24 @@ class SlashCommandsCog(commands.Cog):
                 is_daily=True,
                 date_str=date,
                 history_problems=history_problems,
+                locale=locale,
             )
-            view = await create_problem_view(problem_info=challenge_info, bot=self.bot, domain=domain)
+            view = await create_problem_view(problem_info=challenge_info, bot=self.bot, domain=domain, locale=locale)
             await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
             self.logger.info("Sent daily challenge for %s (%s) to user %s", date, domain, interaction.user.name)
 
         except ApiProcessingError:
-            await interaction.followup.send("⏳ 資料準備中，請稍後重試。", ephemeral=not public)
+            await send_api_error(interaction, "processing", self.bot, ephemeral=not public)
         except ApiNetworkError:
-            await interaction.followup.send("🔌 API 連線失敗，請稍後重試。", ephemeral=not public)
+            await send_api_error(interaction, "network", self.bot, ephemeral=not public)
         except ApiRateLimitError:
-            await interaction.followup.send("⏱️ 請求頻率過高，請稍後重試。", ephemeral=not public)
+            await send_api_error(interaction, "rate_limit", self.bot, ephemeral=not public)
         except ApiError as e:
             self.logger.error("API error in daily command: %s", e)
-            await interaction.followup.send("❌ 查詢失敗，請稍後重試。", ephemeral=not public)
+            await send_api_error(interaction, "generic", self.bot, ephemeral=not public)
         except Exception as e:
             self.logger.error("Error in daily command with date %s: %s", date, e, exc_info=True)
-            await interaction.followup.send(f"查詢每日挑戰時發生錯誤：{e}", ephemeral=not public)
+            await interaction.followup.send(i18n.t("daily.error", locale, error=e), ephemeral=not public)
 
     # ── /random ────────────────────────────────────────────────────────
 
@@ -183,14 +189,14 @@ class SlashCommandsCog(commands.Cog):
 
     # ── /problem ──────────────────────────────────────────────────────
 
-    @app_commands.command(name="problem", description="根據題號查詢題目資訊")
+    @app_commands.command(name="problem", description=app_commands.locale_str("problem.description"))
     @app_commands.describe(
-        problem_ids="題目編號，可用逗號分隔 (例如: 1, two-sum, abc321_a, atcoder:abc321_a)",
-        domain="選擇 LeetCode 網域（已棄用）",
-        public="是否公開顯示回覆 (預設為私密回覆)",
-        title="自定義標題 (多題模式下替換預設標題，最多 100 個字元)",
-        message="可選的個人訊息或備註 (最多 500 個字元)",
-        source="題庫來源 (例如 leetcode/atcoder/codeforces)，也可以在題號前加上 source: 前綴",
+        problem_ids=app_commands.locale_str("problem.problem_ids"),
+        domain=app_commands.locale_str("problem.domain"),
+        public=app_commands.locale_str("problem.public"),
+        title=app_commands.locale_str("problem.title"),
+        message=app_commands.locale_str("problem.message"),
+        source=app_commands.locale_str("problem.source"),
     )
     async def problem_command(
         self,
@@ -202,22 +208,35 @@ class SlashCommandsCog(commands.Cog):
         title: str = None,
         source: str = None,
     ):
+        locale = _get_locale(self.bot, interaction)
+        i18n = self.bot.i18n
+
         if domain not in ["com", "cn"]:
-            await interaction.response.send_message("網域參數只能是 'com' 或 'cn'", ephemeral=not public)
+            await interaction.response.send_message(
+                i18n.t("errors.validation.domain_invalid", locale), ephemeral=not public
+            )
             return
         if title and len(title) > 100:
-            await interaction.response.send_message("自定義標題不能超過 100 個字元", ephemeral=not public)
+            await interaction.response.send_message(
+                i18n.t("errors.validation.title_too_long", locale), ephemeral=not public
+            )
             return
         if message and len(message) > 500:
-            await interaction.response.send_message("個人訊息不能超過 500 個字元", ephemeral=not public)
+            await interaction.response.send_message(
+                i18n.t("errors.validation.message_too_long", locale), ephemeral=not public
+            )
             return
 
         id_strings = [s.strip() for s in problem_ids.split(",") if s.strip()]
         if not id_strings:
-            await interaction.response.send_message("請提供至少一個題目編號", ephemeral=not public)
+            await interaction.response.send_message(
+                i18n.t("errors.validation.problem_ids_empty", locale), ephemeral=not public
+            )
             return
         if len(id_strings) > 20:
-            await interaction.response.send_message("一次最多只能查詢 20 個題目", ephemeral=not public)
+            await interaction.response.send_message(
+                i18n.t("errors.validation.too_many_problems", locale), ephemeral=not public
+            )
             return
 
         await interaction.response.defer(ephemeral=not public)
@@ -242,7 +261,7 @@ class SlashCommandsCog(commands.Cog):
 
             if not problems:
                 await interaction.followup.send(
-                    "找不到任何有效的題目，請確認題目編號是否正確或是否為公開題目。",
+                    i18n.t("errors.validation.problem_not_found", locale),
                     ephemeral=not public,
                 )
                 return
@@ -256,8 +275,9 @@ class SlashCommandsCog(commands.Cog):
                     user=interaction.user,
                     title=title,
                     message=message,
+                    locale=locale,
                 )
-                view = await create_problem_view(problem_info=problems[0], bot=self.bot, domain=domain)
+                view = await create_problem_view(problem_info=problems[0], bot=self.bot, domain=domain, locale=locale)
                 await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
                 return
 
@@ -285,23 +305,25 @@ class SlashCommandsCog(commands.Cog):
                 source_label=source_label,
                 show_instructions=True,
                 footer_icon_url=footer_icon,
+                bot=self.bot,
+                locale=locale,
             )
             view = create_problems_overview_view(problems, domain)
             await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
             self.logger.info("Sent %d problems to user %s", len(problems), interaction.user.name)
 
         except ApiProcessingError:
-            await interaction.followup.send("⏳ 資料準備中，請稍後重試。", ephemeral=not public)
+            await send_api_error(interaction, "processing", self.bot, ephemeral=not public)
         except ApiNetworkError:
-            await interaction.followup.send("🔌 API 連線失敗，請稍後重試。", ephemeral=not public)
+            await send_api_error(interaction, "network", self.bot, ephemeral=not public)
         except ApiRateLimitError:
-            await interaction.followup.send("⏱️ 請求頻率過高，請稍後重試。", ephemeral=not public)
+            await send_api_error(interaction, "rate_limit", self.bot, ephemeral=not public)
         except ApiError as e:
             self.logger.error("API error in problem command: %s", e)
-            await interaction.followup.send("❌ 查詢失敗，請稍後重試。", ephemeral=not public)
+            await send_api_error(interaction, "generic", self.bot, ephemeral=not public)
         except Exception as e:
             self.logger.error("Error in problem_command: %s", e, exc_info=True)
-            await interaction.followup.send(f"查詢題目時發生錯誤：{e}", ephemeral=not public)
+            await interaction.followup.send(i18n.t("errors.unexpected", locale, error=e), ephemeral=not public)
 
     @problem_command.autocomplete("domain")
     async def problem_domain_autocomplete(self, interaction: discord.Interaction, current: str):
@@ -329,16 +351,23 @@ class SlashCommandsCog(commands.Cog):
         ]
     )
 
-    @app_commands.command(name="config", description="設定 LeetCode 每日挑戰的所有配置")
+    _LANGUAGE_CHOICES = [
+        app_commands.Choice(name="繁體中文", value="zh-TW"),
+        app_commands.Choice(name="English", value="en-US"),
+        app_commands.Choice(name="简体中文", value="zh-CN"),
+    ]
+
+    @app_commands.command(name="config", description=app_commands.locale_str("config.description"))
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(manage_guild=True)
     @app_commands.describe(
-        channel="發送每日挑戰的頻道",
-        role="要標記的身分組",
-        post_time="發送時間 (HH:MM 或 H:MM，例如 08:00)",
-        timezone="時區 (例如 Asia/Taipei 或 UTC+8)",
-        clear_role="清除身分組標記設定",
-        reset="重置所有設定並停止排程（需確認）",
+        channel=app_commands.locale_str("config.channel"),
+        role=app_commands.locale_str("config.role"),
+        post_time=app_commands.locale_str("config.time"),
+        timezone=app_commands.locale_str("config.timezone"),
+        clear_role=app_commands.locale_str("config.clear_role"),
+        language=app_commands.locale_str("config.language"),
+        reset=app_commands.locale_str("config.reset"),
     )
     @app_commands.rename(post_time="time")
     async def config_command(
@@ -349,68 +378,92 @@ class SlashCommandsCog(commands.Cog):
         post_time: str = None,
         timezone: str = None,
         clear_role: bool = False,
+        language: str = None,
         reset: bool = False,
     ):
         server_id = interaction.guild.id
 
-        if reset and any([channel, role, post_time is not None, timezone is not None, clear_role]):
-            await interaction.response.send_message("`reset` 不可與其他設定參數同時使用。", ephemeral=True)
+        locale = _get_locale(self.bot, interaction)
+        i18n = self.bot.i18n
+
+        if reset and any([channel, role, post_time is not None, timezone is not None, clear_role, language]):
+            await interaction.response.send_message(i18n.t("errors.config.reset_conflict", locale), ephemeral=True)
             return
 
-        has_update = any([channel, role, post_time is not None, timezone is not None, clear_role, reset])
+        has_update = any([channel, role, post_time is not None, timezone is not None, clear_role, language, reset])
         if not has_update:
             settings = self.bot.db.get_server_settings(server_id)
             if not settings or not settings.get("channel_id"):
                 await interaction.response.send_message(
-                    "尚未設定 LeetCode 每日挑戰頻道。使用 /config channel:<頻道> 開始設定。",
+                    i18n.t("errors.config.not_configured", locale),
                     ephemeral=True,
                 )
                 return
             ch = self.bot.get_channel(settings["channel_id"])
-            ch_mention = ch.mention if ch else f"未知頻道 (ID: {settings['channel_id']})"
-            role_mention = "未設定"
+            ch_mention = ch.mention if ch else i18n.t("ui.settings.unknown_channel", locale, id=settings["channel_id"])
+            role_mention = i18n.t("ui.settings.not_set", locale)
             if settings.get("role_id"):
                 r = interaction.guild.get_role(int(settings["role_id"]))
-                role_mention = r.mention if r else f"未知身分組 (ID: {settings['role_id']})"
+                role_mention = r.mention if r else i18n.t("ui.settings.unknown_role", locale, id=settings["role_id"])
             post_time = settings.get("post_time", DEFAULT_POST_TIME)
             tz = settings.get("timezone", DEFAULT_TIMEZONE)
-            embed = create_settings_embed(interaction.guild.name, ch_mention, role_mention, post_time, tz)
+            lang = settings.get("language", "zh-TW")
+            embed = create_settings_embed(
+                interaction.guild.name,
+                ch_mention,
+                role_mention,
+                post_time,
+                tz,
+                language=lang,
+                bot=self.bot,
+                locale=locale,
+            )
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
         if reset:
             settings = self.bot.db.get_server_settings(server_id)
             if not settings:
-                await interaction.response.send_message("此伺服器尚未設定，無需重置。", ephemeral=True)
+                await interaction.response.send_message(i18n.t("errors.config.not_setup", locale), ephemeral=True)
                 return
             ch = self.bot.get_channel(settings["channel_id"])
-            ch_mention = ch.mention if ch else f"未知頻道 (ID: {settings['channel_id']})"
-            role_mention = "未設定"
+            ch_mention = ch.mention if ch else i18n.t("ui.settings.unknown_channel", locale, id=settings["channel_id"])
+            role_mention = i18n.t("ui.settings.not_set", locale)
             if settings.get("role_id"):
                 r = interaction.guild.get_role(int(settings["role_id"]))
-                role_mention = r.mention if r else f"未知身分組 (ID: {settings['role_id']})"
+                role_mention = r.mention if r else i18n.t("ui.settings.unknown_role", locale, id=settings["role_id"])
             post_time = settings.get("post_time", DEFAULT_POST_TIME)
             tz = settings.get("timezone", DEFAULT_TIMEZONE)
-            preview_embed = create_settings_embed(interaction.guild.name, ch_mention, role_mention, post_time, tz)
+            lang = settings.get("language", "zh-TW")
+            preview_embed = create_settings_embed(
+                interaction.guild.name,
+                ch_mention,
+                role_mention,
+                post_time,
+                tz,
+                language=lang,
+                bot=self.bot,
+                locale=locale,
+            )
 
             exp_unix = int(time.time()) + 180
             view = discord.ui.View(timeout=180)
             view.add_item(
                 discord.ui.Button(
-                    label="確認重置",
+                    label=i18n.t("ui.buttons.confirm_reset", locale),
                     style=discord.ButtonStyle.danger,
                     custom_id=f"config_reset_confirm|{server_id}|{interaction.user.id}|{exp_unix}",
                 )
             )
             view.add_item(
                 discord.ui.Button(
-                    label="取消",
+                    label=i18n.t("ui.buttons.cancel", locale),
                     style=discord.ButtonStyle.secondary,
                     custom_id=f"config_reset_cancel|{server_id}|{interaction.user.id}|{exp_unix}",
                 )
             )
             await interaction.response.send_message(
-                content="⚠️ 確定要重置此伺服器的所有設定嗎？這將停止每日挑戰排程。",
+                content=i18n.t("errors.reset.confirm_message", locale),
                 embed=preview_embed,
                 view=view,
                 ephemeral=True,
@@ -418,7 +471,7 @@ class SlashCommandsCog(commands.Cog):
             return
 
         if role and clear_role:
-            await interaction.response.send_message("`role` 與 `clear_role` 不可同時使用。", ephemeral=True)
+            await interaction.response.send_message(i18n.t("errors.config.role_clear_conflict", locale), ephemeral=True)
             return
 
         validated_time = None
@@ -431,22 +484,22 @@ class SlashCommandsCog(commands.Cog):
                     raise ValueError
                 validated_time = f"{hour:02d}:{minute:02d}"
             except (ValueError, IndexError):
-                await interaction.response.send_message(
-                    "時間格式錯誤，請使用 HH:MM 格式（例如 08:00 或 23:59）。", ephemeral=True
-                )
+                time_err_msg = i18n.t("errors.config.time_format_error", locale)
+                await interaction.response.send_message(time_err_msg, ephemeral=True)
                 return
 
         if timezone is not None:
             try:
                 parse_timezone(timezone)
             except ValueError as e:
-                await interaction.response.send_message(f"無效的時區：{e}", ephemeral=True)
+                tz_err_msg = i18n.t("errors.config.timezone_error", locale, error=e)
+                await interaction.response.send_message(tz_err_msg, ephemeral=True)
                 return
 
         settings = self.bot.db.get_server_settings(server_id)
         if not settings and not channel:
             await interaction.response.send_message(
-                "首次設定時必須指定 `channel` 參數。\n範例：`/config channel:#general time:08:00 timezone:UTC+8`",
+                i18n.t("errors.config.first_setup_required", locale),
                 ephemeral=True,
             )
             return
@@ -456,6 +509,7 @@ class SlashCommandsCog(commands.Cog):
             "role_id": settings.get("role_id") if settings else None,
             "post_time": settings.get("post_time", DEFAULT_POST_TIME) if settings else DEFAULT_POST_TIME,
             "timezone": settings.get("timezone", DEFAULT_TIMEZONE) if settings else DEFAULT_TIMEZONE,
+            "language": settings.get("language", "zh-TW") if settings else "zh-TW",
         }
         if channel:
             base["channel_id"] = channel.id
@@ -467,26 +521,43 @@ class SlashCommandsCog(commands.Cog):
             base["post_time"] = validated_time
         if timezone is not None:
             base["timezone"] = timezone
+        if language:
+            supported = self.bot.i18n.get_supported_locales()
+            if language not in supported:
+                await interaction.response.send_message(
+                    i18n.t("errors.config.language_invalid", locale, supported=", ".join(supported)),
+                    ephemeral=True,
+                )
+                return
+            base["language"] = language
 
         success = self.bot.db.set_server_settings(
-            server_id, base["channel_id"], base["role_id"], base["post_time"], base["timezone"]
+            server_id, base["channel_id"], base["role_id"], base["post_time"], base["timezone"], base["language"]
         )
 
         if not success:
-            await interaction.response.send_message("設定時發生錯誤，請稍後再試。", ephemeral=True)
+            await interaction.response.send_message(i18n.t("errors.config.settings_error", locale), ephemeral=True)
             return
 
         ch_obj = self.bot.get_channel(base["channel_id"])
-        ch_display = ch_obj.mention if ch_obj else f"ID: {base['channel_id']}"
-        role_display = "未設定"
+        ch_display = ch_obj.mention if ch_obj else i18n.t("ui.settings.unknown_channel", locale, id=base["channel_id"])
+        role_display = i18n.t("ui.settings.not_set", locale)
         if base["role_id"]:
             r = interaction.guild.get_role(base["role_id"])
-            role_display = r.mention if r else f"ID: {base['role_id']}"
+            role_display = r.mention if r else i18n.t("ui.settings.unknown_role", locale, id=base["role_id"])
 
         embed = create_settings_embed(
-            interaction.guild.name, ch_display, role_display, base["post_time"], base["timezone"]
+            interaction.guild.name,
+            ch_display,
+            role_display,
+            base["post_time"],
+            base["timezone"],
+            language=base["language"],
+            bot=self.bot,
+            locale=locale,
         )
-        await interaction.response.send_message(content="✅ 設定已更新", embed=embed, ephemeral=True)
+        updated_msg = i18n.t("errors.config.settings_updated", locale)
+        await interaction.response.send_message(content=updated_msg, embed=embed, ephemeral=True)
         await self._reschedule_if_available(server_id, "config")
 
     @config_command.autocomplete("timezone")
@@ -494,24 +565,32 @@ class SlashCommandsCog(commands.Cog):
         lowered = current.lower()
         return [app_commands.Choice(name=tz, value=tz) for tz in self._TZ_CHOICES if lowered in tz.lower()][:25]
 
+    @config_command.autocomplete("language")
+    async def config_language_autocomplete(self, interaction: discord.Interaction, current: str):
+        lowered = current.lower()
+        return [c for c in self._LANGUAGE_CHOICES if lowered in c.name.lower() or lowered in c.value.lower()]
+
     @config_command.error
     async def config_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        locale = _get_locale(self.bot, interaction)
+        i18n = self.bot.i18n
+
         if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message("您需要「管理伺服器」權限才能使用此指令。", ephemeral=True)
+            await interaction.response.send_message(i18n.t("errors.config.permission_denied", locale), ephemeral=True)
         elif isinstance(error, app_commands.NoPrivateMessage):
-            await interaction.response.send_message("此指令不能在私訊中使用。", ephemeral=True)
+            await interaction.response.send_message(i18n.t("errors.config.dm_restricted", locale), ephemeral=True)
         else:
             self.logger.error("Error in config_command: %s", error, exc_info=True)
             if not interaction.response.is_done():
-                await interaction.response.send_message(f"設定時發生錯誤: {error}", ephemeral=True)
+                await interaction.response.send_message(i18n.t("errors.config.settings_error", locale), ephemeral=True)
 
     # ── /recent ───────────────────────────────────────────────────────
 
-    @app_commands.command(name="recent", description="查看 LeetCode 使用者的近期解題紀錄 (僅限 LCUS)")
+    @app_commands.command(name="recent", description=app_commands.locale_str("recent.description"))
     @app_commands.describe(
-        username="LeetCode 使用者名稱",
-        limit="顯示的題目數量 (預設 20，最多 50)",
-        public="是否公開顯示回覆 (預設為私密回覆)",
+        username=app_commands.locale_str("recent.username"),
+        limit=app_commands.locale_str("recent.limit"),
+        public=app_commands.locale_str("recent.public"),
     )
     async def recent_command(
         self,
@@ -520,8 +599,12 @@ class SlashCommandsCog(commands.Cog):
         limit: int = 20,
         public: bool = False,
     ):
+        locale = _get_locale(self.bot, interaction)
+        i18n = self.bot.i18n
+
         if limit < 1:
-            await interaction.response.send_message("顯示數量必須至少為 1", ephemeral=not public)
+            invalid_limit_msg = i18n.t("errors.validation.invalid_limit", locale)
+            await interaction.response.send_message(invalid_limit_msg, ephemeral=not public)
             return
         if limit > 50:
             limit = 50
@@ -532,17 +615,20 @@ class SlashCommandsCog(commands.Cog):
             submissions = await self.bot.lcus.fetch_recent_ac_submissions(username, limit)
             if not submissions:
                 await interaction.followup.send(
-                    f"找不到使用者 **{username}** 的解題紀錄，請確認使用者名稱是否正確。",
+                    i18n.t("errors.validation.no_submissions", locale, username=username),
                     ephemeral=not public,
                 )
                 return
 
             first_submission = await self._get_submission_details(submissions[0])
             if not first_submission:
-                await interaction.followup.send("無法載入題目詳細資訊", ephemeral=not public)
+                detail_err_msg = i18n.t("errors.validation.submission_detail_error", locale)
+                await interaction.followup.send(detail_err_msg, ephemeral=not public)
                 return
 
-            embed = create_submission_embed(first_submission, 0, len(submissions), username)
+            embed = create_submission_embed(
+                first_submission, 0, len(submissions), username, bot=self.bot, locale=locale
+            )
             view = create_submission_view(first_submission, self.bot, 0, username, len(submissions))
 
             interaction_cog = self.bot.get_cog("InteractionHandlerCog")
@@ -555,7 +641,7 @@ class SlashCommandsCog(commands.Cog):
 
         except Exception as e:
             self.logger.error("Error in recent_command: %s", e, exc_info=True)
-            await interaction.followup.send(f"查詢解題紀錄時發生錯誤：{e}", ephemeral=not public)
+            await interaction.followup.send(i18n.t("errors.unexpected", locale, error=e), ephemeral=not public)
 
     async def _get_submission_details(self, basic_submission: dict) -> dict:
         try:

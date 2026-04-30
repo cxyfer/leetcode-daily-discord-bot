@@ -113,11 +113,20 @@ class ScheduleManagerCog(commands.Cog):
     async def send_daily_challenge_job(self, server_id: int, channel_id: int, role_id: int = None):
         """Job function called by APScheduler to send daily challenges"""
         self.logger.info(f"APScheduler triggered: Sending daily challenge for server {server_id}")
+
+        # Resolve guild locale: DB setting → config default → zh-TW
+        guild_locale = self.bot.i18n.resolve_locale(
+            guild_id=server_id,
+            config_default=self.bot.config.default_locale,
+        )
+
         delays = [2, 4, 8]
 
         for attempt in range(len(delays) + 1):
             try:
-                result = await send_daily_challenge(bot=self.bot, channel_id=channel_id, role_id=role_id)
+                result = await send_daily_challenge(
+                    bot=self.bot, channel_id=channel_id, role_id=role_id, guild_locale=guild_locale
+                )
                 if result:
                     self.logger.info(f"Sent daily challenge for server {server_id}: {result.get('title')}")
                 else:

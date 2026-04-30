@@ -117,7 +117,7 @@ def test_table_inspection_excludes_sqlite_internal_tables(tmp_path):
                 "(problem_id, translation, created_at, model_name, domain) "
                 "VALUES ('two-sum', '翻譯', 1234567890, 'gemini', 'leetcode')"
             ),
-            ("leetcode", "two-sum", "翻譯", 1234567890, "gemini"),
+            ("leetcode", "two-sum", "zh-TW", "翻譯", 1234567890, "gemini"),
         ),
         (
             "llm_inspire_results",
@@ -131,7 +131,7 @@ def test_table_inspection_excludes_sqlite_internal_tables(tmp_path):
                 "(problem_id, thinking, traps, algorithms, inspiration, created_at, model_name, domain) "
                 "VALUES ('abc100-a', '思路', '陷阱', 'DP', '靈感', 1234567890, 'gemini', 'atcoder')"
             ),
-            ("atcoder", "abc100-a", "思路", "陷阱", "DP", "靈感", 1234567890, "gemini"),
+            ("atcoder", "abc100-a", "zh-TW", "思路", "陷阱", "DP", "靈感", 1234567890, "gemini"),
         ),
     ],
 )

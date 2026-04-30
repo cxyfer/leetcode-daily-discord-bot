@@ -18,6 +18,10 @@ def _make_interaction() -> AsyncMock:
     interaction.followup = AsyncMock()
     interaction.followup.send = AsyncMock()
     interaction.user = MagicMock()
+    interaction.guild = MagicMock()
+    interaction.guild.id = 987654321
+    interaction.guild_locale = None
+    interaction.locale = discord.Locale.taiwan_chinese
     return interaction
 
 
@@ -25,7 +29,11 @@ def _make_bot() -> MagicMock:
     bot = MagicMock(spec=commands.Bot)
     bot.api = AsyncMock()
     bot.config = MagicMock()
+    bot.config.default_locale = "zh-TW"
     bot.config.get_similar_config.return_value = SimilarConfig(top_k=25, min_similarity=0.7)
+    bot.i18n = MagicMock()
+    bot.i18n.t = MagicMock(side_effect=lambda key, locale, **kwargs: key)
+    bot.i18n.resolve_locale = MagicMock(return_value="zh-TW")
     return bot
 
 
@@ -50,7 +58,7 @@ async def test_similar_command_clamps_top_k_and_uses_shared_message_builder(monk
     sentinel_view = SimpleNamespace(children=[])
     helper_calls = []
 
-    def fake_create_similar_results_message(result, *, base_source=None, base_id=None):
+    def fake_create_similar_results_message(result, *, base_source=None, base_id=None, **kwargs):
         helper_calls.append((result, base_source, base_id))
         return sentinel_embed, sentinel_view
 
@@ -100,7 +108,7 @@ async def test_similar_command_problem_input_resolves_problem_and_passes_base_pr
     sentinel_view = SimpleNamespace(children=[])
     helper_calls = []
 
-    def fake_create_similar_results_message(result, *, base_source=None, base_id=None):
+    def fake_create_similar_results_message(result, *, base_source=None, base_id=None, **kwargs):
         helper_calls.append((result, base_source, base_id))
         return sentinel_embed, sentinel_view
 

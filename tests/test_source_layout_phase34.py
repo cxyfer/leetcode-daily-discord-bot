@@ -125,6 +125,8 @@ async def test_create_bot_runtime_checks_token_before_starting_api(monkeypatch):
         api_base_url = "https://example.com"
         api_token = None
         api_timeout = 10
+        default_locale = "zh-TW"
+        supported_locales = ["zh-TW", "en-US", "zh-CN"]
 
         def get(self, _key, default=None):
             return default

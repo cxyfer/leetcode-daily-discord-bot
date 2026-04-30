@@ -92,6 +92,14 @@ class EnvConfig:
         return int(os.getenv("API_TIMEOUT", "10"))
 
     @property
+    def default_locale(self):
+        return "zh-TW"
+
+    @property
+    def supported_locales(self):
+        return ["zh-TW", "en-US", "zh-CN"]
+
+    @property
     def post_time(self):
         return os.getenv("POST_TIME", "00:00")
 

@@ -1,0 +1,191 @@
+{
+  "errors": {
+    "api": {
+      "processing": "⏳ 数据准备中，请稍后重试。",
+      "network": "🔌 API 连接失败，请稍后重试。",
+      "rate_limit": "⏱️ 请求频率过高，请稍后重试。",
+      "generic": "❌ 查询失败，请稍后重试。"
+    },
+    "validation": {
+      "date_format": "日期格式错误，请使用 YYYY-MM-DD 格式（例如：2025-07-01）。",
+      "not_found_for_date": "找不到 {date} 的每日挑战数据。",
+      "domain_invalid": "域名参数只能是 'com' 或 'cn'。",
+      "title_too_long": "自定义标题不能超过 100 个字符。",
+      "message_too_long": "个人消息不能超过 500 个字符。",
+      "problem_ids_empty": "请提供至少一个题目编号。",
+      "too_many_problems": "一次最多只能查询 20 个题目。",
+      "problem_not_found": "找不到任何有效的题目，请确认题目编号是否正确或是否为公开题目。",
+      "no_description": "找不到题目或题目无描述内容。",
+      "no_submissions": "找不到用户 **{username}** 的解题记录，请确认用户名是否正确。",
+      "invalid_page": "无效的页面。",
+      "module_load_error": "无法加载指令模块。",
+      "submission_detail_error": "无法加载题目详细信息。",
+      "content_truncated": "（内容已截断，请前往网站查看完整题目）",
+      "description_too_long": "由于题目内容过长，使用嵌入式消息的方式显示。",
+      "similar_not_found": "找不到相似题目。",
+      "no_query_provided": "请至少输入题目描述 (query) 或题目编号 (problem)。",
+      "invalid_limit": "数量至少为 1"
+    },
+    "unexpected": "发生未预期错误：{error}",
+    "config": {
+      "not_configured": "尚未设置 LeetCode 每日挑战频道。使用 /config channel:<频道> 开始设置。",
+      "reset_conflict": "`reset` 不可与其他设置参数同时使用。",
+      "role_clear_conflict": "`role` 与 `clear_role` 不可同时使用。",
+      "time_format_error": "时间格式错误，请使用 HH:MM 格式（例如 08:00 或 23:59）。",
+      "timezone_error": "无效的时区：{error}",
+      "first_setup_required": "首次设置时必须指定 `channel` 参数。\n示例：`/config channel:#general time:08:00 timezone:UTC+8`",
+      "settings_error": "设置时发生错误，请稍后再试。",
+      "permission_denied": "您需要「管理服务器」权限才能使用此指令。",
+      "dm_restricted": "此指令不能在私信中使用。",
+      "not_setup": "此服务器尚未设置，无需重置。",
+      "settings_updated": "✅ 设置已更新",
+      "language_invalid": "不支持的语言。支持的语言：{supported}"
+    },
+    "reset": {
+      "invalid_action": "无效的操作。",
+      "wrong_user": "此操作仅限原发起者使用。",
+      "expired": "此确认已过期，请重新使用 /config reset:True。",
+      "cancelled": "已取消重置操作。",
+      "permission_denied": "您需要「管理服务器」权限才能执行此操作。",
+      "error": "重置设置时发生错误，请稍后再试。",
+      "success": "✅ 已重置所有设置并停止排程。",
+      "confirm_message": "⚠️ 确定要重置此服务器的所有设置吗？这将停止每日挑战排程。"
+    },
+    "navigation": {
+      "error": "导航时发生错误：{error}"
+    }
+  },
+  "ui": {
+    "buttons": {
+      "description": "题目描述",
+      "translate": "LLM 翻译",
+      "inspire": "灵感启发",
+      "similar": "相似题目",
+      "confirm_reset": "确认重置",
+      "cancel": "取消"
+    },
+    "embed": {
+      "similar_title": "🔍 相似题目",
+      "rewritten_search": "✨ 重写搜索",
+      "base_problem": "🔗 基准题目",
+      "results": "📋 Results",
+      "source": "Source",
+      "difficulty": "Difficulty",
+      "rating": "Rating",
+      "ac_rate": "AC Rate",
+      "tags": "Tags",
+      "similar_questions": "🔍 Similar Questions ({count}{suffix})",
+      "history_problems": "History Problems",
+      "daily_footer": "LeetCode Daily Challenge | {date}",
+      "problem_footer": "LeetCode Problem",
+      "instructions": "Instructions",
+      "instructions_text": "Click the buttons below to view detailed information for each problem.",
+      "problems": "Problems",
+      "problems_part": "📋 Part {number}",
+      "problems_overview": "{source_label} Problems Overview",
+      "problems_found": "🔍 {source_label} Problems ({count} found)",
+      "submission_author": "{username}'s Recent Submissions",
+      "submission_footer": "Problem {current} of {total}",
+      "description_author": "LeetCode Problem",
+      "atcoder_problem": "AtCoder Problem",
+      "source_label": "Source",
+      "solve_on": "> Solve on [{alt_name} ({alt_full_name})]({link}).",
+      "not_found": "找不到今日挑战。"
+    },
+    "settings": {
+      "title": "{guild_name} 的 LeetCode 挑战设置",
+      "channel": "发送频道",
+      "role": "标记身份组",
+      "time": "发送时间",
+      "language": "显示语言",
+      "not_set": "未设置",
+      "unknown_channel": "未知频道 (ID: {id})",
+      "unknown_role": "未知身份组 (ID: {id})"
+    },
+    "inspire": {
+      "title": "💡 灵感启发",
+      "thinking": "🧠 思路",
+      "traps": "⚠️ 陷阱",
+      "algorithms": "🛠️ 推荐算法",
+      "inspiration": "✨ 其他灵感",
+      "footer": "由 {model} 提供灵感",
+      "default_footer": "Problem {id} 灵感启发"
+    }
+  },
+  "llm": {
+    "duplicate_translate": "正在处理您的翻译请求，请稍候...",
+    "duplicate_inspire": "正在处理您的灵感启发请求，请稍候...",
+    "translation_not_enabled": "LLM 翻译功能尚未启用。",
+    "inspire_not_enabled": "LLM 灵感启发功能尚未启用。",
+    "cannot_fetch_description": "无法获取题目描述。",
+    "cannot_fetch_info": "无法获取题目信息。",
+    "cannot_fetch_content": "无法获取题目内容。",
+    "provided_by_model": "\n\n✨ 由 `{model}` 提供翻译",
+    "translation_truncated": "...\n(翻译内容已截断)",
+    "translate_error": "LLM 翻译失败：{error}",
+    "inspire_error": "LLM 灵感启发失败：{error}",
+    "prompts": {
+      "output_language_names": {
+        "zh-TW": "繁體中文",
+        "en-US": "English",
+        "zh-CN": "简体中文"
+      }
+    }
+  },
+  "daily": {
+    "error": "发送每日挑战时发生错误：{error}"
+  },
+  "commands": {
+    "daily": {
+      "description": "获取 LeetCode 每日挑战 (LCUS)",
+      "date": "查询指定日期的每日挑战 (YYYY-MM-DD 格式)，不填则为今天，最早为 2020-04-01",
+      "public": "是否公开显示回复 (默认为私密回复)"
+    },
+    "daily_cn": {
+      "description": "获取 LeetCode 每日挑战 (LCCN)",
+      "date": "查询指定日期的每日挑战 (YYYY-MM-DD 格式)，不填则为今天，最早为 2020-04-01",
+      "public": "是否公开显示回复 (默认为私密回复)"
+    },
+    "problem": {
+      "description": "根据题号查询题目信息",
+      "problem_ids": "题目编号，可用逗号分隔 (例如: 1, two-sum, abc321_a, atcoder:abc321_a)",
+      "domain": "选择 LeetCode 域名（已弃用）",
+      "public": "是否公开显示回复 (默认为私密回复)",
+      "title": "自定义标题 (多题模式下替换默认标题，最多 100 个字符)",
+      "message": "可选的个人消息或备注 (最多 500 个字符)",
+      "source": "题库来源 (例如 leetcode/atcoder/codeforces)，也可以在题号前加上 source: 前缀"
+    },
+    "config": {
+      "description": "设置 LeetCode 每日挑战的所有配置",
+      "channel": "发送每日挑战的频道",
+      "role": "要标记的身份组",
+      "time": "发送时间 (HH:MM 或 H:MM，例如 08:00)",
+      "timezone": "时区 (例如 Asia/Taipei 或 UTC+8)",
+      "clear_role": "清除身份组标记设置",
+      "reset": "重置所有设置并停止排程（需确认）",
+      "language": "设置机器人的显示语言",
+      "language_current": "当前语言：{locale}",
+      "language_updated": "✅ 语言已更新为 {locale}"
+    },
+    "recent": {
+      "description": "查看 LeetCode 用户的近期解题记录 (仅限 LCUS)",
+      "username": "LeetCode 用户名",
+      "limit": "显示的题目数量 (默认 20，最多 50)",
+      "public": "是否公开显示回复 (默认为私密回复)"
+    },
+    "similar": {
+      "description": "搜索相似题目",
+      "query": "题目描述或关键字 (若指定 problem 则此字段可省略)",
+      "problem": "既有题目编号或网址 (例如: 1, atcoder:abc100_a)",
+      "top_k": "返回结果数量 (默认 5)",
+      "source": "题库来源 (留空为全部)",
+      "public": "是否公开显示回复 (默认为私密回复)"
+    }
+  },
+  "locale": {
+    "name": "简体中文",
+    "zh-TW": "繁體中文",
+    "en-US": "English",
+    "zh-CN": "简体中文"
+  }
+}

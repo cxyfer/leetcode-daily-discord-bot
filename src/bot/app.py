@@ -98,6 +98,9 @@ def _register_runtime_handlers(bot: commands.Bot) -> None:
         bot.logger.info(f"Connected to {len(bot.guilds)} guilds")
 
         try:
+            from bot.i18n.translator import BotTranslator
+
+            await bot.tree.set_translator(BotTranslator(bot.i18n))
             synced = await bot.tree.sync()
             bot.logger.info(f"Synced {len(synced)} commands")
         except Exception as e:
@@ -137,10 +140,16 @@ def _register_runtime_handlers(bot: commands.Bot) -> None:
 
 async def create_bot_runtime(*, config, logger):
     from bot.api_client import OjApiClient
+    from bot.i18n import I18nService
     from bot.leetcode import LeetCodeClient
     from bot.llms import GeminiLLM
     from bot.utils import SettingsDatabaseManager
     from bot.utils.database import LLMInspireDatabaseManager, LLMTranslateDatabaseManager
+
+    i18n = I18nService(
+        default_locale=config.default_locale,
+        supported_locales=tuple(config.supported_locales),
+    )
 
     db_path = config.database_path
     db = SettingsDatabaseManager(db_path=db_path)
@@ -206,6 +215,8 @@ async def create_bot_runtime(*, config, logger):
         bot.llm_pro = llm_pro
         bot.logger = logger
         bot.config = config
+        bot.i18n = i18n
+        i18n.set_db_provider(db)
 
         if not config.discord_token:
             bot.logger.critical("DISCORD_TOKEN is not set. Bot cannot start.")

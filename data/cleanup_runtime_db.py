@@ -19,6 +19,10 @@ LEGACY_COLUMN_ALIASES = {
     "llm_translate_results": {"source": "domain"},
     "llm_inspire_results": {"source": "domain"},
 }
+LEGACY_DEFAULT_VALUES = {
+    "llm_translate_results": {"locale": "zh-TW"},
+    "llm_inspire_results": {"locale": "zh-TW"},
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -99,6 +103,7 @@ def get_select_expressions(
     source_columns: set[str],
 ) -> list[tuple[str, str]]:
     aliases = LEGACY_COLUMN_ALIASES.get(table_name, {})
+    defaults = LEGACY_DEFAULT_VALUES.get(table_name, {})
     expressions: list[tuple[str, str]] = []
 
     for destination_column in destination_columns:
@@ -112,6 +117,16 @@ def get_select_expressions(
                 (
                     destination_column,
                     f"{quote_ident(source_alias)} AS {quote_ident(destination_column)}",
+                )
+            )
+            continue
+
+        default_value = defaults.get(destination_column)
+        if default_value is not None:
+            expressions.append(
+                (
+                    destination_column,
+                    f"'{default_value}' AS {quote_ident(destination_column)}",
                 )
             )
 
