@@ -24,7 +24,10 @@
       "description_too_long": "The problem description is too long, displaying it as an embed.",
       "similar_not_found": "No similar problems found.",
       "no_query_provided": "Please provide at least a problem description (query) or problem ID (problem).",
-      "invalid_limit": "Limit must be at least 1."
+      "invalid_limit": "Limit must be at least 1.",
+      "random_not_found": "No problems found matching {filters}. Please adjust your filters and try again.",
+      "random_no_filter": "no filters",
+      "random_error": "❌ An unexpected error occurred while fetching a random problem. Please try again."
     },
     "unexpected": "An unexpected error occurred: {error}",
     "config": {
@@ -179,6 +182,14 @@
       "problem": "Problem ID or URL (e.g., 1, atcoder:abc100_a)",
       "top_k": "Number of results to return (default 5)",
       "source": "Problem source (leave empty for all)",
+      "public": "Whether to show the reply publicly (default: private)"
+    },
+    "random": {
+      "description": "Get a random LeetCode problem",
+      "difficulty": "Difficulty filter",
+      "tags": "Tag filter (e.g., Array)",
+      "rating_min": "Minimum rating",
+      "rating_max": "Maximum rating",
       "public": "Whether to show the reply publicly (default: private)"
     }
   },

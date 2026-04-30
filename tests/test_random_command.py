@@ -272,11 +272,11 @@ async def test_random_command_no_results_shows_filter_summary():
     await cog.random_command.callback(cog, interaction, difficulty="Hard", tags="DP", rating_min=1500, rating_max=2000)
 
     _, kwargs = interaction.followup.send.call_args
-    call_str = str(interaction.followup.send.call_args)
-    assert "difficulty:Hard" in call_str
-    assert "tags:DP" in call_str
-    assert "rating:1500-2000" in call_str
     assert kwargs["ephemeral"] is True
+    # i18n.t mock returns the key; verify the key was used
+    bot.i18n.t.assert_any_call(
+        "errors.validation.random_not_found", "zh-TW", filters="difficulty:Hard, tags:DP, rating:1500-2000"
+    )
 
 
 @pytest.mark.asyncio
@@ -301,8 +301,10 @@ async def test_random_command_no_results_no_filters():
 
     await cog.random_command.callback(cog, interaction)
 
-    call_args_str = str(interaction.followup.send.call_args)
-    assert "無篩選條件" in call_args_str
+    bot.i18n.t.assert_any_call("errors.validation.random_no_filter", "zh-TW")
+    bot.i18n.t.assert_any_call(
+        "errors.validation.random_not_found", "zh-TW", filters="errors.validation.random_no_filter"
+    )
 
 
 @pytest.mark.asyncio
@@ -330,8 +332,8 @@ async def test_random_command_handles_api_processing_error():
 
     await cog.random_command.callback(cog, interaction)
 
-    call_args_str = str(interaction.followup.send.call_args)
-    assert "資料準備中" in call_args_str
+    # send_api_error delegates to i18n.t; verify the key was used
+    bot.i18n.t.assert_any_call("errors.api.processing", "zh-TW")
 
 
 @pytest.mark.asyncio
@@ -343,8 +345,7 @@ async def test_random_command_handles_network_error():
 
     await cog.random_command.callback(cog, interaction)
 
-    call_args_str = str(interaction.followup.send.call_args)
-    assert "連線失敗" in call_args_str
+    bot.i18n.t.assert_any_call("errors.api.network", "zh-TW")
 
 
 @pytest.mark.asyncio
@@ -356,8 +357,7 @@ async def test_random_command_handles_rate_limit():
 
     await cog.random_command.callback(cog, interaction)
 
-    call_args_str = str(interaction.followup.send.call_args)
-    assert "頻率過高" in call_args_str
+    bot.i18n.t.assert_any_call("errors.api.rate_limit", "zh-TW")
 
 
 @pytest.mark.asyncio
@@ -369,8 +369,7 @@ async def test_random_command_handles_generic_api_error():
 
     await cog.random_command.callback(cog, interaction)
 
-    call_args_str = str(interaction.followup.send.call_args)
-    assert "查詢失敗" in call_args_str
+    bot.i18n.t.assert_any_call("errors.api.generic", "zh-TW")
 
 
 @pytest.mark.asyncio

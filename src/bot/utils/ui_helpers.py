@@ -214,10 +214,14 @@ def _join_lines_with_ellipsis(lines: List[str], *, max_length: int) -> tuple[str
     return "\n".join(rendered_lines), len(rendered_lines), False
 
 
-def _build_similar_result_line(index: int, result_item: Dict[str, Any]) -> str:
-    source = _normalize_similar_result_segment(result_item.get("source"), "unknown")
+def _build_similar_result_line(
+    index: int, result_item: Dict[str, Any], *, locale: str = "zh-TW", bot: Any = None
+) -> str:
+    i18n = bot.i18n if bot else None
+    unknown_source = i18n.t("ui.embed.source_label", locale) if i18n else "unknown"
+    source = _normalize_similar_result_segment(result_item.get("source"), unknown_source)
     problem_id = _normalize_similar_result_segment(result_item.get("id"), "?")
-    title = _normalize_similar_result_segment(result_item.get("title"), "Unknown problem")
+    title = _normalize_similar_result_segment(result_item.get("title"), "")
     emoji = get_source_difficulty_emoji(source, result_item.get("difficulty"))
     separator = ". " if source == "leetcode" else ": "
     problem_text = f"{problem_id}{separator}{title}"
@@ -246,7 +250,10 @@ def _build_similar_results_embed(
         field_name = i18n.t("ui.embed.base_problem", locale) if i18n else "Base Problem"
         embed.add_field(name=field_name, value=f"{base_source}:{base_id}", inline=False)
 
-    lines = [_build_similar_result_line(index, item) for index, item in enumerate(result.get("results") or [], 1)]
+    lines = [
+        _build_similar_result_line(index, item, locale=locale, bot=bot)
+        for index, item in enumerate(result.get("results") or [], 1)
+    ]
     was_truncated = False
 
     for i in range(0, len(lines), PROBLEMS_PER_FIELD):

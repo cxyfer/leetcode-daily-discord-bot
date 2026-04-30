@@ -24,7 +24,10 @@
       "description_too_long": "由於題目內容過長，使用嵌入式訊息的方式顯示。",
       "similar_not_found": "找不到相似題目。",
       "no_query_provided": "請至少輸入題目敘述 (query) 或題目編號 (problem)",
-      "invalid_limit": "數量至少為 1"
+      "invalid_limit": "數量至少為 1",
+      "random_not_found": "沒有找到符合 {filters} 的題目，請調整篩選條件後重試。",
+      "random_no_filter": "無篩選條件",
+      "random_error": "❌ 隨機題目時發生未預期錯誤，請稍後重試。"
     },
     "unexpected": "發生未預期錯誤：{error}",
     "config": {
@@ -159,6 +162,14 @@
       "problem": "既有題目編號或網址 (例如: 1, atcoder:abc100_a)",
       "top_k": "返回結果數量 (預設 5)",
       "source": "題庫來源 (留空為全部)",
+      "public": "是否公開顯示回覆 (預設為私密回覆)"
+    },
+    "random": {
+      "description": "隨機取得一道 LeetCode 題目",
+      "difficulty": "難度篩選",
+      "tags": "標籤篩選 (例如: Array)",
+      "rating_min": "最低評分",
+      "rating_max": "最高評分",
       "public": "是否公開顯示回覆 (預設為私密回覆)"
     }
   },

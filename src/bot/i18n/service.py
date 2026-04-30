@@ -24,6 +24,7 @@ class I18nService:
         self._supported_locales = set(supported_locales)
         self._locales_dir = locales_dir or _LOCALES_DIR
         self._strings: dict[str, dict[str, Any]] = {}
+        self._db = None
         self.load_locales()
 
     def load_locales(self) -> None:
