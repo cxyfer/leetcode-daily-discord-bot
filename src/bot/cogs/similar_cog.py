@@ -84,7 +84,7 @@ class SimilarCog(commands.Cog):
             await send_api_error(interaction, "generic", self.bot, ephemeral=not public)
         except Exception as e:
             self.logger.error("/similar failed: %s", e, exc_info=True)
-            await interaction.followup.send(i18n.t("daily.error", locale, error=e), ephemeral=not public)
+            await interaction.followup.send(i18n.t("errors.unexpected", locale, error=e), ephemeral=not public)
 
 
 async def setup(bot: commands.Bot):

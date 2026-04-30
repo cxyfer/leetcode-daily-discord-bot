@@ -21,9 +21,12 @@
       "module_load_error": "Unable to load command module.",
       "submission_detail_error": "Unable to load problem details.",
       "content_truncated": "(Content truncated, please visit the website for the full problem.)",
+      "description_too_long": "The problem description is too long, displaying it as an embed.",
       "similar_not_found": "No similar problems found.",
-      "no_query_provided": "Please provide at least a problem description (query) or problem ID (problem)."
+      "no_query_provided": "Please provide at least a problem description (query) or problem ID (problem).",
+      "invalid_limit": "Limit must be at least 1."
     },
+    "unexpected": "An unexpected error occurred: {error}",
     "config": {
       "not_configured": "Daily challenge channel not configured yet. Use /config channel:<channel> to get started.",
       "reset_conflict": "`reset` cannot be used with other configuration parameters.",
@@ -35,7 +38,8 @@
       "permission_denied": "You need the **Manage Server** permission to use this command.",
       "dm_restricted": "This command cannot be used in direct messages.",
       "not_setup": "This server has no settings to reset.",
-      "settings_updated": "✅ Settings updated."
+      "settings_updated": "✅ Settings updated.",
+      "language_invalid": "Unsupported language. Supported: {supported}"
     },
     "reset": {
       "invalid_action": "Invalid action.",
@@ -66,17 +70,17 @@
       "base_problem": "🔗 Base Problem",
       "results": "📋 Results",
       "source": "Source",
-      "difficulty": "🔥 Difficulty",
-      "rating": "⭐ Rating",
-      "ac_rate": "📈 AC Rate",
-      "tags": "🏷️ Tags",
+      "difficulty": "Difficulty",
+      "rating": "Rating",
+      "ac_rate": "AC Rate",
+      "tags": "Tags",
       "similar_questions": "🔍 Similar Questions ({count}{suffix})",
-      "history_problems": "📅 History Problems",
+      "history_problems": "History Problems",
       "daily_footer": "LeetCode Daily Challenge | {date}",
       "problem_footer": "LeetCode Problem",
-      "instructions": "💡 Instructions",
+      "instructions": "Instructions",
       "instructions_text": "Click the buttons below to view detailed information for each problem.",
-      "problems": "📋 Problems",
+      "problems": "Problems",
       "problems_part": "📋 Part {number}",
       "problems_overview": "{source_label} Problems Overview",
       "problems_found": "🔍 {source_label} Problems ({count} found)",

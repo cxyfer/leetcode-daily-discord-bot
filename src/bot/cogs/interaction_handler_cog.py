@@ -199,7 +199,7 @@ class InteractionHandlerCog(commands.Cog):
             self.logger.error("Error %s:%s/%s: %s", source, pid, action, e, exc_info=True)
             try:
                 locale = _get_locale(self.bot, interaction)
-                await interaction.followup.send(self.bot.i18n.t("daily.error", locale, error=e), ephemeral=True)
+                await interaction.followup.send(self.bot.i18n.t("errors.unexpected", locale, error=e), ephemeral=True)
             except Exception:
                 pass
 
@@ -243,7 +243,7 @@ class InteractionHandlerCog(commands.Cog):
             info = problem.copy()
             info["description"] = content
             embed = create_problem_description_embed(info, domain="com", source=source, bot=self.bot, locale=locale)
-            truncated_msg = i18n.t("errors.validation.content_truncated", locale)
+            truncated_msg = i18n.t("ui.embed.description_too_long", locale)
             await interaction.followup.send(truncated_msg, embed=embed, ephemeral=True)
 
     async def _action_translate(self, interaction: discord.Interaction, source: str, pid: str):

@@ -323,7 +323,7 @@ class SlashCommandsCog(commands.Cog):
             await send_api_error(interaction, "generic", self.bot, ephemeral=not public)
         except Exception as e:
             self.logger.error("Error in problem_command: %s", e, exc_info=True)
-            await interaction.followup.send(i18n.t("daily.error", locale, error=e), ephemeral=not public)
+            await interaction.followup.send(i18n.t("errors.unexpected", locale, error=e), ephemeral=not public)
 
     @problem_command.autocomplete("domain")
     async def problem_domain_autocomplete(self, interaction: discord.Interaction, current: str):
@@ -522,6 +522,13 @@ class SlashCommandsCog(commands.Cog):
         if timezone is not None:
             base["timezone"] = timezone
         if language:
+            supported = self.bot.i18n.get_supported_locales()
+            if language not in supported:
+                await interaction.response.send_message(
+                    i18n.t("errors.config.language_invalid", locale, supported=", ".join(supported)),
+                    ephemeral=True,
+                )
+                return
             base["language"] = language
 
         success = self.bot.db.set_server_settings(
@@ -596,8 +603,8 @@ class SlashCommandsCog(commands.Cog):
         i18n = self.bot.i18n
 
         if limit < 1:
-            invalid_page_msg = i18n.t("errors.validation.invalid_page", locale)
-            await interaction.response.send_message(invalid_page_msg, ephemeral=not public)
+            invalid_limit_msg = i18n.t("errors.validation.invalid_limit", locale)
+            await interaction.response.send_message(invalid_limit_msg, ephemeral=not public)
             return
         if limit > 50:
             limit = 50
@@ -634,7 +641,7 @@ class SlashCommandsCog(commands.Cog):
 
         except Exception as e:
             self.logger.error("Error in recent_command: %s", e, exc_info=True)
-            await interaction.followup.send(i18n.t("daily.error", locale, error=e), ephemeral=not public)
+            await interaction.followup.send(i18n.t("errors.unexpected", locale, error=e), ephemeral=not public)
 
     async def _get_submission_details(self, basic_submission: dict) -> dict:
         try:

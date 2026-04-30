@@ -83,7 +83,7 @@ async def send_api_error(
     try:
         await interaction.followup.send(msg, ephemeral=ephemeral)
     except Exception:
-        pass
+        logger.debug("Failed to send API error message for kind=%s", error_kind, exc_info=True)
 
 
 def get_user_color(user: discord.User) -> int:
@@ -416,7 +416,7 @@ async def create_problem_embed(
         if footer_icon_url:
             embed.set_footer(text=i18n.t("ui.embed.atcoder_problem", locale), icon_url=footer_icon_url)
         else:
-            embed.set_footer(text=i18n.t("ui.embed.description_author", locale))
+            embed.set_footer(text=f"{source_label} Problem")
         return embed
 
     embed_color = get_difficulty_color(problem_info["difficulty"])
@@ -1002,7 +1002,11 @@ async def send_daily_challenge(
             await send_api_error(interaction, error_kind, bot, ephemeral=ephemeral)
             return None
         raise
-    except (ApiNetworkError, ApiError) as e:
+    except ApiNetworkError as e:
+        logger.error("Network error in send_daily_challenge: %s", e)
+        if interaction:
+            await send_api_error(interaction, "network", bot, ephemeral=ephemeral)
+    except ApiError as e:
         logger.error("API error in send_daily_challenge: %s", e)
         if interaction:
             await send_api_error(interaction, "generic", bot, ephemeral=ephemeral)

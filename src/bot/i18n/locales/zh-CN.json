@@ -21,9 +21,12 @@
       "module_load_error": "无法加载指令模块。",
       "submission_detail_error": "无法加载题目详细信息。",
       "content_truncated": "（内容已截断，请前往网站查看完整题目）",
+      "description_too_long": "由于题目内容过长，使用嵌入式消息的方式显示。",
       "similar_not_found": "找不到相似题目。",
-      "no_query_provided": "请至少输入题目描述 (query) 或题目编号 (problem)。"
+      "no_query_provided": "请至少输入题目描述 (query) 或题目编号 (problem)。",
+      "invalid_limit": "数量至少为 1"
     },
+    "unexpected": "发生未预期错误：{error}",
     "config": {
       "not_configured": "尚未设置 LeetCode 每日挑战频道。使用 /config channel:<频道> 开始设置。",
       "reset_conflict": "`reset` 不可与其他设置参数同时使用。",
@@ -35,7 +38,8 @@
       "permission_denied": "您需要「管理服务器」权限才能使用此指令。",
       "dm_restricted": "此指令不能在私信中使用。",
       "not_setup": "此服务器尚未设置，无需重置。",
-      "settings_updated": "✅ 设置已更新"
+      "settings_updated": "✅ 设置已更新",
+      "language_invalid": "不支持的语言。支持的语言：{supported}"
     },
     "reset": {
       "invalid_action": "无效的操作。",
@@ -66,17 +70,17 @@
       "base_problem": "🔗 基准题目",
       "results": "📋 Results",
       "source": "Source",
-      "difficulty": "🔥 Difficulty",
-      "rating": "⭐ Rating",
-      "ac_rate": "📈 AC Rate",
-      "tags": "🏷️ Tags",
+      "difficulty": "Difficulty",
+      "rating": "Rating",
+      "ac_rate": "AC Rate",
+      "tags": "Tags",
       "similar_questions": "🔍 Similar Questions ({count}{suffix})",
-      "history_problems": "📅 History Problems",
+      "history_problems": "History Problems",
       "daily_footer": "LeetCode Daily Challenge | {date}",
       "problem_footer": "LeetCode Problem",
-      "instructions": "💡 Instructions",
+      "instructions": "Instructions",
       "instructions_text": "Click the buttons below to view detailed information for each problem.",
-      "problems": "📋 Problems",
+      "problems": "Problems",
       "problems_part": "📋 Part {number}",
       "problems_overview": "{source_label} Problems Overview",
       "problems_found": "🔍 {source_label} Problems ({count} found)",
