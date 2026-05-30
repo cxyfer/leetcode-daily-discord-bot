@@ -77,6 +77,14 @@ GEMINI_LOGO_URL = "https://brandlogos.net/wp-content/uploads/2025/03/gemini_icon
 # AtCoder 相關常量
 ATCODER_LOGO_URL = "https://img.atcoder.jp/assets/logo.png"
 
+# Luogu 相關常量
+LUOGU_LOGO_URL = "https://help.luogu.com.cn/img/logo.png"
+
+# Codeforces 相關常量
+CODEFORCES_LOGO_URL = (
+    "https://cdn.iconscout.com/icon/free/png-256/free-code-forces-logo-icon-svg-download-png-3031869.png"
+)
+
 # 域名映射
 DOMAIN_MAPPING = {
     "com": {

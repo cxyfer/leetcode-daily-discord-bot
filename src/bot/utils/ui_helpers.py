@@ -21,6 +21,7 @@ from bot.leetcode import generate_history_dates
 from .ui_constants import (
     ATCODER_LOGO_URL,
     BUTTON_EMOJIS,
+    CODEFORCES_LOGO_URL,
     DEFAULT_COLOR,
     DIFFICULTY_COLORS,
     DIFFICULTY_EMOJIS,
@@ -31,6 +32,7 @@ from .ui_constants import (
     LEETCODE_LOGO_URL,
     LUOGU_DIFFICULTY_COLORS,
     LUOGU_DIFFICULTY_EMOJIS,
+    LUOGU_LOGO_URL,
     MAX_BUTTON_CUSTOM_ID_LENGTH,
     MAX_BUTTON_LABEL_LENGTH,
     MAX_DAILY_SIMILAR_FIELD_LENGTH,
@@ -270,6 +272,9 @@ def _build_similar_results_embed(
             field_name = f"{problems_emoji} {results_label} (cont.)"
         embed.add_field(name=field_name, value=value, inline=False)
 
+    footer_text = i18n.t("ui.embed.similar_footer", locale) if i18n else "🔍 Similar Problems"
+    embed.set_footer(text=footer_text)
+
     return embed, was_truncated
 
 
@@ -374,6 +379,7 @@ async def create_problem_embed(
     message: Optional[str] = None,
     history_problems: Optional[List[Dict[str, Any]]] = None,
     locale: str = "zh-TW",
+    footer_text: Optional[str] = None,
 ) -> discord.Embed:
     """Create an embed for a LeetCode problem"""
     i18n = bot.i18n
@@ -419,11 +425,16 @@ async def create_problem_embed(
                     value=tags_str,
                     inline=False,
                 )
-        footer_icon_url = ATCODER_LOGO_URL if source == "atcoder" else None
+        footer_icon_url = {
+            "atcoder": ATCODER_LOGO_URL,
+            "luogu": LUOGU_LOGO_URL,
+            "codeforces": CODEFORCES_LOGO_URL,
+        }.get(source, None)
+        resolved_footer_text = footer_text or f"📖 {source_label} Problem"
         if footer_icon_url:
-            embed.set_footer(text=i18n.t("ui.embed.atcoder_problem", locale), icon_url=footer_icon_url)
+            embed.set_footer(text=resolved_footer_text, icon_url=footer_icon_url)
         else:
-            embed.set_footer(text=f"{source_label} Problem")
+            embed.set_footer(text=resolved_footer_text)
         return embed
 
     embed_color = get_difficulty_color(problem_info["difficulty"])
@@ -521,7 +532,9 @@ async def create_problem_embed(
                 inline=False,
             )
 
-    if is_daily:
+    if footer_text:
+        embed.set_footer(text=footer_text, icon_url=LEETCODE_LOGO_URL)
+    elif is_daily:
         display_date = date_str or problem_info.get("date", "Today")
         embed.set_footer(
             text=i18n.t("ui.embed.daily_footer", locale, date=display_date),
@@ -780,7 +793,7 @@ def create_problems_overview_embed(
     footer_text = (
         i18n.t("ui.embed.problems_overview", locale, source_label=source_label)
         if i18n
-        else f"{source_label} Problems Overview"
+        else f"📋 {source_label} Problems Overview"
     )
     if footer_icon_url:
         embed.set_footer(text=footer_text, icon_url=footer_icon_url)
@@ -869,10 +882,16 @@ def create_problem_description_embed(
         color=embed_color,
         url=problem_info["link"],
     )
-    footer_icon_url = ATCODER_LOGO_URL if source == "atcoder" else None
-    footer_text = (
-        i18n.t("ui.embed.atcoder_problem", locale) if i18n and source == "atcoder" else f"{source_label} Problem"
+    footer_icon_url = (
+        {
+            "atcoder": ATCODER_LOGO_URL,
+            "luogu": LUOGU_LOGO_URL,
+            "codeforces": CODEFORCES_LOGO_URL,
+        }.get(source)
+        if source
+        else None
     )
+    footer_text = f"📖 {source_label} Problem"
     if footer_icon_url:
         embed.set_footer(text=footer_text, icon_url=footer_icon_url)
     else:
