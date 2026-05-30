@@ -147,10 +147,10 @@ class OjApiClient:
     async def search_similar_by_text(
         self, query: str, source: str | None = None, top_k: int = 5, min_similarity: float = 0.7
     ) -> dict | None:
-        params: dict[str, str] = {"q": query, "limit": str(top_k), "threshold": str(min_similarity)}
+        payload: dict[str, str | int | float] = {"query": query, "limit": top_k, "threshold": min_similarity}
         if source:
-            params["source"] = source
-        return await self._request("GET", "similar", params=params)
+            payload["source"] = source
+        return await self._request("POST", "similar", json=payload)
 
     @staticmethod
     def _list_total(response: dict) -> int:
