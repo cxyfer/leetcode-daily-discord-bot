@@ -53,6 +53,51 @@ def _sample_problem(problem_id: str = "1", difficulty: str = "Easy") -> dict:
     }
 
 
+def _problem_list_response(total: int, problems: list[dict] | None = None, page: int = 1) -> dict:
+    return {
+        "data": problems or [],
+        "meta": {
+            "total": total,
+            "page": page,
+            "per_page": 1,
+            "total_pages": total,
+        },
+    }
+
+
+# -- similar search tests --
+
+
+@pytest.mark.asyncio
+async def test_search_similar_by_text_uses_post_json_body():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(return_value={"results": []})
+
+    await api.search_similar_by_text("graph dp", source="leetcode", top_k=7, min_similarity=0.82)
+
+    api._request.assert_awaited_once_with(
+        "POST",
+        "similar",
+        json={"query": "graph dp", "limit": 7, "threshold": 0.82, "source": "leetcode"},
+    )
+
+
+@pytest.mark.asyncio
+async def test_search_similar_by_id_keeps_existing_get_endpoint():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(return_value={"results": []})
+
+    await api.search_similar_by_id("atcoder", "abc100_a", top_k=3, min_similarity=0.91)
+
+    api._request.assert_awaited_once_with(
+        "GET",
+        "similar/atcoder/abc100_a",
+        params={"limit": "3", "threshold": "0.91"},
+    )
+
+
 # -- get_random_problem tests --
 
 
