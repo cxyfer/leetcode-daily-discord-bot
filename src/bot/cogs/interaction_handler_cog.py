@@ -5,7 +5,14 @@ import time
 import discord
 from discord.ext import commands
 
-from bot.api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
+from bot.api_client import (
+    ApiEmbeddingError,
+    ApiEmbeddingTimeoutError,
+    ApiError,
+    ApiNetworkError,
+    ApiProcessingError,
+    ApiRateLimitError,
+)
 from bot.leetcode import html_to_text
 from bot.utils.logger import get_commands_logger
 from bot.utils.ui_helpers import (
@@ -364,15 +371,32 @@ class InteractionHandlerCog(commands.Cog):
         i18n = self.bot.i18n
 
         cfg = self.bot.config.get_similar_config()
-        result = await self.bot.api.search_similar_by_id(source, pid, cfg.top_k, cfg.min_similarity)
-        if not result or not result.get("results"):
-            await interaction.followup.send(i18n.t("errors.validation.similar_not_found", locale), ephemeral=True)
-            return
+        try:
+            result = await self.bot.api.search_similar_by_id(source, pid, cfg.top_k, cfg.min_similarity, cfg.timeout)
+            if not result or not result.get("results"):
+                await interaction.followup.send(i18n.t("errors.validation.similar_not_found", locale), ephemeral=True)
+                return
 
-        embed, view = create_similar_results_message(
-            result, base_source=source, base_id=pid, bot=self.bot, locale=locale
-        )
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+            embed, view = create_similar_results_message(
+                result, base_source=source, base_id=pid, bot=self.bot, locale=locale
+            )
+            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        except ApiEmbeddingError:
+            await interaction.followup.send(i18n.t("errors.similar.embedding_unavailable", locale), ephemeral=True)
+        except ApiEmbeddingTimeoutError:
+            await interaction.followup.send(i18n.t("errors.similar.embedding_timeout", locale), ephemeral=True)
+        except ApiNetworkError as e:
+            if e.is_timeout:
+                await interaction.followup.send(i18n.t("errors.similar.timeout", locale), ephemeral=True)
+            else:
+                await send_api_error(interaction, "network", self.bot)
+        except ApiError as e:
+            if e.status == 404:
+                await interaction.followup.send(i18n.t("errors.similar.no_embedding", locale), ephemeral=True)
+            else:
+                raise
+        except (ApiProcessingError, ApiRateLimitError):
+            raise
 
     # -- Main listener --
 

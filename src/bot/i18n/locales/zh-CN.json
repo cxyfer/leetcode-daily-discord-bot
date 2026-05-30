@@ -56,6 +56,13 @@
     },
     "navigation": {
       "error": "导航时发生错误：{error}"
+    },
+    "similar": {
+      "invalid_query": "❌ 查询格式无效，请提供更具体的题目描述。",
+      "no_embedding": "🔍 此题目尚未建立相似度索引，无法进行相似题目搜索。",
+      "embedding_unavailable": "🛠️ Embedding 服务暂时无法使用，请稍后重试。",
+      "embedding_timeout": "⏳ 相似度计算超时（服务器端），请稍后重试或缩小查询范围。",
+      "timeout": "⏰ 查询超时，请稍后重试。"
     }
   },
   "ui": {

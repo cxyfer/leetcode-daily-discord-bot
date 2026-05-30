@@ -56,6 +56,13 @@
     },
     "navigation": {
       "error": "導航時發生錯誤：{error}"
+    },
+    "similar": {
+      "invalid_query": "❌ 查詢格式無效，請提供更具體的題目敘述。",
+      "no_embedding": "🔍 此題目尚未建立相似度索引，無法進行相似題目搜尋。",
+      "embedding_unavailable": "🛠️ Embedding 服務暫時無法使用，請稍後重試。",
+      "embedding_timeout": "⏳ 相似度計算逾時（伺服器端），請稍後重試或縮小查詢範圍。",
+      "timeout": "⏰ 查詢逾時，請稍後重試。"
     }
   },
   "ui": {

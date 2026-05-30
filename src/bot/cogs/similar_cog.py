@@ -2,7 +2,14 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
+from bot.api_client import (
+    ApiEmbeddingError,
+    ApiEmbeddingTimeoutError,
+    ApiError,
+    ApiNetworkError,
+    ApiProcessingError,
+    ApiRateLimitError,
+)
 from bot.utils.logger import get_commands_logger
 from bot.utils.ui_helpers import _get_locale, create_similar_results_message, send_api_error
 
@@ -55,9 +62,15 @@ class SimilarCog(commands.Cog):
                         src, pid = resolved["source"], resolved["id"]
                     else:
                         src, pid = "leetcode", problem
-                result = await self.bot.api.search_similar_by_id(src, pid, top_k, cfg.min_similarity)
+                result = await self.bot.api.search_similar_by_id(src, pid, top_k, cfg.min_similarity, cfg.timeout)
             else:
-                result = await self.bot.api.search_similar_by_text(query, source, top_k, cfg.min_similarity)
+                result = await self.bot.api.search_similar_by_text(
+                    query,
+                    source,
+                    top_k,
+                    cfg.min_similarity,
+                    cfg.timeout,
+                )
 
             if not result or not result.get("results"):
                 not_found_msg = i18n.t("errors.validation.similar_not_found", locale)
@@ -75,13 +88,27 @@ class SimilarCog(commands.Cog):
 
         except ApiProcessingError:
             await send_api_error(interaction, "processing", self.bot, ephemeral=not public)
-        except ApiNetworkError:
-            await send_api_error(interaction, "network", self.bot, ephemeral=not public)
+        except ApiEmbeddingError:
+            await interaction.followup.send(
+                i18n.t("errors.similar.embedding_unavailable", locale), ephemeral=not public
+            )
+        except ApiEmbeddingTimeoutError:
+            await interaction.followup.send(i18n.t("errors.similar.embedding_timeout", locale), ephemeral=not public)
+        except ApiNetworkError as e:
+            if e.is_timeout:
+                await interaction.followup.send(i18n.t("errors.similar.timeout", locale), ephemeral=not public)
+            else:
+                await send_api_error(interaction, "network", self.bot, ephemeral=not public)
         except ApiRateLimitError:
             await send_api_error(interaction, "rate_limit", self.bot, ephemeral=not public)
         except ApiError as e:
-            self.logger.error("/similar API error: %s", e)
-            await send_api_error(interaction, "generic", self.bot, ephemeral=not public)
+            if e.status == 400:
+                await interaction.followup.send(i18n.t("errors.similar.invalid_query", locale), ephemeral=not public)
+            elif e.status == 404:
+                await interaction.followup.send(i18n.t("errors.similar.no_embedding", locale), ephemeral=not public)
+            else:
+                self.logger.error("/similar API error: %s", e)
+                await send_api_error(interaction, "generic", self.bot, ephemeral=not public)
         except Exception as e:
             self.logger.error("/similar failed: %s", e, exc_info=True)
             await interaction.followup.send(i18n.t("errors.unexpected", locale, error=e), ephemeral=not public)

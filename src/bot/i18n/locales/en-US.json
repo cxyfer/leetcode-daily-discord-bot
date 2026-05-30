@@ -56,6 +56,13 @@
     },
     "navigation": {
       "error": "Navigation error: {error}"
+    },
+    "similar": {
+      "invalid_query": "❌ Invalid query format. Please provide a more specific problem description.",
+      "no_embedding": "🔍 This problem has not been indexed for similarity search.",
+      "embedding_unavailable": "🛠️ Embedding service is temporarily unavailable, please try again later.",
+      "embedding_timeout": "⏳ Similarity computation timed out (server-side). Please try again later or narrow your query.",
+      "timeout": "⏰ Query timed out, please try again."
     }
   },
   "ui": {

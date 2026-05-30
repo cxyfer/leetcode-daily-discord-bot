@@ -211,6 +211,7 @@ class ConfigManager:
         return SimilarConfig(
             top_k=section.get("top_k", 5),
             min_similarity=section.get("min_similarity", 0.70),
+            timeout=section.get("timeout", 300),
         )
 
     @property
@@ -241,6 +242,7 @@ class SimilarConfig:
 
     top_k: int = 5
     min_similarity: float = 0.70
+    timeout: int = 300
 
 
 # Global configuration instance
