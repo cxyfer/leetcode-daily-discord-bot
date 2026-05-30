@@ -211,14 +211,15 @@ The `/random` command SHALL validate and normalize rating parameters.
 - **THEN** the bot SHALL display problems with rating exactly 1500
 
 ### Requirement: API client random problem method
-The `OjApiClient` SHALL provide a `get_random_problem()` method that performs filtered random selection.
+The `OjApiClient` SHALL provide a `get_random_problem()` method that performs filtered random selection via the upstream native random endpoint.
 
-#### Scenario: Two-call random selection
+#### Scenario: Native random endpoint selection
 - **WHEN** `get_random_problem()` is called with filters
-- **THEN** the method SHALL first fetch the total count of matching problems, then fetch one random problem from the filtered set
+- **THEN** the method SHALL send a single `GET /api/v1/random` request using the normalized filter parameters and `count=1`
+- **AND THEN** the method SHALL return the first item from the response `results` array when at least one problem is returned
 
 #### Scenario: Zero results handling
-- **WHEN** `get_random_problem()` is called and the API returns total count of 0
+- **WHEN** `get_random_problem()` is called and the API returns no matching problems
 - **THEN** the method SHALL return a domain-level no-match result (not an API error)
 
 #### Scenario: API error propagation

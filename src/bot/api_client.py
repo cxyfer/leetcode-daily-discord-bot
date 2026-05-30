@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import random
 from urllib.parse import quote
 
 import aiohttp
@@ -175,45 +174,23 @@ class OjApiClient:
         rating_min: int | None = None,
         rating_max: int | None = None,
     ) -> dict | None:
-        """Fetch a random LeetCode problem via two-call strategy.
-
-        Returns the problem dict on success, None if no problems match,
-        or propagates standard API errors.
-        """
+        """Fetch a random LeetCode problem via the native random endpoint."""
         if rating_min is not None and rating_max is not None and rating_min > rating_max:
             rating_min, rating_max = rating_max, rating_min
 
-        base_params: dict[str, str | int] = {"per_page": 1}
+        params: dict[str, str | int] = {"count": 1}
         if difficulty:
-            base_params["difficulty"] = difficulty
+            params["difficulty"] = difficulty.lower() if difficulty in {"Easy", "Medium", "Hard"} else difficulty
         if tags:
-            base_params["tags"] = tags
+            params["tags"] = tags
         if rating_min is not None:
-            base_params["rating_min"] = rating_min
+            params["rating_min"] = rating_min
         if rating_max is not None:
-            base_params["rating_max"] = rating_max
+            params["rating_max"] = rating_max
 
-        count_resp = await self._request("GET", "problems/leetcode", params=base_params)
-        if not count_resp:
+        response = await self._request("GET", "random", params=params)
+        if not response:
             return None
 
-        total = self._list_total(count_resp)
-        if total == 0:
-            return None
-
-        random_page = random.randint(1, total)
-        page_params = {**base_params, "page": random_page}
-        result = await self._request("GET", "problems/leetcode", params=page_params)
-        if not result:
-            return None
-
-        items = self._list_items(result)
-        if not items:
-            # TOCTOU fallback: dataset shrank between count and fetch
-            page_params["page"] = 1
-            result = await self._request("GET", "problems/leetcode", params=page_params)
-            if not result:
-                return None
-            items = self._list_items(result)
-
+        items = self._list_items(response)
         return items[0] if items else None
