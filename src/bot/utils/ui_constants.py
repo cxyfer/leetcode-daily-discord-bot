@@ -77,6 +77,30 @@ GEMINI_LOGO_URL = "https://brandlogos.net/wp-content/uploads/2025/03/gemini_icon
 # AtCoder 相關常量
 ATCODER_LOGO_URL = "https://img.atcoder.jp/assets/logo.png"
 
+# Luogu 相關常量
+LUOGU_LOGO_URL = "https://help.luogu.com.cn/img/logo.png"
+
+# Codeforces 相關常量
+CODEFORCES_LOGO_URL = (
+    "https://cdn.iconscout.com/icon/free/png-256/free-code-forces-logo-icon-svg-download-png-3031869.png"
+)
+
+# 題庫來源顯示名稱與 Logo URL 映射
+SOURCE_LABELS = {
+    "leetcode": "LeetCode",
+    "atcoder": "AtCoder",
+    "luogu": "Luogu",
+    "codeforces": "Codeforces",
+    "spoj": "SPOJ",
+}
+
+SOURCE_LOGOS = {
+    "leetcode": LEETCODE_LOGO_URL,
+    "atcoder": ATCODER_LOGO_URL,
+    "luogu": LUOGU_LOGO_URL,
+    "codeforces": CODEFORCES_LOGO_URL,
+}
+
 # 域名映射
 DOMAIN_MAPPING = {
     "com": {

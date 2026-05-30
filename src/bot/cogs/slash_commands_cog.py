@@ -9,7 +9,6 @@ from discord.ext import commands
 from bot.api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
 from bot.utils.config import DEFAULT_POST_TIME, DEFAULT_TIMEZONE, parse_timezone
 from bot.utils.logger import get_commands_logger
-from bot.utils.ui_constants import ATCODER_LOGO_URL, LEETCODE_LOGO_URL
 from bot.utils.ui_helpers import (
     _fetch_daily_history,
     _get_locale,
@@ -20,6 +19,8 @@ from bot.utils.ui_helpers import (
     create_settings_embed,
     create_submission_embed,
     create_submission_view,
+    get_source_label,
+    get_source_logo_url,
     send_api_error,
     send_daily_challenge,
 )
@@ -180,6 +181,7 @@ class SlashCommandsCog(commands.Cog):
                 is_daily=False,
                 user=interaction.user,
                 locale=locale,
+                footer_text=i18n.t("ui.embed.random_footer", locale),
             )
             view = await create_problem_view(problem_info=problem, bot=self.bot, domain=domain, locale=locale)
             await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
@@ -309,17 +311,10 @@ class SlashCommandsCog(commands.Cog):
                 return
 
             sources = {problem.get("source", "leetcode") for problem in problems}
-            leetcode_only = sources == {"leetcode"}
-            atcoder_only = sources == {"atcoder"}
-            luogu_only = sources == {"luogu"}
-
-            # Multiple problems
-            if atcoder_only:
-                source_label, footer_icon = "AtCoder", ATCODER_LOGO_URL
-            elif leetcode_only:
-                source_label, footer_icon = "LeetCode", LEETCODE_LOGO_URL
-            elif luogu_only:
-                source_label, footer_icon = "Luogu", None
+            if len(sources) == 1:
+                problem_source = next(iter(sources))
+                source_label = get_source_label(problem_source)
+                footer_icon = get_source_logo_url(problem_source)
             else:
                 source_label, footer_icon = "Mixed Sources", None
 
