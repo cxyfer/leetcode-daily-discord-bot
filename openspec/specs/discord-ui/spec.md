@@ -4,46 +4,38 @@
 TBD - created by archiving change init-project-specs. Update Purpose after archive.
 ## Requirements
 ### Requirement: Centralized embed creation
-The system SHALL provide centralized functions for creating Discord embeds with consistent styling.
+The system SHALL provide centralized functions for creating Discord embeds with consistent styling and localized user-facing strings.
 
 #### Scenario: Problem embed
 - **WHEN** a problem embed is created
-- **THEN** it SHALL include problem title, difficulty, tags, rating, and use difficulty-based color coding with emoji prefixes
+- **THEN** it SHALL include problem title, difficulty, tags, rating, and difficulty-based styling with field names and footer text resolved for the active locale
 
 #### Scenario: Submission embed
 - **WHEN** a submission embed is created
-- **THEN** it SHALL include difficulty, rating, acceptance rate, and tags
+- **THEN** it SHALL include difficulty, rating, acceptance rate, and tags with field names resolved for the active locale
 
 #### Scenario: Problems overview embed
 - **WHEN** multiple problems are queried at once
-- **THEN** the system SHALL create an overview embed listing all problems with detail buttons for each
+- **THEN** the system SHALL create a localized overview embed listing all problems with detail buttons for each
 
 #### Scenario: Settings embed
 - **WHEN** server settings are displayed
-- **THEN** the system SHALL create a settings embed showing channel, role, post time, and timezone
+- **THEN** the system SHALL create a localized settings embed showing channel, role, post time, timezone, and language
 
 #### Scenario: Similar results embed
 - **WHEN** similar problems are displayed
-- **THEN** the system SHALL create a similar results embed with rewritten query or base problem context, numbered result list with source-aware difficulty emoji, problem ID, title, link, source label, and similarity score
+- **THEN** the system SHALL create a localized similar results embed while preserving problem IDs, source labels, links, and similarity scores
 
 ### Requirement: Consistent color and emoji mappings
-The system SHALL use predefined color codes and emoji mappings for difficulty levels and problem attributes.
+The system SHALL use predefined color codes and emoji mappings for difficulty levels and problem attributes, and these visual mappings SHALL NOT be localized.
 
 #### Scenario: Difficulty color coding
 - **WHEN** an embed is created for a LeetCode problem
-- **THEN** the embed color SHALL match the difficulty level (Easy=green, Medium=orange, Hard=red)
-
-#### Scenario: Source-aware difficulty color coding
-- **WHEN** an embed is created for a Luogu problem with a recognized difficulty
-- **THEN** the embed color SHALL use the Luogu-specific 8-tier difficulty color mapping instead of the default external-source color
+- **THEN** the embed color SHALL match the difficulty level
 
 #### Scenario: Source-aware difficulty emoji
 - **WHEN** a problem from any source is displayed
-- **THEN** the system SHALL use source-specific difficulty emoji mappings (LeetCode: Easy/Medium/Hard → 🟢🟡🔴, Luogu: 8-tier difficulty emojis, other sources: 🧩)
-
-#### Scenario: Field splitting for readability
-- **WHEN** an embed field contains multiple items
-- **THEN** the system SHALL split items into multiple fields with maximum 5 items per field and enforce 1024-character limit per field value
+- **THEN** the system SHALL use source-specific difficulty emoji mappings independent of locale
 
 ### Requirement: Discord limit enforcement
 The system SHALL enforce Discord API limits when constructing embeds and messages.
@@ -61,23 +53,41 @@ The system SHALL enforce Discord API limits when constructing embeds and message
 - **THEN** the system SHALL truncate or split the content
 
 ### Requirement: Persistent button views
-The system SHALL create button views with persistent custom_ids that survive bot restarts.
+The system SHALL create button views with persistent custom_ids and localized labels that survive bot restarts.
+
+#### Scenario: Problem action button labels
+- **WHEN** buttons are created for a problem
+- **THEN** labels for description, translate, inspiration, and similar actions SHALL be resolved for the active locale
+
+#### Scenario: Config reset button labels
+- **WHEN** config reset confirmation buttons are created
+- **THEN** confirm and cancel labels SHALL be resolved for the active locale
 
 #### Scenario: Button custom_id format
 - **WHEN** buttons are created for a problem
-- **THEN** custom_ids SHALL follow the format `problem|{source}|{problem_id}|{action}` for problem actions and `config_reset_confirm|...` / `config_reset_cancel|...` for config reset confirmation buttons
+- **THEN** custom_ids SHALL follow the stable `problem|{source}|{problem_id}|{action}` format regardless of locale
 
-#### Scenario: Legacy problem custom_ids are parse-only compatibility
-- **WHEN** the system preserves support for legacy problem button custom_ids from previously sent messages
-- **THEN** it SHALL continue generating only the unified `problem|{source}|{problem_id}|{action}` format for new buttons and SHALL keep legacy formats as interaction-layer compatibility only
+### Requirement: Localized button labels
+All interactive buttons SHALL use labels resolved via `t()` for the active locale.
 
-#### Scenario: Button within character limit
-- **WHEN** a custom_id is generated
-- **THEN** it SHALL not exceed 100 characters
+#### Scenario: Problem view buttons
+- **WHEN** a problem view is created
+- **THEN** the button labels for description, translate, inspire, and similar SHALL be resolved via `t()` based on the active locale
 
-#### Scenario: Button row layout
-- **WHEN** multiple buttons are created
-- **THEN** the system SHALL arrange them with a maximum of 5 buttons per row
+#### Scenario: Config reset buttons
+- **WHEN** a config reset confirmation view is created
+- **THEN** the confirm and cancel button labels SHALL be resolved via `t()`
+
+### Requirement: Localized embed footers
+All embed footers SHALL use text resolved via `t()` for the active locale.
+
+#### Scenario: Problem footer
+- **WHEN** a problem embed footer is rendered
+- **THEN** it SHALL display the localized "LeetCode Problem" or "LeetCode Daily Challenge" text
+
+#### Scenario: Submission footer
+- **WHEN** a submission embed footer is rendered
+- **THEN** it SHALL display the localized page indicator (e.g., "Problem 1 of 5")
 
 ### Requirement: Similar-result detail buttons align with the displayed result list
 The system SHALL render similar-result detail buttons as a persistent Discord view that stays aligned with the displayed result list whenever the response is button-safe.
@@ -105,6 +115,21 @@ The system SHALL keep similar-result responses embed-only when the displayed res
 - **WHEN** any displayed similar result cannot safely generate the existing problem-detail custom_id
 - **THEN** the system SHALL keep the response embed-only rather than mixing clickable and non-clickable listed items
 
+### Requirement: Daily challenge posting
+The `send_daily_challenge()` function SHALL compose and send the daily challenge message using localized UI text.
+
+#### Scenario: Send daily challenge
+- **WHEN** `send_daily_challenge()` is called with a channel, challenge data, and locale context
+- **THEN** the system SHALL create a localized embed, attach localized interactive buttons, and optionally mention a role
+
+### Requirement: Ephemeral error responses
+Error messages to users SHALL be sent as localized ephemeral messages to avoid channel clutter.
+
+#### Scenario: Error response
+- **WHEN** an interaction results in an error
+- **THEN** the error message SHALL be localized and visible only to the requesting user
+
+
 ## PBT Properties
 
 ### Property: Button order preservation
@@ -128,4 +153,3 @@ Error messages to users SHALL be sent as ephemeral messages to avoid channel clu
 #### Scenario: Error response
 - **WHEN** an interaction results in an error
 - **THEN** the error message SHALL be sent as an ephemeral response visible only to the requesting user
-

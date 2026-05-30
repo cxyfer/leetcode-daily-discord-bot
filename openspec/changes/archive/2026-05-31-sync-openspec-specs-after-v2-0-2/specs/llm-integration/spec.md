@@ -1,8 +1,5 @@
-# llm-integration Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change init-project-specs. Update Purpose after archive.
-## Requirements
 ### Requirement: LLM-powered problem translation
 The system SHALL translate problem statements to the resolved locale language using Google Gemini.
 
@@ -48,23 +45,7 @@ The system SHALL cache LLM responses by source, problem, and locale to minimize 
 - **WHEN** a new LLM response is cached
 - **THEN** the system SHALL store it with locale as part of the cache key
 
-### Requirement: Model configuration
-The system SHALL support configurable LLM model selection with separate models for standard and pro features, including custom base_url for third-party proxies.
-
-#### Scenario: Dual model support
-- **WHEN** both standard and pro model API keys are configured
-- **THEN** the system SHALL initialize both `llm` and `llm_pro` instances with their respective model configurations
-
-#### Scenario: Missing API key validation
-- **WHEN** an LLM instance is created without an API key
-- **THEN** the system SHALL raise a ValueError
-
-### Requirement: Graceful LLM failure handling
-The system SHALL handle LLM API failures gracefully without crashing the bot.
-
-#### Scenario: API error
-- **WHEN** the LLM API returns an error
-- **THEN** the system SHALL log the error and respond to the user with an appropriate error message
+## ADDED Requirements
 
 ### Requirement: Locale-aware prompt templates
 LLM prompt templates SHALL inject the target output language dynamically.

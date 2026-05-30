@@ -47,35 +47,35 @@ The `OjApiClient` SHALL provide a `get_tags_cached(source)` method that caches t
 - **THEN** the method SHALL return an empty list without raising an exception
 
 ### Requirement: Tags autocomplete callback
-The `/random` command SHALL provide a dynamic autocomplete for the `tags` parameter that fetches valid tags for the currently selected source.
+The `/random` command SHALL provide dynamic autocomplete for the `tags` parameter using valid tags from the currently selected source, with defined fallback behavior for aggregate source selection.
 
 #### Scenario: Autocomplete with selected source
-- **WHEN** a user has selected source "LeetCode" and starts typing in the `tags` field
-- **THEN** the autocomplete SHALL fetch tags for "leetcode" and return up to 25 matching `Choice` objects filtered by the typed input (case-insensitive substring match)
+- **WHEN** a user has selected source `leetcode` and starts typing in the `tags` field
+- **THEN** the autocomplete SHALL fetch tags for `leetcode` and return up to 25 matching choices filtered by case-insensitive substring match
 
 #### Scenario: Autocomplete with default source
 - **WHEN** a user starts typing in the `tags` field without explicitly selecting a source
-- **THEN** the autocomplete SHALL default to source "leetcode" and return matching tags for that source
+- **THEN** the autocomplete SHALL default to `leetcode` and return matching tags for that source
+
+#### Scenario: Autocomplete with all source
+- **WHEN** a user selects source `all` and starts typing in the `tags` field
+- **THEN** the autocomplete SHALL use `leetcode` tag suggestions as the fallback tag source
 
 #### Scenario: Autocomplete with no matching tags
 - **WHEN** the user's input does not match any tags for the selected source
-- **THEN** the autocomplete SHALL return an empty list of choices (no error message)
+- **THEN** the autocomplete SHALL return an empty list of choices
 
 #### Scenario: Autocomplete API failure graceful degradation
-- **WHEN** the tags API fails (network error, server error) during autocomplete
+- **WHEN** the tags API fails during autocomplete
 - **THEN** the autocomplete SHALL return an empty list of choices without displaying an error to the user
 
-#### Scenario: Source change updates autocomplete suggestions
-- **WHEN** a user changes the source from "LeetCode" to "Codeforces" and then types in the `tags` field
-- **THEN** the autocomplete SHALL fetch and return tags for "codeforces"
-
 ### Requirement: Startup tag preloading
-The bot SHALL optionally preload tags for popular sources on startup to eliminate cold-start latency for the first autocomplete request.
+The bot SHALL optionally preload tags for popular sources on startup to reduce cold-start latency for autocomplete.
 
 #### Scenario: Preload on ready
 - **WHEN** the bot fires the `on_ready` event
-- **THEN** the bot SHALL initiate fire-and-forget `get_tags_cached()` calls for "leetcode" and "codeforces" without blocking command sync or schedule initialization
+- **THEN** the bot SHALL initiate fire-and-forget cached tag requests for popular sources without blocking command sync or schedule initialization
 
 #### Scenario: Preload failure does not block startup
 - **WHEN** a preload API call fails
-- **THEN** the failure SHALL be logged at warning level and SHALL NOT prevent the bot from starting or serving autocomplete requests
+- **THEN** the failure SHALL be logged and SHALL NOT prevent the bot from starting or serving autocomplete requests
