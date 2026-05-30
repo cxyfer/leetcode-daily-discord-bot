@@ -72,9 +72,9 @@ path = "data/data.db"
 
 [api]
 # oj-api-rs REST API configuration
-base_url = "https://oj-api.gdst.dev/api/v1"
+base_url = "https://oj-api.gdst.dev/api/v1"  # Change to your oj-api-rs URL if needed
 # token = "your_api_token_here"  # Optional: Bearer token for API authentication
-timeout = 10
+timeout = 300
 
 [logging]
 # Logging configuration
