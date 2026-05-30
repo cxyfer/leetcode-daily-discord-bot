@@ -2,7 +2,14 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.api_client import ApiEmbeddingError, ApiEmbeddingTimeoutError, ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
+from bot.api_client import (
+    ApiEmbeddingError,
+    ApiEmbeddingTimeoutError,
+    ApiError,
+    ApiNetworkError,
+    ApiProcessingError,
+    ApiRateLimitError,
+)
 from bot.utils.logger import get_commands_logger
 from bot.utils.ui_helpers import _get_locale, create_similar_results_message, send_api_error
 
@@ -57,7 +64,13 @@ class SimilarCog(commands.Cog):
                         src, pid = "leetcode", problem
                 result = await self.bot.api.search_similar_by_id(src, pid, top_k, cfg.min_similarity, cfg.timeout)
             else:
-                result = await self.bot.api.search_similar_by_text(query, source, top_k, cfg.min_similarity, cfg.timeout)
+                result = await self.bot.api.search_similar_by_text(
+                    query,
+                    source,
+                    top_k,
+                    cfg.min_similarity,
+                    cfg.timeout,
+                )
 
             if not result or not result.get("results"):
                 not_found_msg = i18n.t("errors.validation.similar_not_found", locale)

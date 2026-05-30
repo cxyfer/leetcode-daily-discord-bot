@@ -5,7 +5,14 @@ import time
 import discord
 from discord.ext import commands
 
-from bot.api_client import ApiEmbeddingError, ApiEmbeddingTimeoutError, ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
+from bot.api_client import (
+    ApiEmbeddingError,
+    ApiEmbeddingTimeoutError,
+    ApiError,
+    ApiNetworkError,
+    ApiProcessingError,
+    ApiRateLimitError,
+)
 from bot.leetcode import html_to_text
 from bot.utils.logger import get_commands_logger
 from bot.utils.ui_helpers import (
