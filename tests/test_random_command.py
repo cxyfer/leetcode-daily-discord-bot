@@ -559,6 +559,32 @@ async def test_get_tags_cached_stale_fallback():
 
 
 @pytest.mark.asyncio
+async def test_get_tags_cached_stale_fallback_on_processing_error():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._tags_cache["leetcode"] = (5000000.0, ["Stale"])
+    api._request = AsyncMock(side_effect=ApiProcessingError())
+
+    with patch("time.time", return_value=5000000.0 + 86401):
+        result = await api.get_tags_cached("leetcode")
+
+    assert result == ["Stale"]
+
+
+@pytest.mark.asyncio
+async def test_get_tags_cached_stale_fallback_on_rate_limit():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._tags_cache["leetcode"] = (6000000.0, ["Stale"])
+    api._request = AsyncMock(side_effect=ApiRateLimitError(5.0))
+
+    with patch("time.time", return_value=6000000.0 + 86401):
+        result = await api.get_tags_cached("leetcode")
+
+    assert result == ["Stale"]
+
+
+@pytest.mark.asyncio
 async def test_get_tags_cached_no_cache_api_failure_returns_empty():
     api = OjApiClient("http://test")
     api._session = AsyncMock()
@@ -655,6 +681,20 @@ async def test_tags_autocomplete_respects_source_change():
     await cog.random_tags_autocomplete(interaction, "g")
 
     bot.api.get_tags_cached.assert_awaited_once_with("codeforces")
+
+
+@pytest.mark.asyncio
+async def test_tags_autocomplete_source_all_defaults_to_leetcode():
+    bot = _make_bot()
+    bot.api.get_tags_cached = AsyncMock(return_value=["Array"])
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+    interaction.namespace = MagicMock()
+    interaction.namespace.source = "all"
+
+    await cog.random_tags_autocomplete(interaction, "a")
+
+    bot.api.get_tags_cached.assert_awaited_once_with("leetcode")
 
 
 @pytest.mark.asyncio

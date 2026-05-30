@@ -205,6 +205,8 @@ class SlashCommandsCog(commands.Cog):
     @random_command.autocomplete("tags")
     async def random_tags_autocomplete(self, interaction: discord.Interaction, current: str):
         source = (interaction.namespace.source if interaction.namespace else None) or "leetcode"
+        if source == "all":
+            source = "leetcode"
         try:
             tags = await self.bot.api.get_tags_cached(source)
         except Exception:

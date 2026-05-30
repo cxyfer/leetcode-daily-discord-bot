@@ -230,7 +230,7 @@ class OjApiClient:
             tags = await self.get_tags(source)
             self._tags_cache[source] = (now, tags)
             return tags
-        except (ApiError, ApiNetworkError) as e:
+        except Exception as e:
             if cached is not None:
                 logger.warning("Tags cache refresh failed for %s, using stale cache: %s", source, e)
                 return cached[1]
