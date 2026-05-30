@@ -1,4 +1,3 @@
-import random
 from unittest.mock import AsyncMock, MagicMock
 
 import discord
@@ -103,13 +102,15 @@ async def test_search_similar_by_id_keeps_existing_get_endpoint():
 
 
 @pytest.mark.asyncio
-async def test_get_random_problem_returns_none_on_zero_count():
+async def test_get_random_problem_returns_none_on_empty_results():
     api = OjApiClient("http://test")
     api._session = AsyncMock()
-    api._request = AsyncMock(return_value=_problem_list_response(0))
+    api._request = AsyncMock(return_value={"results": []})
 
     result = await api.get_random_problem()
+
     assert result is None
+    api._request.assert_called_once_with("GET", "random", params={"count": 1})
 
 
 @pytest.mark.asyncio
@@ -119,6 +120,7 @@ async def test_get_random_problem_returns_none_on_empty_response():
     api._request = AsyncMock(return_value=None)
 
     result = await api.get_random_problem()
+
     assert result is None
 
 
@@ -126,71 +128,70 @@ async def test_get_random_problem_returns_none_on_empty_response():
 async def test_get_random_problem_swaps_rating_when_min_exceeds_max():
     api = OjApiClient("http://test")
     api._session = AsyncMock()
-
-    captured_params = []
-
-    async def fake_request(method, path, **kwargs):
-        params = kwargs.get("params", {})
-        captured_params.append(params)
-        if "page" not in params:
-            return _problem_list_response(5)
-        return _problem_list_response(5, [_sample_problem()], page=params["page"])
-
-    api._request = AsyncMock(side_effect=fake_request)
+    api._request = AsyncMock(return_value={"results": []})
 
     await api.get_random_problem(rating_min=2000, rating_max=1500)
 
-    # First call (count) should have swapped values
-    assert captured_params[0]["rating_min"] == 1500
-    assert captured_params[0]["rating_max"] == 2000
+    api._request.assert_called_once_with(
+        "GET",
+        "random",
+        params={"count": 1, "rating_min": 1500, "rating_max": 2000},
+    )
 
 
 @pytest.mark.asyncio
 async def test_get_random_problem_passes_all_filters():
     api = OjApiClient("http://test")
     api._session = AsyncMock()
+    api._request = AsyncMock(return_value={"results": []})
 
-    captured_params = []
+    await api.get_random_problem(source="leetcode", difficulty="Medium", tags="Array", rating_min=1500, rating_max=2000)
 
-    async def fake_request(method, path, **kwargs):
-        params = kwargs.get("params", {})
-        captured_params.append(params)
-        if "page" not in params:
-            return _problem_list_response(3)
-        return _problem_list_response(3, [_sample_problem()], page=params["page"])
-
-    api._request = AsyncMock(side_effect=fake_request)
-
-    await api.get_random_problem(difficulty="Medium", tags="Array", rating_min=1500, rating_max=2000)
-
-    assert captured_params[0]["difficulty"] == "Medium"
-    assert captured_params[0]["tags"] == "Array"
-    assert captured_params[0]["rating_min"] == 1500
-    assert captured_params[0]["rating_max"] == 2000
-    assert captured_params[0]["per_page"] == 1
+    api._request.assert_called_once_with(
+        "GET",
+        "random",
+        params={
+            "count": 1,
+            "source": "leetcode",
+            "difficulty": "medium",
+            "tags": "Array",
+            "rating_min": 1500,
+            "rating_max": 2000,
+        },
+    )
 
 
 @pytest.mark.asyncio
-async def test_get_random_problem_uses_random_page(monkeypatch):
+async def test_get_random_problem_source_default_omitted():
     api = OjApiClient("http://test")
     api._session = AsyncMock()
+    api._request = AsyncMock(return_value={"results": []})
 
-    captured_params = []
+    await api.get_random_problem()
 
-    async def fake_request(method, path, **kwargs):
-        params = kwargs.get("params", {})
-        captured_params.append(params)
-        if "page" not in params:
-            return _problem_list_response(10)
-        return _problem_list_response(10, [_sample_problem()], page=params["page"])
+    api._request.assert_called_once_with("GET", "random", params={"count": 1})
 
-    api._request = AsyncMock(side_effect=fake_request)
-    monkeypatch.setattr(random, "randint", lambda a, b: 7)
+
+@pytest.mark.asyncio
+async def test_get_random_problem_source_all_omitted():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(return_value={"results": []})
+
+    await api.get_random_problem(source="all")
+
+    api._request.assert_called_once_with("GET", "random", params={"count": 1})
+
+
+@pytest.mark.asyncio
+async def test_get_random_problem_returns_first_result():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(return_value={"results": [_sample_problem(), _sample_problem("2")]})
 
     result = await api.get_random_problem()
 
-    assert result is not None
-    assert captured_params[1]["page"] == 7
+    assert result == _sample_problem()
 
 
 @pytest.mark.asyncio
@@ -214,56 +215,17 @@ async def test_get_random_problem_propagates_rate_limit():
 
 
 @pytest.mark.asyncio
-async def test_get_random_problem_fallback_on_empty_page():
-    api = OjApiClient("http://test")
-    api._session = AsyncMock()
-
-    call_count = 0
-
-    async def fake_request(method, path, **kwargs):
-        nonlocal call_count
-        call_count += 1
-        params = kwargs.get("params", {})
-        if "page" not in params:
-            return _problem_list_response(5)
-        if call_count == 2:
-            return _problem_list_response(5, [], page=params["page"])  # random page is empty
-        return _problem_list_response(5, [_sample_problem()], page=params["page"])  # fallback page=1
-
-    api._request = AsyncMock(side_effect=fake_request)
-
-    result = await api.get_random_problem()
-    assert result is not None
-    assert call_count == 3  # count + empty page + fallback
-
-
-def test_list_items_uses_first_list_value():
-    response = {"results": {"unexpected": "dict"}, "items": "unexpected string", "data": [_sample_problem()]}
-
-    assert OjApiClient._list_items(response) == [_sample_problem()]
-
-
-def test_list_items_returns_empty_list_for_unexpected_types():
-    response = {"results": {"unexpected": "dict"}, "items": "unexpected string", "data": {"id": "1"}}
-
-    assert OjApiClient._list_items(response) == []
-
-
-@pytest.mark.asyncio
 async def test_get_random_problem_accepts_legacy_results_shape():
     api = OjApiClient("http://test")
     api._session = AsyncMock()
-
-    async def fake_request(method, path, **kwargs):
-        params = kwargs.get("params", {})
-        if "page" not in params:
-            return {"total": 2, "results": []}
-        return {"total": 2, "results": [_sample_problem()]}
-
-    api._request = AsyncMock(side_effect=fake_request)
+    api._request = AsyncMock(return_value={"results": [_sample_problem()]})
 
     result = await api.get_random_problem()
-    assert result is not None
+
+    assert result == _sample_problem()
+
+
+# -- /random command tests --
 
 
 # -- /random command tests --
@@ -294,7 +256,23 @@ async def test_random_command_with_difficulty_filter():
 
     await cog.random_command.callback(cog, interaction, difficulty="Medium")
 
-    bot.api.get_random_problem.assert_called_once_with(difficulty="Medium", tags=None, rating_min=None, rating_max=None)
+    bot.api.get_random_problem.assert_called_once_with(
+        source="leetcode", difficulty="Medium", tags=None, rating_min=None, rating_max=None
+    )
+
+
+@pytest.mark.asyncio
+async def test_random_command_with_source():
+    bot = _make_bot()
+    bot.api.get_random_problem.return_value = _sample_problem()
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+
+    await cog.random_command.callback(cog, interaction, source="atcoder")
+
+    bot.api.get_random_problem.assert_called_once_with(
+        source="atcoder", difficulty=None, tags=None, rating_min=None, rating_max=None
+    )
 
 
 @pytest.mark.asyncio
@@ -304,9 +282,13 @@ async def test_random_command_with_all_filters():
     cog = SlashCommandsCog(bot)
     interaction = _make_interaction()
 
-    await cog.random_command.callback(cog, interaction, difficulty="Hard", tags="DP", rating_min=1500, rating_max=2500)
+    await cog.random_command.callback(
+        cog, interaction, source="codeforces", difficulty="Hard", tags="DP", rating_min=1500, rating_max=2500
+    )
 
-    bot.api.get_random_problem.assert_called_once_with(difficulty="Hard", tags="DP", rating_min=1500, rating_max=2500)
+    bot.api.get_random_problem.assert_called_once_with(
+        source="codeforces", difficulty="Hard", tags="DP", rating_min=1500, rating_max=2500
+    )
 
 
 @pytest.mark.asyncio
@@ -318,7 +300,9 @@ async def test_random_command_swaps_rating_before_api():
 
     await cog.random_command.callback(cog, interaction, rating_min=2000, rating_max=1500)
 
-    bot.api.get_random_problem.assert_called_once_with(difficulty=None, tags=None, rating_min=1500, rating_max=2000)
+    bot.api.get_random_problem.assert_called_once_with(
+        source="leetcode", difficulty=None, tags=None, rating_min=1500, rating_max=2000
+    )
 
 
 @pytest.mark.asyncio
@@ -455,4 +439,6 @@ async def test_random_command_rating_same_min_max():
 
     await cog.random_command.callback(cog, interaction, rating_min=1500, rating_max=1500)
 
-    bot.api.get_random_problem.assert_called_once_with(difficulty=None, tags=None, rating_min=1500, rating_max=1500)
+    bot.api.get_random_problem.assert_called_once_with(
+        source="leetcode", difficulty=None, tags=None, rating_min=1500, rating_max=1500
+    )

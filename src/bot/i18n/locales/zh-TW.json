@@ -165,7 +165,8 @@
       "public": "是否公開顯示回覆 (預設為私密回覆)"
     },
     "random": {
-      "description": "隨機取得一道 LeetCode 題目",
+      "description": "隨機取得一道題目",
+      "source": "題庫來源 (預設: LeetCode)",
       "difficulty": "難度篩選",
       "tags": "標籤篩選 (例如: Array)",
       "rating_min": "最低評分",

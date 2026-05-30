@@ -185,7 +185,8 @@
       "public": "是否公开显示回复 (默认为私密回复)"
     },
     "random": {
-      "description": "随机获取一道 LeetCode 题目",
+      "description": "随机获取一道题目",
+      "source": "题库来源 (默认: LeetCode)",
       "difficulty": "难度筛选",
       "tags": "标签筛选 (例如: Array)",
       "rating_min": "最低评分",
