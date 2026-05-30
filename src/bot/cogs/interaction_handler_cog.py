@@ -382,13 +382,9 @@ class InteractionHandlerCog(commands.Cog):
             )
             await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         except ApiEmbeddingError:
-            await interaction.followup.send(
-                i18n.t("errors.similar.embedding_unavailable", locale), ephemeral=True
-            )
+            await interaction.followup.send(i18n.t("errors.similar.embedding_unavailable", locale), ephemeral=True)
         except ApiEmbeddingTimeoutError:
-            await interaction.followup.send(
-                i18n.t("errors.similar.embedding_timeout", locale), ephemeral=True
-            )
+            await interaction.followup.send(i18n.t("errors.similar.embedding_timeout", locale), ephemeral=True)
         except ApiNetworkError as e:
             if e.is_timeout:
                 await interaction.followup.send(i18n.t("errors.similar.timeout", locale), ephemeral=True)

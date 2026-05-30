@@ -93,9 +93,7 @@ class SimilarCog(commands.Cog):
                 i18n.t("errors.similar.embedding_unavailable", locale), ephemeral=not public
             )
         except ApiEmbeddingTimeoutError:
-            await interaction.followup.send(
-                i18n.t("errors.similar.embedding_timeout", locale), ephemeral=not public
-            )
+            await interaction.followup.send(i18n.t("errors.similar.embedding_timeout", locale), ephemeral=not public)
         except ApiNetworkError as e:
             if e.is_timeout:
                 await interaction.followup.send(i18n.t("errors.similar.timeout", locale), ephemeral=not public)
