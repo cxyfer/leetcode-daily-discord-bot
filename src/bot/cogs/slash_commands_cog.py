@@ -202,6 +202,18 @@ class SlashCommandsCog(commands.Cog):
                 allowed_mentions=discord.AllowedMentions.none(),
             )
 
+    @random_command.autocomplete("tags")
+    async def random_tags_autocomplete(self, interaction: discord.Interaction, current: str):
+        source = (interaction.namespace.source if interaction.namespace else None) or "leetcode"
+        if source == "all":
+            source = "leetcode"
+        try:
+            tags = await self.bot.api.get_tags_cached(source)
+        except Exception:
+            tags = []
+        filtered = [t for t in tags if current.lower() in t.lower()]
+        return [app_commands.Choice(name=t, value=t) for t in filtered[:25]]
+
     # ── /problem ──────────────────────────────────────────────────────
 
     @app_commands.command(name="problem", description=app_commands.locale_str("problem.description"))

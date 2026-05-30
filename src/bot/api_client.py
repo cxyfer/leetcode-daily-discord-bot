@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 from urllib.parse import quote
 
 import aiohttp
@@ -51,12 +52,15 @@ class ApiEmbeddingTimeoutError(Exception):
 
 
 class OjApiClient:
+    _TAGS_CACHE_TTL = 86400
+
     def __init__(self, base_url: str, token: str | None = None, timeout: int = 10):
         self._base_url = base_url.rstrip("/")
         self._token = token if token else None
         self._timeout = timeout
         self._session: aiohttp.ClientSession | None = None
         self._inflight: dict[str, asyncio.Future] = {}
+        self._tags_cache: dict[str, tuple[float, list[str]]] = {}
 
     async def start(self):
         if self._session and not self._session.closed:
@@ -239,3 +243,34 @@ class OjApiClient:
 
         items = self._list_items(response)
         return items[0] if items else None
+
+    async def get_tags(self, source: str) -> list[str]:
+        """Fetch valid tags for a problem source via GET /api/v1/tags/{source}."""
+        try:
+            response = await self._request("GET", f"tags/{quote(source)}")
+        except ApiError as e:
+            if e.status == 400:
+                return []
+            raise
+        if not response or not isinstance(response, list):
+            return []
+        return response
+
+    async def get_tags_cached(self, source: str) -> list[str]:
+        """Return cached tags within TTL; on cache miss or expiry, call API with stale fallback."""
+        now = time.time()
+        cached = self._tags_cache.get(source)
+        if cached is not None:
+            ts, tags = cached
+            if now - ts < self._TAGS_CACHE_TTL:
+                return tags
+        try:
+            tags = await self.get_tags(source)
+            self._tags_cache[source] = (now, tags)
+            return tags
+        except Exception as e:
+            if cached is not None:
+                logger.warning("Tags cache refresh failed for %s, using stale cache: %s", source, e)
+                return cached[1]
+            logger.warning("Tags cache miss and API failure for %s: %s", source, e)
+            return []
