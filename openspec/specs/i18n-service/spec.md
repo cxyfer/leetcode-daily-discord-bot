@@ -34,7 +34,7 @@ The I18nService SHALL provide translation lookup with parameter interpolation an
 - **THEN** the service SHALL return the corresponding English string from the en-US locale file
 
 #### Scenario: Parameter interpolation
-- **WHEN** `t("commands.daily.not_found", "zh-TW", date="2025-07-01")` is called and the template contains `{date}`
+- **WHEN** `t("errors.validation.not_found_for_date", "zh-TW", date="2025-07-01")` is called and the template contains `{date}`
 - **THEN** the service SHALL return the string with `{date}` replaced by `2025-07-01`
 
 #### Scenario: Missing key in target locale
@@ -54,7 +54,7 @@ The I18nService SHALL load JSON locale files from `src/bot/i18n/locales/` at ini
 
 #### Scenario: Missing locale file
 - **WHEN** a locale file does not exist on disk
-- **THEN** the service SHALL log an error and continue with available locales
+- **THEN** the service SHALL log a warning and continue with available locales
 
 #### Scenario: Invalid locale JSON
 - **WHEN** a locale file contains invalid JSON

@@ -82,11 +82,11 @@ Scheduled daily challenge posts SHALL use the guild's resolved language for all 
 
 #### Scenario: Daily post with no language setting
 - **WHEN** a scheduled daily post fires for a server without a language setting
-- **THEN** the system SHALL resolve locale from guild_locale → config default → "zh-TW"
+- **THEN** the system SHALL resolve locale from the guild database setting → config default → "zh-TW"
 
 #### Scenario: Locale resolution without interaction
 - **WHEN** a scheduled post needs locale resolution
-- **THEN** it SHALL use `resolve_locale(guild_id, guild_locale=None, interaction_locale=None)` which skips interaction-level fallbacks
+- **THEN** it SHALL use keyword arguments when calling `resolve_locale`, skipping interaction-level fallbacks
 
 #### Scenario: Post role mention unchanged by locale
 - **WHEN** a scheduled localized daily post includes a configured role mention
