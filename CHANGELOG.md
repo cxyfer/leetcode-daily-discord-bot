@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v2.1.0] - 2026-05-31
+### Added
+- **Internationalization Support**: Added locale-aware Discord command and UI text for zh-TW, en-US, and zh-CN. (#32, #33)
+- **Random Problem Command**: Added `/random` with source, difficulty, rating, and tag filters for discovering practice problems. (#31)
+- **Tag Autocomplete**: Added TTL-cached tag autocomplete with startup preload for `/random` filters. (#38)
+
+### Changed
+- **Remote Random Selection**: Switched `/random` to the upstream native random endpoint and adapted list response parsing. (#35, #36)
+- **API Timeout Defaults**: Increased the default remote API timeout to improve reliability for slower backend responses.
+- **OpenSpec Sync**: Updated and archived OpenSpec specs to match post-v2.0.2 runtime behavior. (#40)
+
+### Fixed
+- **Similar Search Contract**: Adapted similar text search to the upstream POST contract. (#37)
+- **Similar Timeout Handling**: Improved timeout error handling and deduplication behavior for similar-problem lookups. (#39)
+- **Discord UI Labels**: Distinguished footer labels and logos across problem sources. (#41)
+- **Localized Command Metadata**: Shortened en-US date descriptions to satisfy Discord's 100-character command description limit. (#34)
+
 ## [v2.0.2] - 2026-04-17
 ### Changed
 - **Similar Question Packing**: Replaced the fixed 3-item cap with a 950-character budget so `/daily` and `/problem` embeds can show more related problems without overflowing Discord field limits.
