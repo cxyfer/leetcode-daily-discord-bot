@@ -150,7 +150,7 @@ class OjApiClient:
         payload: dict[str, str | int | float] = {"query": query, "limit": top_k, "threshold": min_similarity}
         if source:
             payload["source"] = source
-        return await self._request("POST", "similar", json=payload)
+        return await self._do_request("POST", "similar", json=payload)
 
     @staticmethod
     def _list_total(response: dict) -> int:
