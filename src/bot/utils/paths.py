@@ -21,13 +21,6 @@ def _candidate_directories(start: str | Path | None) -> list[Path]:
 
 
 def find_repo_root(start: str | Path | None = None) -> Path:
-    candidates = _candidate_directories(start)
-
-    for marker in ("pyproject.toml", ".git"):
-        for directory in candidates:
-            if (directory / marker).exists():
-                return directory
-
     override = os.getenv("BOT_REPO_ROOT")
     if override:
         override_path = _normalize_path(override)
@@ -36,6 +29,13 @@ def find_repo_root(start: str | Path | None = None) -> Path:
         if override_path.is_dir():
             return override_path
         raise RepoRootNotFoundError(f"BOT_REPO_ROOT points to a missing path: {override_path}")
+
+    candidates = _candidate_directories(start)
+
+    for marker in ("pyproject.toml", ".git"):
+        for directory in candidates:
+            if (directory / marker).exists():
+                return directory
 
     raise RepoRootNotFoundError(
         "Unable to determine repository root. Set BOT_REPO_ROOT or ensure pyproject.toml/.git exists."

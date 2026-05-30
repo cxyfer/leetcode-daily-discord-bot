@@ -83,12 +83,12 @@ def test_find_repo_root_normalizes_file_override_to_parent(tmp_path, monkeypatch
 
 
 def test_find_repo_root_fails_fast_when_unresolved(tmp_path, monkeypatch):
-    monkeypatch.delenv("BOT_REPO_ROOT", raising=False)
+    monkeypatch.setenv("BOT_REPO_ROOT", str(tmp_path / "nonexistent_dir"))
 
     from bot.utils.paths import RepoRootNotFoundError, find_repo_root
 
     with pytest.raises(RepoRootNotFoundError):
-        find_repo_root(tmp_path / "missing" / "child")
+        find_repo_root()
 
 
 def test_config_manager_resolves_repo_root_paths_from_any_cwd(tmp_path, monkeypatch):
