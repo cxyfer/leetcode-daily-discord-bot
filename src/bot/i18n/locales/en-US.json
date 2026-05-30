@@ -185,7 +185,8 @@
       "public": "Whether to show the reply publicly (default: private)"
     },
     "random": {
-      "description": "Get a random LeetCode problem",
+      "description": "Get a random problem",
+      "source": "Problem source (default: LeetCode)",
       "difficulty": "Difficulty filter",
       "tags": "Tag filter (e.g., Array)",
       "rating_min": "Minimum rating",

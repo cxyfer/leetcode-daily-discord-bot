@@ -105,6 +105,7 @@ class SlashCommandsCog(commands.Cog):
 
     @app_commands.command(name="random", description=app_commands.locale_str("random.description"))
     @app_commands.describe(
+        source=app_commands.locale_str("random.source"),
         difficulty=app_commands.locale_str("random.difficulty"),
         tags=app_commands.locale_str("random.tags"),
         rating_min=app_commands.locale_str("random.rating_min"),
@@ -112,15 +113,24 @@ class SlashCommandsCog(commands.Cog):
         public=app_commands.locale_str("random.public"),
     )
     @app_commands.choices(
+        source=[
+            app_commands.Choice(name="All", value="all"),
+            app_commands.Choice(name="LeetCode", value="leetcode"),
+            app_commands.Choice(name="AtCoder", value="atcoder"),
+            app_commands.Choice(name="Codeforces", value="codeforces"),
+            app_commands.Choice(name="Luogu", value="luogu"),
+            app_commands.Choice(name="SPOJ", value="spoj"),
+        ],
         difficulty=[
             app_commands.Choice(name="Easy", value="Easy"),
             app_commands.Choice(name="Medium", value="Medium"),
             app_commands.Choice(name="Hard", value="Hard"),
-        ]
+        ],
     )
     async def random_command(
         self,
         interaction: discord.Interaction,
+        source: str = "leetcode",
         difficulty: str = None,
         tags: str = None,
         rating_min: int = None,
@@ -137,6 +147,7 @@ class SlashCommandsCog(commands.Cog):
 
         try:
             problem = await self.bot.api.get_random_problem(
+                source=source,
                 difficulty=difficulty,
                 tags=tags,
                 rating_min=rating_min,

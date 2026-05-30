@@ -100,13 +100,35 @@ async def test_get_random_problem_passes_all_filters():
     api._session = AsyncMock()
     api._request = AsyncMock(return_value={"results": []})
 
-    await api.get_random_problem(difficulty="Medium", tags="Array", rating_min=1500, rating_max=2000)
+    await api.get_random_problem(source="leetcode", difficulty="Medium", tags="Array", rating_min=1500, rating_max=2000)
 
     api._request.assert_called_once_with(
         "GET",
         "random",
-        params={"count": 1, "difficulty": "medium", "tags": "Array", "rating_min": 1500, "rating_max": 2000},
+        params={"count": 1, "source": "leetcode", "difficulty": "medium", "tags": "Array", "rating_min": 1500, "rating_max": 2000},
     )
+
+
+@pytest.mark.asyncio
+async def test_get_random_problem_source_default_omitted():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(return_value={"results": []})
+
+    await api.get_random_problem()
+
+    api._request.assert_called_once_with("GET", "random", params={"count": 1})
+
+
+@pytest.mark.asyncio
+async def test_get_random_problem_source_all_omitted():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(return_value={"results": []})
+
+    await api.get_random_problem(source="all")
+
+    api._request.assert_called_once_with("GET", "random", params={"count": 1})
 
 
 @pytest.mark.asyncio
@@ -182,7 +204,19 @@ async def test_random_command_with_difficulty_filter():
 
     await cog.random_command.callback(cog, interaction, difficulty="Medium")
 
-    bot.api.get_random_problem.assert_called_once_with(difficulty="Medium", tags=None, rating_min=None, rating_max=None)
+    bot.api.get_random_problem.assert_called_once_with(source="leetcode", difficulty="Medium", tags=None, rating_min=None, rating_max=None)
+
+
+@pytest.mark.asyncio
+async def test_random_command_with_source():
+    bot = _make_bot()
+    bot.api.get_random_problem.return_value = _sample_problem()
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+
+    await cog.random_command.callback(cog, interaction, source="atcoder")
+
+    bot.api.get_random_problem.assert_called_once_with(source="atcoder", difficulty=None, tags=None, rating_min=None, rating_max=None)
 
 
 @pytest.mark.asyncio
@@ -192,9 +226,9 @@ async def test_random_command_with_all_filters():
     cog = SlashCommandsCog(bot)
     interaction = _make_interaction()
 
-    await cog.random_command.callback(cog, interaction, difficulty="Hard", tags="DP", rating_min=1500, rating_max=2500)
+    await cog.random_command.callback(cog, interaction, source="codeforces", difficulty="Hard", tags="DP", rating_min=1500, rating_max=2500)
 
-    bot.api.get_random_problem.assert_called_once_with(difficulty="Hard", tags="DP", rating_min=1500, rating_max=2500)
+    bot.api.get_random_problem.assert_called_once_with(source="codeforces", difficulty="Hard", tags="DP", rating_min=1500, rating_max=2500)
 
 
 @pytest.mark.asyncio
@@ -206,7 +240,7 @@ async def test_random_command_swaps_rating_before_api():
 
     await cog.random_command.callback(cog, interaction, rating_min=2000, rating_max=1500)
 
-    bot.api.get_random_problem.assert_called_once_with(difficulty=None, tags=None, rating_min=1500, rating_max=2000)
+    bot.api.get_random_problem.assert_called_once_with(source="leetcode", difficulty=None, tags=None, rating_min=1500, rating_max=2000)
 
 
 @pytest.mark.asyncio
@@ -343,4 +377,4 @@ async def test_random_command_rating_same_min_max():
 
     await cog.random_command.callback(cog, interaction, rating_min=1500, rating_max=1500)
 
-    bot.api.get_random_problem.assert_called_once_with(difficulty=None, tags=None, rating_min=1500, rating_max=1500)
+    bot.api.get_random_problem.assert_called_once_with(source="leetcode", difficulty=None, tags=None, rating_min=1500, rating_max=1500)

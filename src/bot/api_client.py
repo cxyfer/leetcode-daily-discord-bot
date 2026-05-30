@@ -169,16 +169,19 @@ class OjApiClient:
     async def get_random_problem(
         self,
         *,
+        source: str | None = None,
         difficulty: str | None = None,
         tags: str | None = None,
         rating_min: int | None = None,
         rating_max: int | None = None,
     ) -> dict | None:
-        """Fetch a random LeetCode problem via the native random endpoint."""
+        """Fetch a random problem via the native random endpoint."""
         if rating_min is not None and rating_max is not None and rating_min > rating_max:
             rating_min, rating_max = rating_max, rating_min
 
         params: dict[str, str | int] = {"count": 1}
+        if source and source != "all":
+            params["source"] = source
         if difficulty:
             params["difficulty"] = difficulty.lower() if difficulty in {"Easy", "Medium", "Hard"} else difficulty
         if tags:
