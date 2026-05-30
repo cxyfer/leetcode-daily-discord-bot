@@ -85,6 +85,22 @@ CODEFORCES_LOGO_URL = (
     "https://cdn.iconscout.com/icon/free/png-256/free-code-forces-logo-icon-svg-download-png-3031869.png"
 )
 
+# 題庫來源顯示名稱與 Logo URL 映射
+SOURCE_LABELS = {
+    "leetcode": "LeetCode",
+    "atcoder": "AtCoder",
+    "luogu": "Luogu",
+    "codeforces": "Codeforces",
+    "spoj": "SPOJ",
+}
+
+SOURCE_LOGOS = {
+    "leetcode": LEETCODE_LOGO_URL,
+    "atcoder": ATCODER_LOGO_URL,
+    "luogu": LUOGU_LOGO_URL,
+    "codeforces": CODEFORCES_LOGO_URL,
+}
+
 # 域名映射
 DOMAIN_MAPPING = {
     "com": {

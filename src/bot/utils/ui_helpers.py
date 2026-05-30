@@ -19,9 +19,7 @@ from bot.i18n import I18nService
 from bot.leetcode import generate_history_dates
 
 from .ui_constants import (
-    ATCODER_LOGO_URL,
     BUTTON_EMOJIS,
-    CODEFORCES_LOGO_URL,
     DEFAULT_COLOR,
     DIFFICULTY_COLORS,
     DIFFICULTY_EMOJIS,
@@ -32,7 +30,6 @@ from .ui_constants import (
     LEETCODE_LOGO_URL,
     LUOGU_DIFFICULTY_COLORS,
     LUOGU_DIFFICULTY_EMOJIS,
-    LUOGU_LOGO_URL,
     MAX_BUTTON_CUSTOM_ID_LENGTH,
     MAX_BUTTON_LABEL_LENGTH,
     MAX_DAILY_SIMILAR_FIELD_LENGTH,
@@ -41,10 +38,22 @@ from .ui_constants import (
     MAX_SIMILAR_RESULT_DETAIL_BUTTONS,
     NON_DIFFICULTY_EMOJI,
     PROBLEMS_PER_FIELD,
+    SOURCE_LABELS,
+    SOURCE_LOGOS,
 )
 
 # Module-level logger
 logger = logging.getLogger("ui")
+
+
+def get_source_label(source: str | None) -> str:
+    if not source:
+        return "Unknown"
+    return SOURCE_LABELS.get(source, source.replace("_", " ").title())
+
+
+def get_source_logo_url(source: str | None) -> str | None:
+    return SOURCE_LOGOS.get(source) if source else None
 
 
 def _get_locale(bot: Any, interaction: discord.Interaction | None = None) -> str:
@@ -222,6 +231,7 @@ def _build_similar_result_line(
     i18n = bot.i18n if bot else None
     unknown_source = i18n.t("ui.embed.source_label", locale) if i18n else "unknown"
     source = _normalize_similar_result_segment(result_item.get("source"), unknown_source)
+    source_label = get_source_label(source)
     problem_id = _normalize_similar_result_segment(result_item.get("id"), "?")
     title = _normalize_similar_result_segment(result_item.get("title"), "")
     emoji = get_source_difficulty_emoji(source, result_item.get("difficulty"))
@@ -230,7 +240,7 @@ def _build_similar_result_line(
     link = result_item.get("link")
     if link:
         problem_text = f"[{problem_text}]({link})"
-    return f"{index}. {emoji} {problem_text} [{source}] · {_format_similarity(result_item.get('similarity'))}"
+    return f"{index}. {emoji} {problem_text} [{source_label}] · {_format_similarity(result_item.get('similarity'))}"
 
 
 def _build_similar_results_embed(
@@ -385,7 +395,7 @@ async def create_problem_embed(
     i18n = bot.i18n
     source = problem_info.get("source", "leetcode")
     if source != "leetcode":
-        source_label = "AtCoder" if source == "atcoder" else source.capitalize()
+        source_label = get_source_label(source)
         difficulty = problem_info.get("difficulty")
         title_emoji = get_source_difficulty_emoji(source, difficulty) if source == "luogu" else FIELD_EMOJIS["link"]
         embed_color = get_difficulty_color(difficulty, source) if difficulty else DEFAULT_COLOR
@@ -425,11 +435,7 @@ async def create_problem_embed(
                     value=tags_str,
                     inline=False,
                 )
-        footer_icon_url = {
-            "atcoder": ATCODER_LOGO_URL,
-            "luogu": LUOGU_LOGO_URL,
-            "codeforces": CODEFORCES_LOGO_URL,
-        }.get(source, None)
+        footer_icon_url = get_source_logo_url(source)
         resolved_footer_text = footer_text or f"📖 {source_label} Problem"
         if footer_icon_url:
             embed.set_footer(text=resolved_footer_text, icon_url=footer_icon_url)
@@ -872,7 +878,7 @@ def create_problem_description_embed(
         embed.set_author(name=author_label, icon_url=LEETCODE_LOGO_URL)
         return embed
 
-    source_label = "AtCoder" if source == "atcoder" else source.capitalize()
+    source_label = get_source_label(source)
     difficulty = problem_info.get("difficulty")
     emoji = get_source_difficulty_emoji(source, difficulty)
     embed_color = get_difficulty_color(difficulty, source) if difficulty else DEFAULT_COLOR
@@ -882,15 +888,7 @@ def create_problem_description_embed(
         color=embed_color,
         url=problem_info["link"],
     )
-    footer_icon_url = (
-        {
-            "atcoder": ATCODER_LOGO_URL,
-            "luogu": LUOGU_LOGO_URL,
-            "codeforces": CODEFORCES_LOGO_URL,
-        }.get(source)
-        if source
-        else None
-    )
+    footer_icon_url = get_source_logo_url(source)
     footer_text = f"📖 {source_label} Problem"
     if footer_icon_url:
         embed.set_footer(text=footer_text, icon_url=footer_icon_url)

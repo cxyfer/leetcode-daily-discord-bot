@@ -11,7 +11,7 @@ from bot.utils.ui_constants import (
     MAX_DAILY_SIMILAR_FIELD_LENGTH,
     NON_DIFFICULTY_EMOJI,
 )
-from bot.utils.ui_helpers import create_problem_embed
+from bot.utils.ui_helpers import create_problem_description_embed, create_problem_embed
 
 
 def _make_interaction():
@@ -146,6 +146,28 @@ def _make_luogu_problem(problem_id: str, difficulty: str = "入门") -> dict:
     }
 
 
+def _make_spoj_problem(problem_id: str) -> dict:
+    return {
+        "id": problem_id,
+        "source": "spoj",
+        "slug": problem_id,
+        "title": f"SPOJ {problem_id}",
+        "title_cn": "",
+        "difficulty": None,
+        "ac_rate": None,
+        "rating": None,
+        "contest": None,
+        "problem_index": None,
+        "tags": None,
+        "link": f"https://www.spoj.com/problems/{problem_id}/",
+        "category": "Algorithms",
+        "paid_only": 0,
+        "content": None,
+        "content_cn": None,
+        "similar_questions": None,
+    }
+
+
 @pytest.mark.asyncio
 async def test_problem_command_atcoder_single_sends_with_full_problem_view():
     bot = _make_bot()
@@ -272,6 +294,55 @@ async def test_problem_command_luogu_multiple_uses_difficulty_emojis():
     assert button_emojis == [LUOGU_DIFFICULTY_EMOJIS["入门"], LUOGU_DIFFICULTY_EMOJIS["普及/提高-"]]
     assert all(button.custom_id.startswith("problem|luogu|") for button in kwargs["view"].children)
     assert all(button.custom_id.endswith("|view") for button in kwargs["view"].children)
+
+
+@pytest.mark.asyncio
+async def test_problem_command_spoj_multiple_uses_single_source_label():
+    bot = _make_bot()
+
+    async def _resolve(query):
+        return {"problem": _make_spoj_problem(query.removeprefix("spoj:"))}
+
+    bot.api.resolve.side_effect = _resolve
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+
+    await cog.problem_command.callback(
+        cog,
+        interaction,
+        problem_ids="TEST,PRIME1",
+        domain="com",
+        public=False,
+        message=None,
+        title=None,
+        source="spoj",
+    )
+
+    assert interaction.followup.send.call_count == 1
+    _, kwargs = interaction.followup.send.call_args
+    assert kwargs["embed"].title == "🔍 SPOJ Problems (2 found)"
+    assert kwargs["embed"].footer.text == "SPOJ Problems Overview"
+    assert "Mixed Sources" not in kwargs["embed"].footer.text
+    assert all(button.custom_id.startswith("problem|spoj|") for button in kwargs["view"].children)
+
+
+@pytest.mark.asyncio
+async def test_create_problem_embed_spoj_uses_acronym_source_label():
+    bot = _make_bot()
+    embed = await create_problem_embed(problem_info=_make_spoj_problem("TEST"), bot=bot)
+
+    source_field = next(field for field in embed.fields if field.name == "Source")
+    assert source_field.value == "SPOJ"
+    assert embed.footer.text == "📖 SPOJ Problem"
+
+
+def test_create_problem_description_embed_spoj_uses_acronym_footer():
+    bot = _make_bot()
+    problem = _make_spoj_problem("TEST") | {"description": "Sample description"}
+
+    embed = create_problem_description_embed(problem, domain="com", source="spoj", bot=bot)
+
+    assert embed.footer.text == "📖 SPOJ Problem"
 
 
 @pytest.mark.asyncio
