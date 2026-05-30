@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
 import pytest
@@ -442,3 +442,231 @@ async def test_random_command_rating_same_min_max():
     bot.api.get_random_problem.assert_called_once_with(
         source="leetcode", difficulty=None, tags=None, rating_min=1500, rating_max=1500
     )
+
+
+# -- get_tags tests --
+
+
+@pytest.mark.asyncio
+async def test_get_tags_returns_list_on_200():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(return_value=["Array", "DP", "Graph"])
+
+    result = await api.get_tags("leetcode")
+
+    assert result == ["Array", "DP", "Graph"]
+    api._request.assert_awaited_once_with("GET", "tags/leetcode")
+
+
+@pytest.mark.asyncio
+async def test_get_tags_returns_empty_on_400():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(side_effect=ApiError(400, "Bad Request"))
+
+    result = await api.get_tags("invalid")
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_tags_returns_empty_on_404():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(return_value=None)
+
+    result = await api.get_tags("nonexistent")
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_tags_propagates_api_error_500():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(side_effect=ApiError(500, "Internal Server Error"))
+
+    with pytest.raises(ApiError):
+        await api.get_tags("leetcode")
+
+
+@pytest.mark.asyncio
+async def test_get_tags_propagates_network_error():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(side_effect=ApiNetworkError("timeout"))
+
+    with pytest.raises(ApiNetworkError):
+        await api.get_tags("leetcode")
+
+
+# -- get_tags_cached tests --
+
+
+@pytest.mark.asyncio
+async def test_get_tags_cached_hit_skips_api():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock()
+    api._tags_cache["leetcode"] = (1000000.0, ["Array", "DP"])
+
+    with patch("time.time", return_value=1000100.0):
+        result = await api.get_tags_cached("leetcode")
+
+    assert result == ["Array", "DP"]
+    api._request.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_tags_cached_miss_calls_api():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(return_value=["Graph", "Tree"])
+
+    with patch("time.time", return_value=2000000.0):
+        result = await api.get_tags_cached("leetcode")
+
+    assert result == ["Graph", "Tree"]
+    assert api._tags_cache["leetcode"] == (2000000.0, ["Graph", "Tree"])
+
+
+@pytest.mark.asyncio
+async def test_get_tags_cached_expired_refreshes():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._tags_cache["leetcode"] = (3000000.0, ["Old"])
+    api._request = AsyncMock(return_value=["New"])
+
+    with patch("time.time", return_value=3000000.0 + 86401):
+        result = await api.get_tags_cached("leetcode")
+
+    assert result == ["New"]
+    assert api._tags_cache["leetcode"] == (3000000.0 + 86401, ["New"])
+
+
+@pytest.mark.asyncio
+async def test_get_tags_cached_stale_fallback():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._tags_cache["leetcode"] = (4000000.0, ["Stale"])
+    api._request = AsyncMock(side_effect=ApiNetworkError("timeout"))
+
+    with patch("time.time", return_value=4000000.0 + 86401):
+        result = await api.get_tags_cached("leetcode")
+
+    assert result == ["Stale"]
+
+
+@pytest.mark.asyncio
+async def test_get_tags_cached_no_cache_api_failure_returns_empty():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(side_effect=ApiNetworkError("timeout"))
+
+    result = await api.get_tags_cached("spoj")
+
+    assert result == []
+
+
+# -- tags autocomplete tests --
+
+
+@pytest.mark.asyncio
+async def test_tags_autocomplete_returns_filtered_choices():
+    bot = _make_bot()
+    bot.api.get_tags_cached = AsyncMock(return_value=["Array", "DP", "Graph", "Tree", "Sort"])
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+    interaction.namespace = MagicMock()
+    interaction.namespace.source = "leetcode"
+
+    result = await cog.random_tags_autocomplete(interaction, "ar")
+
+    assert len(result) == 1
+    assert result[0].name == "Array"
+    assert result[0].value == "Array"
+
+
+@pytest.mark.asyncio
+async def test_tags_autocomplete_defaults_to_leetcode():
+    bot = _make_bot()
+    bot.api.get_tags_cached = AsyncMock(return_value=["Array", "DP"])
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+    interaction.namespace = MagicMock()
+    interaction.namespace.source = None
+
+    await cog.random_tags_autocomplete(interaction, "a")
+
+    bot.api.get_tags_cached.assert_awaited_once_with("leetcode")
+
+
+@pytest.mark.asyncio
+async def test_tags_autocomplete_no_namespace_defaults_to_leetcode():
+    bot = _make_bot()
+    bot.api.get_tags_cached = AsyncMock(return_value=["Array"])
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+    interaction.namespace = None
+
+    await cog.random_tags_autocomplete(interaction, "a")
+
+    bot.api.get_tags_cached.assert_awaited_once_with("leetcode")
+
+
+@pytest.mark.asyncio
+async def test_tags_autocomplete_api_failure_returns_empty():
+    bot = _make_bot()
+    bot.api.get_tags_cached = AsyncMock(side_effect=ApiNetworkError("timeout"))
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+    interaction.namespace = MagicMock()
+    interaction.namespace.source = "leetcode"
+
+    result = await cog.random_tags_autocomplete(interaction, "a")
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_tags_autocomplete_no_matches_returns_empty():
+    bot = _make_bot()
+    bot.api.get_tags_cached = AsyncMock(return_value=["Array", "DP"])
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+    interaction.namespace = MagicMock()
+    interaction.namespace.source = "leetcode"
+
+    result = await cog.random_tags_autocomplete(interaction, "xyz")
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_tags_autocomplete_respects_source_change():
+    bot = _make_bot()
+    bot.api.get_tags_cached = AsyncMock(return_value=["Brute Force", "Greedy"])
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+    interaction.namespace = MagicMock()
+    interaction.namespace.source = "codeforces"
+
+    await cog.random_tags_autocomplete(interaction, "g")
+
+    bot.api.get_tags_cached.assert_awaited_once_with("codeforces")
+
+
+@pytest.mark.asyncio
+async def test_tags_autocomplete_limits_to_25():
+    bot = _make_bot()
+    tags = [f"Tag{i}" for i in range(50)]
+    bot.api.get_tags_cached = AsyncMock(return_value=tags)
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+    interaction.namespace = MagicMock()
+    interaction.namespace.source = "leetcode"
+
+    result = await cog.random_tags_autocomplete(interaction, "Tag")
+
+    assert len(result) == 25

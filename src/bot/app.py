@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import importlib
 import pkgutil
 import re
@@ -115,6 +116,15 @@ def _register_runtime_handlers(bot: commands.Bot) -> None:
             bot.logger.warning("ScheduleManagerCog not found. Daily challenges will not be scheduled automatically.")
 
         bot.logger.info("Bot is ready and operational!")
+
+        async def _preload_tags():
+            for src in ["leetcode", "codeforces"]:
+                try:
+                    await bot.api.get_tags_cached(src)
+                except Exception as e:
+                    bot.logger.warning("Failed to preload tags for %s: %s", src, e)
+
+        asyncio.create_task(_preload_tags())
 
     @bot.event
     async def on_message(message):
