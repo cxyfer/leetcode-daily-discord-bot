@@ -73,11 +73,11 @@ def _problem_list_response(total: int, problems: list[dict] | None = None, page:
 async def test_search_similar_by_text_uses_post_json_body():
     api = OjApiClient("http://test")
     api._session = AsyncMock()
-    api._do_request = AsyncMock(return_value={"results": []})
+    api._request = AsyncMock(return_value={"results": []})
 
     await api.search_similar_by_text("graph dp", source="leetcode", top_k=7, min_similarity=0.82)
 
-    api._do_request.assert_awaited_once_with(
+    api._request.assert_awaited_once_with(
         "POST",
         "similar",
         json={"query": "graph dp", "limit": 7, "threshold": 0.82, "source": "leetcode"},

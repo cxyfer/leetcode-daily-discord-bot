@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import random
 from urllib.parse import quote
@@ -104,10 +105,13 @@ class OjApiClient:
 
     async def _request(self, method: str, path: str, **kwargs) -> dict | None:
         params = kwargs.get("params")
+        json_body = kwargs.get("json")
         key = f"{method}:{path}"
         if params:
             sorted_params = "&".join(f"{k}={v}" for k, v in sorted(params.items()) if v is not None)
             key = f"{key}?{sorted_params}"
+        if json_body is not None:
+            key = f"{key}|{json.dumps(json_body, sort_keys=True)}"
 
         if key in self._inflight:
             return await self._inflight[key]
@@ -150,7 +154,7 @@ class OjApiClient:
         payload: dict[str, str | int | float] = {"query": query, "limit": top_k, "threshold": min_similarity}
         if source:
             payload["source"] = source
-        return await self._do_request("POST", "similar", json=payload)
+        return await self._request("POST", "similar", json=payload)
 
     @staticmethod
     def _list_total(response: dict) -> int:
