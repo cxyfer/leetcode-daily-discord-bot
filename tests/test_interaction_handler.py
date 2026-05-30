@@ -6,6 +6,7 @@ import discord
 import pytest
 from discord.ext import commands
 
+from bot.api_client import ApiEmbeddingError, ApiEmbeddingTimeoutError, ApiError, ApiNetworkError
 from bot.cogs import interaction_handler_cog as interaction_handler_module
 from bot.cogs.interaction_handler_cog import InteractionHandlerCog
 from bot.utils.ui_helpers import create_similar_results_message
@@ -259,7 +260,7 @@ class TestInteractionHandler:
         self, cog, mock_bot, mock_interaction, monkeypatch
     ):
         """題目卡片的 similar flow 應保留 config-driven fetch，並重用 shared builder"""
-        mock_bot.config.get_similar_config.return_value = MagicMock(top_k=25, min_similarity=0.82)
+        mock_bot.config.get_similar_config.return_value = MagicMock(top_k=25, min_similarity=0.82, timeout=300)
         mock_bot.api.search_similar_by_id.return_value = {
             "results": [
                 {
@@ -289,7 +290,7 @@ class TestInteractionHandler:
 
         await cog._action_similar(mock_interaction, "leetcode", "42")
 
-        mock_bot.api.search_similar_by_id.assert_awaited_once_with("leetcode", "42", 25, 0.82)
+        mock_bot.api.search_similar_by_id.assert_awaited_once_with("leetcode", "42", 25, 0.82, 300)
         assert helper_calls == [(mock_bot.api.search_similar_by_id.return_value, "leetcode", "42")]
         mock_interaction.followup.send.assert_awaited_once_with(
             embed=sentinel_embed, view=sentinel_view, ephemeral=True
@@ -323,13 +324,33 @@ class TestInteractionHandler:
         ],
     )
     async def test_action_similar_unsafe_results_degrade_to_embed_only(self, cog, mock_bot, mock_interaction, results):
-        mock_bot.config.get_similar_config.return_value = MagicMock(top_k=25, min_similarity=0.82)
+        mock_bot.config.get_similar_config.return_value = MagicMock(top_k=25, min_similarity=0.82, timeout=300)
         mock_bot.api.search_similar_by_id.return_value = {"results": results}
 
         await cog._action_similar(mock_interaction, "leetcode", "42")
 
         _, kwargs = mock_interaction.followup.send.call_args
         assert kwargs["view"] is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("error", "expected_message"),
+        [
+            (ApiEmbeddingError("bad gateway"), "errors_similar_embedding_unavailable"),
+            (ApiEmbeddingTimeoutError("gateway timeout"), "errors_similar_embedding_timeout"),
+            (ApiNetworkError("timeout"), "errors_similar_timeout"),
+            (ApiError(404, "not found"), "errors_similar_no_embedding"),
+        ],
+    )
+    async def test_action_similar_sends_specific_error_messages(
+        self, cog, mock_bot, mock_interaction, error, expected_message
+    ):
+        mock_bot.config.get_similar_config.return_value = MagicMock(top_k=25, min_similarity=0.82, timeout=300)
+        mock_bot.api.search_similar_by_id.side_effect = error
+
+        await cog._action_similar(mock_interaction, "leetcode", "42")
+
+        mock_interaction.followup.send.assert_awaited_once_with(expected_message, ephemeral=True)
 
     @pytest.mark.asyncio
     async def test_similar_result_detail_button_routes_to_existing_full_problem_card_flow(

@@ -5,6 +5,13 @@ import discord
 import pytest
 from discord.ext import commands
 
+from bot.api_client import (
+    ApiEmbeddingError,
+    ApiEmbeddingTimeoutError,
+    ApiError,
+    ApiNetworkError,
+    ApiProcessingError,
+)
 from bot.cogs import similar_cog as similar_cog_module
 from bot.cogs.similar_cog import SimilarCog
 from bot.utils.config import SimilarConfig
@@ -76,7 +83,7 @@ async def test_similar_command_clamps_top_k_and_uses_shared_message_builder(monk
         public=False,
     )
 
-    bot.api.search_similar_by_text.assert_awaited_once_with("graph dp", None, 20, 0.7)
+    bot.api.search_similar_by_text.assert_awaited_once_with("graph dp", None, 20, 0.7, 300)
     assert helper_calls == [(bot.api.search_similar_by_text.return_value, None, None)]
     interaction.followup.send.assert_awaited_once_with(embed=sentinel_embed, view=sentinel_view, ephemeral=True)
 
@@ -127,7 +134,7 @@ async def test_similar_command_problem_input_resolves_problem_and_passes_base_pr
     )
 
     bot.api.resolve.assert_awaited_once_with("abc100_a")
-    bot.api.search_similar_by_id.assert_awaited_once_with("atcoder", "abc100_a", 5, 0.7)
+    bot.api.search_similar_by_id.assert_awaited_once_with("atcoder", "abc100_a", 5, 0.7, 300)
     assert helper_calls == [(bot.api.search_similar_by_id.return_value, "atcoder", "abc100_a")]
     interaction.followup.send.assert_awaited_once_with(embed=sentinel_embed, view=sentinel_view, ephemeral=True)
 
@@ -227,3 +234,34 @@ async def test_similar_command_unsafe_results_degrade_to_embed_only(results, lab
 
     _, kwargs = interaction.followup.send.call_args
     assert kwargs["view"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("error", "expected_message"),
+    [
+        (ApiProcessingError(), "errors.api.processing"),
+        (ApiEmbeddingError("bad gateway"), "errors.similar.embedding_unavailable"),
+        (ApiEmbeddingTimeoutError("gateway timeout"), "errors.similar.embedding_timeout"),
+        (ApiNetworkError("timeout"), "errors.similar.timeout"),
+        (ApiError(400, "bad request"), "errors.similar.invalid_query"),
+        (ApiError(404, "not found"), "errors.similar.no_embedding"),
+    ],
+)
+async def test_similar_command_sends_specific_error_messages(error, expected_message):
+    bot = _make_bot()
+    bot.api.search_similar_by_text.side_effect = error
+    interaction = _make_interaction()
+    cog = SimilarCog(bot)
+
+    await cog.similar_command.callback(
+        cog,
+        interaction,
+        query="graph dp",
+        problem=None,
+        top_k=5,
+        source=None,
+        public=False,
+    )
+
+    interaction.followup.send.assert_awaited_once_with(expected_message, ephemeral=True)

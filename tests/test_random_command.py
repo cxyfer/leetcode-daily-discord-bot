@@ -1,10 +1,19 @@
+import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest
 from discord.ext import commands
 
-from bot.api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError, OjApiClient
+from bot.api_client import (
+    ApiEmbeddingError,
+    ApiEmbeddingTimeoutError,
+    ApiError,
+    ApiNetworkError,
+    ApiProcessingError,
+    ApiRateLimitError,
+    OjApiClient,
+)
 from bot.cogs.slash_commands_cog import SlashCommandsCog
 
 # -- helpers --
@@ -74,13 +83,13 @@ async def test_search_similar_by_text_uses_post_json_body():
     api._session = AsyncMock()
     api._request = AsyncMock(return_value={"results": []})
 
-    await api.search_similar_by_text("graph dp", source="leetcode", top_k=7, min_similarity=0.82)
+    await api.search_similar_by_text("graph dp", source="leetcode", top_k=7, min_similarity=0.82, timeout=123)
 
-    api._request.assert_awaited_once_with(
-        "POST",
-        "similar",
-        json={"query": "graph dp", "limit": 7, "threshold": 0.82, "source": "leetcode"},
-    )
+    api._request.assert_awaited_once()
+    args, kwargs = api._request.await_args
+    assert args == ("POST", "similar")
+    assert kwargs["json"] == {"query": "graph dp", "limit": 7, "threshold": 0.82, "source": "leetcode"}
+    assert kwargs["timeout"].total == 123
 
 
 @pytest.mark.asyncio
@@ -89,13 +98,141 @@ async def test_search_similar_by_id_keeps_existing_get_endpoint():
     api._session = AsyncMock()
     api._request = AsyncMock(return_value={"results": []})
 
-    await api.search_similar_by_id("atcoder", "abc100_a", top_k=3, min_similarity=0.91)
+    await api.search_similar_by_id("atcoder", "abc100_a", top_k=3, min_similarity=0.91, timeout=456)
 
-    api._request.assert_awaited_once_with(
+    api._request.assert_awaited_once()
+    args, kwargs = api._request.await_args
+    assert args == ("GET", "similar/atcoder/abc100_a")
+    assert kwargs["params"] == {"limit": "3", "threshold": "0.91"}
+    assert kwargs["timeout"].total == 456
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("status", "expected_error"),
+    [
+        (502, ApiEmbeddingError),
+        (504, ApiEmbeddingTimeoutError),
+    ],
+)
+async def test_do_request_raises_embedding_specific_errors(status, expected_error):
+    api = OjApiClient("http://test")
+    response = AsyncMock()
+    response.status = status
+    response.json.return_value = {"detail": "embedding failed"}
+    request_context = AsyncMock()
+    request_context.__aenter__.return_value = response
+    session = MagicMock()
+    session.request.return_value = request_context
+    api._session = session
+
+    with pytest.raises(expected_error) as exc_info:
+        await api._do_request("GET", "similar/leetcode/1")
+
+    assert str(exc_info.value) == "embedding failed"
+
+
+@pytest.mark.asyncio
+async def test_do_request_raises_api_error_for_similar_404():
+    api = OjApiClient("http://test")
+    response = AsyncMock()
+    response.status = 404
+    response.json.return_value = {"detail": "not indexed"}
+    request_context = AsyncMock()
+    request_context.__aenter__.return_value = response
+    session = MagicMock()
+    session.request.return_value = request_context
+    api._session = session
+
+    with pytest.raises(ApiError) as exc_info:
+        await api._do_request("GET", "similar/leetcode/1")
+
+    assert exc_info.value.status == 404
+    assert exc_info.value.detail == "not indexed"
+
+
+@pytest.mark.asyncio
+async def test_do_request_keeps_non_similar_404_as_none():
+    api = OjApiClient("http://test")
+    response = AsyncMock()
+    response.status = 404
+    request_context = AsyncMock()
+    request_context.__aenter__.return_value = response
+    session = MagicMock()
+    session.request.return_value = request_context
+    api._session = session
+
+    assert await api._do_request("GET", "problems/leetcode/1") is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [502, 504])
+async def test_do_request_keeps_non_similar_gateway_errors_generic(status):
+    api = OjApiClient("http://test")
+    response = AsyncMock()
+    response.status = status
+    response.json.return_value = {"detail": "gateway error"}
+    request_context = AsyncMock()
+    request_context.__aenter__.return_value = response
+    session = MagicMock()
+    session.request.return_value = request_context
+    api._session = session
+
+    with pytest.raises(ApiError) as exc_info:
+        await api._do_request("GET", "daily")
+
+    assert exc_info.value.status == status
+    assert exc_info.value.detail == "gateway error"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("status", "expected_error"),
+    [
+        (502, ApiEmbeddingError),
+        (504, ApiEmbeddingTimeoutError),
+    ],
+)
+async def test_do_request_retry_uses_embedding_specific_errors(status, expected_error, monkeypatch):
+    api = OjApiClient("http://test")
+    monkeypatch.setattr("bot.api_client.asyncio.sleep", AsyncMock())
+
+    first_response = AsyncMock()
+    first_response.status = 429
+    first_response.headers = {"Retry-After": "0"}
+    retry_response = AsyncMock()
+    retry_response.status = status
+    retry_response.json.return_value = {"detail": "embedding failed after retry"}
+
+    first_context = AsyncMock()
+    first_context.__aenter__.return_value = first_response
+    retry_context = AsyncMock()
+    retry_context.__aenter__.return_value = retry_response
+    session = MagicMock()
+    session.request.side_effect = [first_context, retry_context]
+    api._session = session
+
+    with pytest.raises(expected_error) as exc_info:
+        await api._do_request("GET", "similar/leetcode/1")
+
+    assert str(exc_info.value) == "embedding failed after retry"
+
+
+@pytest.mark.asyncio
+async def test_request_inflight_key_includes_timeout():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._inflight["GET:similar/leetcode/1?limit=5&threshold=0.7|timeout=300"] = asyncio.get_event_loop().create_future()
+    api._do_request = AsyncMock(return_value={"results": []})
+
+    await api._request(
         "GET",
-        "similar/atcoder/abc100_a",
-        params={"limit": "3", "threshold": "0.91"},
+        "similar/leetcode/1",
+        params={"limit": "5", "threshold": "0.7"},
+        timeout=MagicMock(total=600),
     )
+
+    api._do_request.assert_awaited_once()
 
 
 # -- get_random_problem tests --
