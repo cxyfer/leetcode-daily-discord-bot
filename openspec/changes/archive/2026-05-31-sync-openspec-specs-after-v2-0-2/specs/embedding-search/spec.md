@@ -1,8 +1,5 @@
-# embedding-search Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change init-project-specs. Update Purpose after archive.
-## Requirements
 ### Requirement: Similarity search uses the remote API backend
 The `/similar` command SHALL use the remote API exposed through the application API client as its only similarity-search backend. Similar API calls SHALL use the configured similar timeout and SHALL distinguish embedding-specific error types for user-facing error handling.
 
@@ -22,13 +19,6 @@ The `/similar` command SHALL use the remote API exposed through the application 
 - **WHEN** a problem-card similar button triggers a similarity search
 - **THEN** the system SHALL call the API client with the same configured timeout and differentiated embedding error handling as the slash command
 
-### Requirement: No local similarity maintenance workflow
-The repository SHALL NOT document or require local embedding build, rebuild, query, or vector-storage workflows for `/similar`.
-
-#### Scenario: Documentation guidance
-- **WHEN** runtime or developer documentation describes `/similar`
-- **THEN** it SHALL describe the feature as remote-only and SHALL NOT instruct operators to run `embedding_cli.py`, manage local embedding indices, or install `sqlite-vec` for normal bot operation
-
 ### Requirement: Similar search uses per-request timeout override
 The similar search API methods SHALL use a per-request timeout sourced from `SimilarConfig.timeout`, overriding the general API session timeout for similarity operations only.
 
@@ -44,21 +34,6 @@ The similar search API methods SHALL use a per-request timeout sourced from `Sim
 - **WHEN** any API method other than similar search is called
 - **THEN** the session-level default timeout SHALL remain in effect
 
-### Requirement: Similar search differentiates embedding service errors
-The API client SHALL raise specific exception types for embedding-related HTTP errors so callers can distinguish them from generic API errors.
-
-#### Scenario: Embedding service unavailable raises ApiEmbeddingError
-- **WHEN** the similar API returns HTTP 502
-- **THEN** the API client SHALL raise `ApiEmbeddingError` (a distinct exception class in `bot.api_client`) with the response detail as the message
-
-#### Scenario: Embedding service timeout raises ApiEmbeddingTimeoutError
-- **WHEN** the similar API returns HTTP 504
-- **THEN** the API client SHALL raise `ApiEmbeddingTimeoutError` (a distinct exception class in `bot.api_client`) with the response detail as the message
-
-#### Scenario: Generic HTTP errors still raise ApiError
-- **WHEN** the similar API returns any other error status (e.g., 400)
-- **THEN** the API client SHALL raise `ApiError` with the status code and detail, preserving existing behavior for error codes without dedicated exception types
-
 ### Requirement: Similar search inflight deduplication
 The API client SHALL deduplicate concurrent identical similar-search requests using an inflight request key that includes the request identity and timeout contract.
 
@@ -73,6 +48,3 @@ The API client SHALL deduplicate concurrent identical similar-search requests us
 #### Scenario: Inflight entry cleanup
 - **WHEN** a similar-search inflight task completes or fails
 - **THEN** the API client SHALL remove the corresponding inflight entry
-
-
-## PBT Properties

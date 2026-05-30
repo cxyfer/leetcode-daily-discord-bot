@@ -4,15 +4,15 @@
 TBD - created by archiving change init-project-specs. Update Purpose after archive.
 ## Requirements
 ### Requirement: Daily challenge command
-The `/daily` command SHALL fetch and display the current daily challenge from LeetCode.
+The `/daily` command SHALL fetch and display the current daily challenge from LeetCode with user-facing text localized to the resolved locale.
 
 #### Scenario: Fetch today's challenge
 - **WHEN** a user runs `/daily`
-- **THEN** the bot SHALL display the daily challenge embed with problem info, difficulty, tags, and interactive buttons
+- **THEN** the bot SHALL display the daily challenge embed with localized UI text, problem info, difficulty, tags, and interactive buttons
 
 #### Scenario: Fetch challenge by date
-- **WHEN** a user runs `/daily` with a date parameter (YYYY-MM-DD format)
-- **THEN** the bot SHALL display the daily challenge for that specific date
+- **WHEN** a user runs `/daily` with a date parameter in YYYY-MM-DD format
+- **THEN** the bot SHALL display the daily challenge for that date with localized UI text
 
 #### Scenario: CN domain support
 - **WHEN** a user runs `/daily_cn`
@@ -23,35 +23,15 @@ The `/daily` command SHALL fetch and display the current daily challenge from Le
 - **THEN** the response SHALL be visible to all users in the channel instead of ephemeral
 
 ### Requirement: Problem lookup command
-The `/problem` command SHALL fetch and display specific problems by ID, URL, or slug.
+The `/problem` command SHALL fetch and display specific problems by ID, URL, or slug with user-facing text localized to the resolved locale.
 
 #### Scenario: Lookup by problem number
 - **WHEN** a user runs `/problem` with a numeric ID
-- **THEN** the bot SHALL display the problem embed with details and interactive buttons
-
-#### Scenario: Lookup by URL
-- **WHEN** a user runs `/problem` with a LeetCode URL
-- **THEN** the bot SHALL parse the URL, detect the source, and display the problem
+- **THEN** the bot SHALL display the problem embed with localized details and interactive buttons
 
 #### Scenario: Multi-source support
 - **WHEN** a user provides a problem from AtCoder, Codeforces, Luogu, UVA, or SPOJ
-- **THEN** the bot SHALL detect the source and display the problem accordingly
-
-#### Scenario: Multi-problem query
-- **WHEN** a user provides multiple problem IDs (comma or space separated, up to 20)
-- **THEN** the bot SHALL display an overview embed with detail buttons for each problem
-
-#### Scenario: Source-aware multi-problem overview
-- **WHEN** all problems in a multi-problem `/problem` query come from the same supported source
-- **THEN** the overview embed SHALL display that source label and the detail buttons SHALL use source-aware difficulty emoji mappings when available
-
-#### Scenario: Custom title and message
-- **WHEN** a user provides `title` and/or `message` parameters
-- **THEN** the bot SHALL use the custom title for the overview embed and include the message as additional context
-
-#### Scenario: Explicit source parameter
-- **WHEN** a user provides the `source` parameter
-- **THEN** the bot SHALL use the specified source instead of auto-detecting
+- **THEN** the bot SHALL detect the source and display the problem with localized UI text
 
 ### Requirement: Recent submissions command
 The `/recent` command SHALL display a user's recent accepted submissions on LeetCode.
@@ -65,63 +45,23 @@ The `/recent` command SHALL display a user's recent accepted submissions on Leet
 - **THEN** the user SHALL be able to navigate through submissions using previous/next buttons
 
 ### Requirement: Unified config command
-The `/config` command SHALL allow server admins to view, update, and reset all server configuration. It dispatches three modes based on parameters: **show** (no params), **reset** (`reset:True` alone), and **update** (any setting params).
+The `/config` command SHALL allow server admins to view, update, and reset all server configuration, including guild language.
 
-#### Scenario: Show mode — server has settings
-- **WHEN** an admin runs `/config` without any parameters and the server has existing settings
-- **THEN** the bot SHALL display the current settings using `create_settings_embed()` as an ephemeral message
+#### Scenario: Set guild language
+- **WHEN** an admin runs `/config language:en-US`
+- **THEN** the bot SHALL update `server_settings.language` to `en-US` and confirm with a localized message
 
-#### Scenario: Show mode — server has no settings
-- **WHEN** an admin runs `/config` without any parameters and the server has no settings
-- **THEN** the bot SHALL respond with ephemeral text: "尚未設定 LeetCode 每日挑戰頻道。使用 `/config channel:<頻道>` 開始設定。"
+#### Scenario: Language choice list
+- **WHEN** a user types `/config language:`
+- **THEN** Discord SHALL display a choice list with `zh-TW`, `en-US`, and `zh-CN`
 
-#### Scenario: Update success response
-- **WHEN** any `/config` update succeeds
-- **THEN** the bot SHALL respond with `content="✅ 設定已更新"` and an embed from `create_settings_embed()` reflecting the persisted state, as an ephemeral message
-
-#### Scenario: Reset mode — server has settings
-- **WHEN** an admin runs `/config reset:True` without other params and the server has existing settings
-- **THEN** the bot SHALL send an ephemeral message containing a settings summary embed and two buttons labeled "確認重置" (danger style) and "取消" (secondary style)
-
-#### Scenario: Reset mode — server has no settings
-- **WHEN** an admin runs `/config reset:True` and the server has no settings
-- **THEN** the bot SHALL respond with ephemeral text: "此伺服器尚未設定，無需重置。"
-
-#### Scenario: Reset mutual exclusion
-- **WHEN** an admin runs `/config reset:True` together with any of `channel`, `role`, `time`, `timezone`, or `clear_role`
-- **THEN** the bot SHALL reject with ephemeral text: "`reset` 不可與其他設定參數同時使用。"
-
-#### Scenario: Mode dispatch order
-- **WHEN** `/config` is invoked
-- **THEN** the bot SHALL evaluate in order: reset conflict check → show mode check → input validation → update logic
-
-#### Scenario: First-time setup with all parameters
-- **WHEN** an admin with `manage_guild` permission runs `/config channel:#general time:08:00 timezone:UTC+8`
-- **THEN** the bot SHALL save all settings and trigger schedule creation, responding with `content="✅ 設定已更新"` and a settings embed
-
-#### Scenario: Partial update
-- **WHEN** an admin runs `/config time:09:00` on a server with existing settings
-- **THEN** the bot SHALL update only `post_time` to `09:00`, preserving all other settings, and trigger reschedule
-
-#### Scenario: First-time setup without channel
-- **WHEN** an admin runs `/config time:08:00` on a server with no existing settings
-- **THEN** the bot SHALL respond with an ephemeral error stating channel is required for first-time setup, with usage example
-
-#### Scenario: Atomic validation failure
-- **WHEN** an admin runs `/config time:08:00 timezone:InvalidZone`
-- **THEN** the bot SHALL reject the entire request without updating any field, returning the timezone validation error
+#### Scenario: View current language setting
+- **WHEN** an admin runs `/config` without update parameters
+- **THEN** the settings embed SHALL display the current language setting with localized field names
 
 #### Scenario: Permission check
 - **WHEN** a user without `manage_guild` permission runs `/config`
-- **THEN** the bot SHALL respond with ephemeral text: "您需要「管理伺服器」權限才能使用此指令。"
-
-#### Scenario: Guild-only enforcement
-- **WHEN** a user runs `/config` in a DM
-- **THEN** the bot SHALL respond indicating this command cannot be used in DMs
-
-#### Scenario: Reset parameter describe text
-- **WHEN** the `reset` parameter is displayed in Discord's command UI
-- **THEN** the describe text SHALL be "重置所有設定並停止排程（需確認）"
+- **THEN** the bot SHALL respond with a localized permission error
 
 ### Requirement: Role clearing via config command
 The `/config` command SHALL support clearing the notification role via a `clear_role` boolean parameter.
@@ -169,31 +109,27 @@ The `/config` command SHALL provide autocomplete suggestions for the `timezone` 
 - **THEN** the bot SHALL filter suggestions to show matching IANA zones (e.g., Asia/Taipei, Asia/Tokyo, Asia/Shanghai)
 
 ### Requirement: Random problem command
-The `/random` command SHALL fetch and display a random LeetCode problem with optional filtering.
+The `/random` command SHALL fetch and display a random problem from the selected source with optional filtering.
 
 #### Scenario: Fetch random problem without filters
-- **WHEN** a user runs `/random` without any filter parameters
-- **THEN** the bot SHALL display a random problem from the entire LeetCode problem set with problem info, difficulty, tags, and interactive buttons
+- **WHEN** a user runs `/random` without filter parameters
+- **THEN** the bot SHALL display a random problem using the default source behavior with localized UI text
 
-#### Scenario: Fetch random problem with difficulty filter
-- **WHEN** a user runs `/random difficulty:Medium`
-- **THEN** the bot SHALL display a random problem that has difficulty "Medium"
+#### Scenario: Fetch random problem with source filter
+- **WHEN** a user runs `/random source:atcoder`
+- **THEN** the bot SHALL request a random problem from the AtCoder source and display it with source-aware UI formatting
 
-#### Scenario: Fetch random problem with tags filter
-- **WHEN** a user runs `/random tags:Array`
-- **THEN** the bot SHALL display a random problem that includes the "Array" tag
+#### Scenario: Fetch random problem with all sources
+- **WHEN** a user runs `/random source:all`
+- **THEN** the bot SHALL request a random problem without restricting the source to a single judge
 
-#### Scenario: Fetch random problem with rating range
-- **WHEN** a user runs `/random rating_min:1500 rating_max:2000`
-- **THEN** the bot SHALL display a random problem with rating between 1500 and 2000 (inclusive)
-
-#### Scenario: Public toggle
-- **WHEN** a user runs `/random` with the `public` parameter set to True
-- **THEN** the response SHALL be visible to all users in the channel instead of ephemeral
+#### Scenario: Fetch random problem with tags and source
+- **WHEN** a user runs `/random source:codeforces tags:dp`
+- **THEN** the bot SHALL pass both source and tag filters to the random problem API
 
 #### Scenario: No matching problems
 - **WHEN** a user runs `/random` with filter conditions that match no problems
-- **THEN** the bot SHALL display an ephemeral error message showing the applied filter summary (e.g., "沒有找到符合 difficulty:Hard, tags:Array, rating:1500-2000 的題目")
+- **THEN** the bot SHALL display a localized ephemeral error message showing the applied filter summary
 
 ### Requirement: Rating parameter validation
 The `/random` command SHALL validate and normalize rating parameters.
@@ -264,3 +200,36 @@ The `/random` command's `tags` parameter SHALL support dynamic autocomplete that
 - **WHEN** the user's typed input does not match any tag for the selected source
 - **THEN** the bot SHALL return an empty autocomplete list (no choices displayed)
 
+### Requirement: Localized command descriptions
+All slash command descriptions and parameter descriptions SHALL be localized via the command localization translator.
+
+#### Scenario: Command description in user locale
+- **WHEN** a user views the command picker in en-US locale
+- **THEN** supported command and parameter descriptions SHALL display in English
+
+#### Scenario: Command description in zh-TW locale
+- **WHEN** a user views the command picker in zh-TW locale
+- **THEN** supported command and parameter descriptions SHALL display in Traditional Chinese
+
+### Requirement: Localized validation and API errors
+Slash commands SHALL resolve validation and API error messages through the active locale.
+
+#### Scenario: Invalid date format
+- **WHEN** a user provides an invalid date format to `/daily`
+- **THEN** the bot SHALL respond with a localized error message
+
+#### Scenario: DM restriction
+- **WHEN** a user runs `/config` in a DM
+- **THEN** the bot SHALL respond with a localized DM restriction error
+
+#### Scenario: API processing error
+- **WHEN** an `ApiProcessingError` occurs in a slash command
+- **THEN** the bot SHALL respond with the localized API processing error message
+
+#### Scenario: API network error
+- **WHEN** an `ApiNetworkError` occurs in a slash command
+- **THEN** the bot SHALL respond with the localized API network error message
+
+#### Scenario: API rate limit error
+- **WHEN** an `ApiRateLimitError` occurs in a slash command
+- **THEN** the bot SHALL respond with the localized API rate limit error message
