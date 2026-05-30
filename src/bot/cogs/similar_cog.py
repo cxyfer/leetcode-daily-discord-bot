@@ -83,8 +83,11 @@ class SimilarCog(commands.Cog):
             await interaction.followup.send(
                 i18n.t("errors.similar.embedding_timeout", locale), ephemeral=not public
             )
-        except ApiNetworkError:
-            await interaction.followup.send(i18n.t("errors.similar.timeout", locale), ephemeral=not public)
+        except ApiNetworkError as e:
+            if e.is_timeout:
+                await interaction.followup.send(i18n.t("errors.similar.timeout", locale), ephemeral=not public)
+            else:
+                await send_api_error(interaction, "network", self.bot, ephemeral=not public)
         except ApiRateLimitError:
             await send_api_error(interaction, "rate_limit", self.bot, ephemeral=not public)
         except ApiError as e:

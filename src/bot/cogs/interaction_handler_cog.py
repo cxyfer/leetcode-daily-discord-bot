@@ -382,8 +382,11 @@ class InteractionHandlerCog(commands.Cog):
             await interaction.followup.send(
                 i18n.t("errors.similar.embedding_timeout", locale), ephemeral=True
             )
-        except ApiNetworkError:
-            await interaction.followup.send(i18n.t("errors.similar.timeout", locale), ephemeral=True)
+        except ApiNetworkError as e:
+            if e.is_timeout:
+                await interaction.followup.send(i18n.t("errors.similar.timeout", locale), ephemeral=True)
+            else:
+                await send_api_error(interaction, "network", self.bot)
         except ApiError as e:
             if e.status == 404:
                 await interaction.followup.send(i18n.t("errors.similar.no_embedding", locale), ephemeral=True)

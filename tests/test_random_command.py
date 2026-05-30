@@ -1,6 +1,7 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
+import aiohttp
 import discord
 import pytest
 from discord.ext import commands
@@ -216,6 +217,62 @@ async def test_do_request_retry_uses_embedding_specific_errors(status, expected_
         await api._do_request("GET", "similar/leetcode/1")
 
     assert str(exc_info.value) == "embedding failed after retry"
+
+
+@pytest.mark.asyncio
+async def test_do_request_wraps_timeout_as_timeout_network_error():
+    api = OjApiClient("http://test")
+    session = MagicMock()
+    session.request.side_effect = asyncio.TimeoutError("request timed out")
+    api._session = session
+
+    with pytest.raises(ApiNetworkError) as exc_info:
+        await api._do_request("GET", "daily")
+
+    assert exc_info.value.is_timeout is True
+
+
+@pytest.mark.asyncio
+async def test_do_request_wraps_client_error_as_non_timeout_network_error():
+    api = OjApiClient("http://test")
+    session = MagicMock()
+    session.request.side_effect = aiohttp.ClientConnectionError("connection reset")
+    api._session = session
+
+    with pytest.raises(ApiNetworkError) as exc_info:
+        await api._do_request("GET", "daily")
+
+    assert exc_info.value.is_timeout is False
+
+
+@pytest.mark.asyncio
+async def test_request_omits_none_timeout_for_session_default():
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._do_request = AsyncMock(return_value={"ok": True})
+
+    await api._request("GET", "daily", timeout=None)
+
+    api._do_request.assert_awaited_once_with("GET", "daily")
+
+
+@pytest.mark.asyncio
+async def test_do_request_raises_api_error_for_similar_text_404():
+    api = OjApiClient("http://test")
+    response = AsyncMock()
+    response.status = 404
+    response.json.return_value = {"detail": "not indexed"}
+    request_context = AsyncMock()
+    request_context.__aenter__.return_value = response
+    session = MagicMock()
+    session.request.return_value = request_context
+    api._session = session
+
+    with pytest.raises(ApiError) as exc_info:
+        await api._do_request("POST", "similar")
+
+    assert exc_info.value.status == 404
+    assert exc_info.value.detail == "not indexed"
 
 
 @pytest.mark.asyncio

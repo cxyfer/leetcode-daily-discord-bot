@@ -338,7 +338,8 @@ class TestInteractionHandler:
         [
             (ApiEmbeddingError("bad gateway"), "errors_similar_embedding_unavailable"),
             (ApiEmbeddingTimeoutError("gateway timeout"), "errors_similar_embedding_timeout"),
-            (ApiNetworkError("timeout"), "errors_similar_timeout"),
+            (ApiNetworkError("timeout", is_timeout=True), "errors_similar_timeout"),
+            (ApiNetworkError("connection reset"), "errors_api_network"),
             (ApiError(404, "not found"), "errors_similar_no_embedding"),
         ],
     )

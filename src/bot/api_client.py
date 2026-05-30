@@ -22,8 +22,9 @@ class ApiProcessingError(Exception):
 
 
 class ApiNetworkError(Exception):
-    def __init__(self, detail: str):
+    def __init__(self, detail: str, *, is_timeout: bool = False):
         self.detail = detail
+        self.is_timeout = is_timeout
         super().__init__(detail)
 
 
@@ -94,12 +95,15 @@ class OjApiClient:
                             return await retry_resp.json()
                         return await self._handle_error_response(retry_resp, path)
                 return await self._handle_error_response(resp, path)
-        except (asyncio.TimeoutError, aiohttp.ClientError) as e:
+        except asyncio.TimeoutError as e:
+            raise ApiNetworkError(str(e), is_timeout=True) from e
+        except aiohttp.ClientError as e:
             raise ApiNetworkError(str(e)) from e
 
     async def _handle_error_response(self, resp: aiohttp.ClientResponse, path: str) -> None:
         status = resp.status
-        if status == 404 and not path.startswith("similar/"):
+        is_similar_path = path == "similar" or path.startswith("similar/")
+        if status == 404 and not is_similar_path:
             return None
         if status == 202:
             detail = await self._parse_detail(resp)
@@ -107,7 +111,6 @@ class OjApiClient:
         if status == 429:
             retry_after = float(resp.headers.get("Retry-After", 5))
             raise ApiRateLimitError(retry_after)
-        is_similar_path = path == "similar" or path.startswith("similar/")
         if status == 502 and is_similar_path:
             detail = await self._parse_detail(resp)
             raise ApiEmbeddingError(detail)
@@ -143,7 +146,10 @@ class OjApiClient:
         future: asyncio.Future = asyncio.get_event_loop().create_future()
         self._inflight[key] = future
         try:
-            result = await self._do_request(method, path, timeout=timeout, **kwargs)
+            request_kwargs = kwargs.copy()
+            if timeout is not None:
+                request_kwargs["timeout"] = timeout
+            result = await self._do_request(method, path, **request_kwargs)
             future.set_result(result)
             return result
         except BaseException as exc:
@@ -170,10 +176,13 @@ class OjApiClient:
         self, source: str, id: str, top_k: int = 5, min_similarity: float = 0.7, timeout: int | None = None
     ) -> dict | None:
         params = {"limit": str(top_k), "threshold": str(min_similarity)}
-        kwargs = {}
-        if timeout is not None:
-            kwargs["timeout"] = aiohttp.ClientTimeout(total=timeout)
-        return await self._request("GET", f"similar/{quote(source)}/{quote(id)}", params=params, **kwargs)
+        client_timeout = aiohttp.ClientTimeout(total=timeout) if timeout is not None else None
+        return await self._request(
+            "GET",
+            f"similar/{quote(source)}/{quote(id)}",
+            params=params,
+            timeout=client_timeout,
+        )
 
     async def search_similar_by_text(
         self, query: str, source: str | None = None, top_k: int = 5, min_similarity: float = 0.7, timeout: int | None = None
@@ -181,10 +190,8 @@ class OjApiClient:
         payload: dict[str, str | int | float] = {"query": query, "limit": top_k, "threshold": min_similarity}
         if source:
             payload["source"] = source
-        kwargs = {}
-        if timeout is not None:
-            kwargs["timeout"] = aiohttp.ClientTimeout(total=timeout)
-        return await self._request("POST", "similar", json=payload, **kwargs)
+        client_timeout = aiohttp.ClientTimeout(total=timeout) if timeout is not None else None
+        return await self._request("POST", "similar", json=payload, timeout=client_timeout)
 
     @staticmethod
     def _list_total(response: dict) -> int:
