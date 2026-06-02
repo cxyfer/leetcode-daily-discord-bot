@@ -98,7 +98,7 @@ class ScheduleManagerCog(commands.Cog):
                 func=self.send_daily_challenge_job,
                 trigger=trigger,
                 id=job_id,
-                args=[server_id, channel_id, role_id],
+                args=[server_id, channel_id, role_id, timezone_str],
                 replace_existing=True,
                 misfire_grace_time=300,  # 5 minutes grace time
                 name=f"Daily Challenge for Server {server_id}",
@@ -124,7 +124,13 @@ class ScheduleManagerCog(commands.Cog):
         async with self.scheduled_delivery_lock:
             self.scheduled_deliveries_in_progress.discard(delivery_key)
 
-    async def send_daily_challenge_job(self, server_id: int, channel_id: int, role_id: int = None):
+    async def send_daily_challenge_job(
+        self,
+        server_id: int,
+        channel_id: int,
+        role_id: int = None,
+        timezone_str: str = DEFAULT_TIMEZONE,
+    ):
         """Job function called by APScheduler to send daily challenges"""
         self.logger.info(f"APScheduler triggered: Sending daily challenge for server {server_id}")
 
@@ -136,7 +142,8 @@ class ScheduleManagerCog(commands.Cog):
 
         delays = [2, 4, 8]
 
-        daily_date = datetime.now(pytz.UTC).strftime("%Y-%m-%d")
+        scheduled_timezone = parse_timezone(timezone_str)
+        daily_date = datetime.now(scheduled_timezone).strftime("%Y-%m-%d")
         delivery_key = (server_id, channel_id, "com", daily_date)
         if not await self._mark_scheduled_delivery_started(delivery_key):
             self.logger.info(
