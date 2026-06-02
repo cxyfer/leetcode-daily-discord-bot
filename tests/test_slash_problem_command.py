@@ -4,6 +4,7 @@ import discord
 import pytest
 from discord.ext import commands
 
+from bot.cogs import slash_commands_cog as slash_commands_module
 from bot.cogs.slash_commands_cog import SlashCommandsCog
 from bot.utils.ui_constants import (
     LUOGU_DIFFICULTY_COLORS,
@@ -453,3 +454,81 @@ async def test_create_problem_embed_builds_daily_similar_question_link_from_slug
 
     similar_field = next(field for field in embed.fields if field.name == "Similar Questions (1)")
     assert similar_field.value == f"- 🟡 [48. Similar Problem](https://leetcode.com/problems/{slug_value}/)"
+
+
+@pytest.mark.asyncio
+async def test_daily_command_current_delegates_to_shared_sender_with_private_response(monkeypatch):
+    bot = _make_bot()
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+    send_daily = AsyncMock()
+    monkeypatch.setattr(slash_commands_module, "send_daily_challenge", send_daily)
+
+    await cog.daily_command.callback(cog, interaction, date=None, public=False)
+
+    interaction.response.defer.assert_awaited_once_with(ephemeral=True)
+    send_daily.assert_awaited_once_with(bot=bot, interaction=interaction, domain="com", ephemeral=True)
+
+
+@pytest.mark.asyncio
+async def test_daily_cn_command_current_delegates_to_cn_sender(monkeypatch):
+    bot = _make_bot()
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+    send_daily = AsyncMock()
+    monkeypatch.setattr(slash_commands_module, "send_daily_challenge", send_daily)
+
+    await cog.daily_cn_command.callback(cog, interaction, date=None, public=True)
+
+    interaction.response.defer.assert_awaited_once_with(ephemeral=False)
+    send_daily.assert_awaited_once_with(bot=bot, interaction=interaction, domain="cn", ephemeral=False)
+
+
+@pytest.mark.asyncio
+async def test_daily_by_date_uses_shared_payload_and_preserves_public_flag(monkeypatch):
+    bot = _make_bot()
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+    payload = {
+        "challenge_info": {
+            "id": "1",
+            "source": "leetcode",
+            "slug": "two-sum",
+            "title": "Two Sum",
+            "difficulty": "Easy",
+            "ac_rate": 52.34,
+            "rating": 1234,
+            "tags": ["Array"],
+            "link": "https://leetcode.com/problems/two-sum/",
+            "date": "2026-06-03",
+        },
+        "history_problems": [],
+        "resolved_date": "2026-06-03",
+    }
+    get_payload = AsyncMock(return_value=payload)
+    monkeypatch.setattr(slash_commands_module, "get_daily_payload", get_payload)
+
+    await cog.daily_command.callback(cog, interaction, date="2026-06-03", public=True)
+
+    interaction.response.defer.assert_awaited_once_with(ephemeral=False)
+    get_payload.assert_awaited_once_with(bot, "com", "2026-06-03")
+    interaction.followup.send.assert_awaited_once()
+    assert interaction.followup.send.await_args.kwargs["ephemeral"] is False
+    assert interaction.followup.send.await_args.kwargs["embed"].footer.text == "LeetCode Daily Challenge | 2026-06-03"
+
+
+@pytest.mark.asyncio
+async def test_daily_by_date_not_found_keeps_date_specific_error(monkeypatch):
+    bot = _make_bot()
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+    get_payload = AsyncMock(return_value=None)
+    monkeypatch.setattr(slash_commands_module, "get_daily_payload", get_payload)
+
+    await cog.daily_command.callback(cog, interaction, date="2026-06-03", public=False)
+
+    interaction.response.defer.assert_awaited_once_with(ephemeral=True)
+    get_payload.assert_awaited_once_with(bot, "com", "2026-06-03")
+    interaction.followup.send.assert_awaited_once_with(
+        "errors.validation.not_found_for_date", ephemeral=True
+    )

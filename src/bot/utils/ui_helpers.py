@@ -8,6 +8,7 @@ import hashlib
 import json
 import logging
 import re
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -925,6 +926,12 @@ def create_inspiration_embed(
     return embed
 
 
+_DAILY_PAYLOAD_CACHE_TTL_SECONDS = 60
+_DAILY_PAYLOAD_CACHE: dict[tuple[str, str], tuple[float, dict[str, Any]]] = {}
+_DAILY_PAYLOAD_IN_FLIGHT: dict[tuple[str, str], asyncio.Task] = {}
+_DAILY_PAYLOAD_LOCK = asyncio.Lock()
+
+
 async def _fetch_daily_history(bot: Any, domain: str, anchor_date: str) -> List[Dict[str, Any]]:
     """Fetch daily challenge history for the same day in previous years."""
     try:
@@ -947,6 +954,59 @@ async def _fetch_daily_history(bot: Any, domain: str, anchor_date: str) -> List[
     return [r for r in results if r]
 
 
+async def _fetch_daily_payload(
+    bot: Any,
+    domain: str,
+    date_str: str | None,
+    fallback_date: str,
+) -> dict[str, Any] | None:
+    if date_str:
+        challenge_info = await bot.api.get_daily(domain, date_str)
+    else:
+        challenge_info = await bot.api.get_daily(domain)
+    if not challenge_info:
+        return None
+
+    history_anchor = challenge_info.get("date") or date_str or fallback_date
+    history_problems = await _fetch_daily_history(bot, domain, history_anchor)
+    return {
+        "challenge_info": challenge_info,
+        "history_problems": history_problems,
+        "resolved_date": history_anchor,
+    }
+
+
+async def get_daily_payload(bot: Any, domain: str = "com", date_str: str | None = None) -> dict[str, Any] | None:
+    resolved_date = date_str or datetime.now(pytz.UTC).strftime("%Y-%m-%d")
+    cache_key = (domain, resolved_date)
+    now = time.monotonic()
+
+    async with _DAILY_PAYLOAD_LOCK:
+        cached = _DAILY_PAYLOAD_CACHE.get(cache_key)
+        if cached and now - cached[0] < _DAILY_PAYLOAD_CACHE_TTL_SECONDS:
+            return cached[1]
+
+        task = _DAILY_PAYLOAD_IN_FLIGHT.get(cache_key)
+        if task is None:
+            task = asyncio.create_task(_fetch_daily_payload(bot, domain, date_str, resolved_date))
+            _DAILY_PAYLOAD_IN_FLIGHT[cache_key] = task
+
+    try:
+        payload = await task
+    finally:
+        async with _DAILY_PAYLOAD_LOCK:
+            if _DAILY_PAYLOAD_IN_FLIGHT.get(cache_key) is task:
+                _DAILY_PAYLOAD_IN_FLIGHT.pop(cache_key, None)
+
+    if payload:
+        async with _DAILY_PAYLOAD_LOCK:
+            _DAILY_PAYLOAD_CACHE[cache_key] = (time.monotonic(), payload)
+            actual_date = payload.get("resolved_date")
+            if actual_date and actual_date != resolved_date:
+                _DAILY_PAYLOAD_CACHE[(domain, actual_date)] = (time.monotonic(), payload)
+    return payload
+
+
 async def send_daily_challenge(
     bot: Any,
     channel_id: int = None,
@@ -955,6 +1015,7 @@ async def send_daily_challenge(
     domain: str = "com",
     ephemeral: bool = True,
     guild_locale: str = None,
+    date_str: str | None = None,
 ):
     """Fetches and sends the daily challenge via API."""
     if interaction:
@@ -968,28 +1029,23 @@ async def send_daily_challenge(
     try:
         logger.info("Attempting to send daily challenge. Domain: %s, Channel: %s", domain, channel_id)
 
-        now_utc = datetime.now(pytz.UTC)
-        date_str = now_utc.strftime("%Y-%m-%d")
-
-        challenge_info = await bot.api.get_daily(domain)
-
-        if not challenge_info:
+        payload = await get_daily_payload(bot, domain, date_str)
+        if not payload:
             logger.error("No daily challenge for domain %s", domain)
             if interaction:
                 await interaction.followup.send(i18n.t("ui.embed.not_found", locale), ephemeral=ephemeral)
             return None
 
+        challenge_info = payload["challenge_info"]
         logger.info("Got daily challenge: %s. %s for domain %s", challenge_info["id"], challenge_info["title"], domain)
-
-        history_anchor = challenge_info.get("date") or date_str
-        history_problems = await _fetch_daily_history(bot, domain, history_anchor)
 
         embed = await create_problem_embed(
             problem_info=challenge_info,
             bot=bot,
             domain=domain,
             is_daily=True,
-            history_problems=history_problems,
+            date_str=date_str,
+            history_problems=payload["history_problems"],
             locale=locale,
         )
         view = await create_problem_view(problem_info=challenge_info, bot=bot, domain=domain, locale=locale)

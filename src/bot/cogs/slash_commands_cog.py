@@ -10,7 +10,6 @@ from bot.api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRat
 from bot.utils.config import DEFAULT_POST_TIME, DEFAULT_TIMEZONE, parse_timezone
 from bot.utils.logger import get_commands_logger
 from bot.utils.ui_helpers import (
-    _fetch_daily_history,
     _get_locale,
     create_problem_embed,
     create_problem_view,
@@ -19,6 +18,7 @@ from bot.utils.ui_helpers import (
     create_settings_embed,
     create_submission_embed,
     create_submission_view,
+    get_daily_payload,
     get_source_label,
     get_source_logo_url,
     send_api_error,
@@ -68,21 +68,21 @@ class SlashCommandsCog(commands.Cog):
             await interaction.followup.send(i18n.t("errors.validation.date_format", locale), ephemeral=not public)
             return
         try:
-            challenge_info = await self.bot.api.get_daily(domain, date)
-            if not challenge_info:
+            payload = await get_daily_payload(self.bot, domain, date)
+            if not payload:
                 await interaction.followup.send(
                     i18n.t("errors.validation.not_found_for_date", locale, date=date), ephemeral=not public
                 )
                 return
 
-            history_problems = await _fetch_daily_history(self.bot, domain, date)
+            challenge_info = payload["challenge_info"]
             embed = await create_problem_embed(
                 problem_info=challenge_info,
                 bot=self.bot,
                 domain=domain,
                 is_daily=True,
                 date_str=date,
-                history_problems=history_problems,
+                history_problems=payload["history_problems"],
                 locale=locale,
             )
             view = await create_problem_view(problem_info=challenge_info, bot=self.bot, domain=domain, locale=locale)
