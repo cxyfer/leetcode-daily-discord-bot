@@ -8,6 +8,7 @@ import pytest
 import pytz
 from discord.ext import commands
 
+from bot.api_client import ApiProcessingError
 from bot.utils import ui_helpers
 from bot.utils.ui_helpers import get_daily_payload, send_daily_challenge
 
@@ -88,6 +89,52 @@ async def test_get_daily_payload_reuses_short_lived_cache(monkeypatch):
     second_payload = await get_daily_payload(bot, "com", "2026-06-03")
 
     assert first_payload is second_payload
+    assert bot.api.get_daily.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_current_daily_payload_cache_is_scoped_to_fallback_date(monkeypatch):
+    bot = _make_bot()
+    dates = iter(
+        [
+            datetime(2026, 6, 2, tzinfo=pytz.UTC),
+            datetime(2026, 6, 3, tzinfo=pytz.UTC),
+        ]
+    )
+    fetched_dates = iter(["2026-06-02", "2026-06-03"])
+    monkeypatch.setattr(ui_helpers, "datetime", SimpleNamespace(now=lambda tz=None: next(dates)))
+    monkeypatch.setattr(ui_helpers, "generate_history_dates", lambda anchor_date: [])
+
+    async def fetch_daily(domain, date=None):
+        return _daily_problem(next(fetched_dates))
+
+    bot.api.get_daily.side_effect = fetch_daily
+
+    first_payload = await get_daily_payload(bot, "com")
+    second_payload = await get_daily_payload(bot, "com")
+
+    assert first_payload["resolved_date"] == "2026-06-02"
+    assert second_payload["resolved_date"] == "2026-06-03"
+    assert bot.api.get_daily.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_daily_payload_ignores_completed_failed_in_flight_task(monkeypatch):
+    bot = _make_bot()
+    monkeypatch.setattr(ui_helpers, "generate_history_dates", lambda anchor_date: [])
+
+    async def failed_fetch():
+        raise ApiProcessingError("processing")
+
+    failed_task = asyncio.create_task(failed_fetch())
+    with pytest.raises(ApiProcessingError):
+        await failed_task
+
+    bot._daily_payload_in_flight = {("com", "2026-06-03"): failed_task}
+
+    payload = await get_daily_payload(bot, "com", "2026-06-03")
+
+    assert payload["challenge_info"]["id"] == "1"
     assert bot.api.get_daily.await_count == 1
 
 

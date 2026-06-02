@@ -1010,16 +1010,17 @@ async def _fetch_daily_payload(
 
 async def get_daily_payload(bot: Any, domain: str = "com", date_str: str | None = None) -> dict[str, Any] | None:
     fallback_date = datetime.now(pytz.UTC).strftime("%Y-%m-%d")
-    cache_key = (domain, date_str or _CURRENT_DAILY_PAYLOAD_KEY)
+    cache_key = (domain, date_str or f"{_CURRENT_DAILY_PAYLOAD_KEY}:{fallback_date}")
     cache, in_flight, lock = _get_daily_payload_state(bot)
 
-    async def cleanup_in_flight(completed_task: asyncio.Task) -> None:
-        async with lock:
-            if in_flight.get(cache_key) is completed_task:
-                in_flight.pop(cache_key, None)
-
-    def schedule_cleanup(completed_task: asyncio.Task) -> None:
-        asyncio.create_task(cleanup_in_flight(completed_task))
+    async def fetch_and_cleanup() -> dict[str, Any] | None:
+        try:
+            return await _fetch_daily_payload(bot, domain, date_str, fallback_date)
+        finally:
+            current_task = asyncio.current_task()
+            async with lock:
+                if in_flight.get(cache_key) is current_task:
+                    in_flight.pop(cache_key, None)
 
     async with lock:
         now = time.monotonic()
@@ -1030,9 +1031,11 @@ async def get_daily_payload(bot: Any, domain: str = "com", date_str: str | None 
             return cached[1]
 
         task = in_flight.get(cache_key)
+        if task is not None and task.done():
+            in_flight.pop(cache_key, None)
+            task = None
         if task is None:
-            task = asyncio.create_task(_fetch_daily_payload(bot, domain, date_str, fallback_date))
-            task.add_done_callback(schedule_cleanup)
+            task = asyncio.create_task(fetch_and_cleanup())
             in_flight[cache_key] = task
 
     payload = await asyncio.shield(task)

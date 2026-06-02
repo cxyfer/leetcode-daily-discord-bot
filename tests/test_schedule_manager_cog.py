@@ -75,7 +75,7 @@ async def test_duplicate_scheduled_delivery_is_skipped(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_scheduled_delivery_uses_configured_timezone_date(monkeypatch):
+async def test_scheduled_delivery_uses_current_daily_request(monkeypatch):
     cog = ScheduleManagerCog(_make_bot())
     fixed_utc = datetime(2026, 6, 2, 16, tzinfo=pytz.UTC)
     sent_kwargs = None
@@ -83,6 +83,7 @@ async def test_scheduled_delivery_uses_configured_timezone_date(monkeypatch):
     async def send_daily_challenge(**kwargs):
         nonlocal sent_kwargs
         sent_kwargs = kwargs
+        assert cog.scheduled_deliveries_in_progress == {(123, 456, "com", "2026-06-03")}
         return {"title": "Two Sum"}
 
     monkeypatch.setattr(schedule_module, "datetime", SimpleNamespace(now=lambda tz=None: fixed_utc.astimezone(tz)))
@@ -90,7 +91,7 @@ async def test_scheduled_delivery_uses_configured_timezone_date(monkeypatch):
 
     await cog.send_daily_challenge_job(123, 456, 789, "Asia/Taipei")
 
-    assert sent_kwargs["date_str"] == "2026-06-03"
+    assert "date_str" not in sent_kwargs
 
 
 @pytest.mark.asyncio
