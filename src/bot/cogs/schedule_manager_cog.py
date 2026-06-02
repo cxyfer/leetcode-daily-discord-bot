@@ -1,6 +1,7 @@
 # cogs/schedule_manager_cog.py
 import asyncio
 import random
+from datetime import datetime
 
 import pytz
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -17,11 +18,13 @@ class ScheduleManagerCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.logger = get_scheduler_logger()
+        self.scheduled_delivery_lock = asyncio.Lock()
+        self.scheduled_deliveries_in_progress = set()
 
         # Setup APScheduler (uses MemoryJobStore by default, avoiding Discord object serialization issues)
         job_defaults = {
-            "coalesce": False,
-            "max_instances": 3,
+            "coalesce": True,
+            "max_instances": 1,
             "misfire_grace_time": 300,  # 5 minutes grace time
         }
 
@@ -95,7 +98,7 @@ class ScheduleManagerCog(commands.Cog):
                 func=self.send_daily_challenge_job,
                 trigger=trigger,
                 id=job_id,
-                args=[server_id, channel_id, role_id],
+                args=[server_id, channel_id, role_id, timezone_str],
                 replace_existing=True,
                 misfire_grace_time=300,  # 5 minutes grace time
                 name=f"Daily Challenge for Server {server_id}",
@@ -110,7 +113,24 @@ class ScheduleManagerCog(commands.Cog):
         except Exception as e:
             self.logger.error(f"Server {server_id}: Error adding schedule: {e}", exc_info=True)
 
-    async def send_daily_challenge_job(self, server_id: int, channel_id: int, role_id: int = None):
+    async def _mark_scheduled_delivery_started(self, delivery_key: tuple[int, int, str, str]) -> bool:
+        async with self.scheduled_delivery_lock:
+            if delivery_key in self.scheduled_deliveries_in_progress:
+                return False
+            self.scheduled_deliveries_in_progress.add(delivery_key)
+            return True
+
+    async def _cleanup_scheduled_delivery(self, delivery_key: tuple[int, int, str, str]) -> None:
+        async with self.scheduled_delivery_lock:
+            self.scheduled_deliveries_in_progress.discard(delivery_key)
+
+    async def send_daily_challenge_job(
+        self,
+        server_id: int,
+        channel_id: int,
+        role_id: int = None,
+        timezone_str: str = DEFAULT_TIMEZONE,
+    ):
         """Job function called by APScheduler to send daily challenges"""
         self.logger.info(f"APScheduler triggered: Sending daily challenge for server {server_id}")
 
@@ -122,33 +142,53 @@ class ScheduleManagerCog(commands.Cog):
 
         delays = [2, 4, 8]
 
-        for attempt in range(len(delays) + 1):
-            try:
-                result = await send_daily_challenge(
-                    bot=self.bot, channel_id=channel_id, role_id=role_id, guild_locale=guild_locale
-                )
-                if result:
-                    self.logger.info(f"Sent daily challenge for server {server_id}: {result.get('title')}")
-                else:
-                    self.logger.warning(f"Failed to send daily challenge for server {server_id}")
-                return
-            except ApiProcessingError:
-                if attempt < len(delays):
-                    delay = delays[attempt] + random.uniform(-0.5, 0.5)
-                    self.logger.warning(
-                        f"Server {server_id}: API processing (attempt {attempt + 1}/{len(delays) + 1}), "
-                        f"retry in {delay:.1f}s"
-                    )
-                    await asyncio.sleep(delay)
-                    continue
-            except ApiRateLimitError:
-                self.logger.warning(f"Server {server_id}: rate limited, skipping daily challenge")
-                return
-            except Exception as e:
-                self.logger.error(f"Error in send_daily_challenge_job for server {server_id}: {e}", exc_info=True)
-                return
+        scheduled_timezone = parse_timezone(timezone_str)
+        daily_date = datetime.now(scheduled_timezone).strftime("%Y-%m-%d")
+        delivery_key = (server_id, channel_id, "com", daily_date)
+        if not await self._mark_scheduled_delivery_started(delivery_key):
+            self.logger.info(
+                "Scheduled daily delivery already in progress for server %s, channel %s, domain %s, "
+                "date %s; skipping duplicate",
+                server_id,
+                channel_id,
+                "com",
+                daily_date,
+            )
+            return
 
-        self.logger.warning(f"Server {server_id}: API still processing after {len(delays) + 1} attempts, skipping")
+        try:
+            for attempt in range(len(delays) + 1):
+                try:
+                    result = await send_daily_challenge(
+                        bot=self.bot,
+                        channel_id=channel_id,
+                        role_id=role_id,
+                        guild_locale=guild_locale,
+                    )
+                    if result:
+                        self.logger.info(f"Sent daily challenge for server {server_id}: {result.get('title')}")
+                    else:
+                        self.logger.warning(f"Failed to send daily challenge for server {server_id}")
+                    return
+                except ApiProcessingError:
+                    if attempt < len(delays):
+                        delay = delays[attempt] + random.uniform(-0.5, 0.5)
+                        self.logger.warning(
+                            f"Server {server_id}: API processing (attempt {attempt + 1}/{len(delays) + 1}), "
+                            f"retry in {delay:.1f}s"
+                        )
+                        await asyncio.sleep(delay)
+                        continue
+                except ApiRateLimitError:
+                    self.logger.warning(f"Server {server_id}: rate limited, skipping daily challenge")
+                    return
+                except Exception as e:
+                    self.logger.error(f"Error in send_daily_challenge_job for server {server_id}: {e}", exc_info=True)
+                    return
+
+            self.logger.warning(f"Server {server_id}: API still processing after {len(delays) + 1} attempts, skipping")
+        finally:
+            await self._cleanup_scheduled_delivery(delivery_key)
 
     async def reschedule_daily_challenge(self, server_id: int = None):
         """Reschedule the daily challenge for a specific server or all servers"""

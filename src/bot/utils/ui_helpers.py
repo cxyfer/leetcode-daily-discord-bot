@@ -8,6 +8,7 @@ import hashlib
 import json
 import logging
 import re
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -925,6 +926,44 @@ def create_inspiration_embed(
     return embed
 
 
+_DAILY_PAYLOAD_CACHE_TTL_SECONDS = 60
+_CURRENT_DAILY_PAYLOAD_KEY = "__current__"
+
+
+def _get_daily_payload_state(
+    bot: Any,
+) -> tuple[dict[tuple[str, str], tuple[float, dict[str, Any]]], dict[tuple[str, str], asyncio.Task], asyncio.Lock]:
+    cache = getattr(bot, "_daily_payload_cache", None)
+    if cache is None:
+        cache = {}
+        setattr(bot, "_daily_payload_cache", cache)
+
+    in_flight = getattr(bot, "_daily_payload_in_flight", None)
+    if in_flight is None:
+        in_flight = {}
+        setattr(bot, "_daily_payload_in_flight", in_flight)
+
+    lock = getattr(bot, "_daily_payload_lock", None)
+    running_loop = asyncio.get_running_loop()
+    if lock is None or getattr(bot, "_daily_payload_lock_loop", None) is not running_loop:
+        lock = asyncio.Lock()
+        setattr(bot, "_daily_payload_lock", lock)
+        setattr(bot, "_daily_payload_lock_loop", running_loop)
+
+    return cache, in_flight, lock
+
+
+def _prune_expired_daily_payloads(
+    cache: dict[tuple[str, str], tuple[float, dict[str, Any]]],
+    now: float,
+) -> None:
+    expired_keys = [
+        key for key, (created_at, _) in cache.items() if now - created_at >= _DAILY_PAYLOAD_CACHE_TTL_SECONDS
+    ]
+    for key in expired_keys:
+        cache.pop(key, None)
+
+
 async def _fetch_daily_history(bot: Any, domain: str, anchor_date: str) -> List[Dict[str, Any]]:
     """Fetch daily challenge history for the same day in previous years."""
     try:
@@ -947,6 +986,71 @@ async def _fetch_daily_history(bot: Any, domain: str, anchor_date: str) -> List[
     return [r for r in results if r]
 
 
+async def _fetch_daily_payload(
+    bot: Any,
+    domain: str,
+    date_str: str | None,
+    fallback_date: str,
+) -> dict[str, Any] | None:
+    if date_str:
+        challenge_info = await bot.api.get_daily(domain, date_str)
+    else:
+        challenge_info = await bot.api.get_daily(domain)
+    if not challenge_info:
+        return None
+
+    history_anchor = challenge_info.get("date") or date_str or fallback_date
+    history_problems = await _fetch_daily_history(bot, domain, history_anchor)
+    return {
+        "challenge_info": challenge_info,
+        "history_problems": history_problems,
+        "resolved_date": history_anchor,
+    }
+
+
+async def get_daily_payload(bot: Any, domain: str = "com", date_str: str | None = None) -> dict[str, Any] | None:
+    fallback_date = datetime.now(pytz.UTC).strftime("%Y-%m-%d")
+    cache_key = (domain, date_str or f"{_CURRENT_DAILY_PAYLOAD_KEY}:{fallback_date}")
+    cache, in_flight, lock = _get_daily_payload_state(bot)
+
+    async def fetch_and_cleanup() -> dict[str, Any] | None:
+        try:
+            return await _fetch_daily_payload(bot, domain, date_str, fallback_date)
+        finally:
+            current_task = asyncio.current_task()
+            async with lock:
+                if in_flight.get(cache_key) is current_task:
+                    in_flight.pop(cache_key, None)
+
+    async with lock:
+        now = time.monotonic()
+        _prune_expired_daily_payloads(cache, now)
+
+        cached = cache.get(cache_key)
+        if cached:
+            return cached[1]
+
+        task = in_flight.get(cache_key)
+        if task is not None and task.done():
+            in_flight.pop(cache_key, None)
+            task = None
+        if task is None:
+            task = asyncio.create_task(fetch_and_cleanup())
+            in_flight[cache_key] = task
+
+    payload = await asyncio.shield(task)
+
+    if payload:
+        async with lock:
+            inserted_at = time.monotonic()
+            _prune_expired_daily_payloads(cache, inserted_at)
+            cache[cache_key] = (inserted_at, payload)
+            actual_date = payload.get("resolved_date")
+            if actual_date and (date_str or payload["challenge_info"].get("date")):
+                cache[(domain, actual_date)] = (inserted_at, payload)
+    return payload
+
+
 async def send_daily_challenge(
     bot: Any,
     channel_id: int = None,
@@ -955,6 +1059,7 @@ async def send_daily_challenge(
     domain: str = "com",
     ephemeral: bool = True,
     guild_locale: str = None,
+    date_str: str | None = None,
 ):
     """Fetches and sends the daily challenge via API."""
     if interaction:
@@ -968,28 +1073,23 @@ async def send_daily_challenge(
     try:
         logger.info("Attempting to send daily challenge. Domain: %s, Channel: %s", domain, channel_id)
 
-        now_utc = datetime.now(pytz.UTC)
-        date_str = now_utc.strftime("%Y-%m-%d")
-
-        challenge_info = await bot.api.get_daily(domain)
-
-        if not challenge_info:
+        payload = await get_daily_payload(bot, domain, date_str)
+        if not payload:
             logger.error("No daily challenge for domain %s", domain)
             if interaction:
                 await interaction.followup.send(i18n.t("ui.embed.not_found", locale), ephemeral=ephemeral)
             return None
 
+        challenge_info = payload["challenge_info"]
         logger.info("Got daily challenge: %s. %s for domain %s", challenge_info["id"], challenge_info["title"], domain)
-
-        history_anchor = challenge_info.get("date") or date_str
-        history_problems = await _fetch_daily_history(bot, domain, history_anchor)
 
         embed = await create_problem_embed(
             problem_info=challenge_info,
             bot=bot,
             domain=domain,
             is_daily=True,
-            history_problems=history_problems,
+            date_str=date_str or payload.get("resolved_date"),
+            history_problems=payload["history_problems"],
             locale=locale,
         )
         view = await create_problem_view(problem_info=challenge_info, bot=bot, domain=domain, locale=locale)
