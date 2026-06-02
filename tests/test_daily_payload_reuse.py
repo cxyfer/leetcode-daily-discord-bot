@@ -158,3 +158,61 @@ async def test_send_daily_challenge_sends_each_manual_response_from_cached_paylo
     second_interaction.followup.send.assert_awaited_once()
     assert first_interaction.followup.send.await_args.kwargs["ephemeral"] is True
     assert second_interaction.followup.send.await_args.kwargs["ephemeral"] is False
+
+
+@pytest.mark.asyncio
+async def test_current_daily_payload_does_not_pollute_explicit_fallback_date(monkeypatch):
+    bot = _make_bot()
+    fixed_now = datetime(2026, 6, 2, tzinfo=pytz.UTC)
+    calls = []
+
+    async def fetch_daily(domain, date=None):
+        calls.append(date)
+        problem = _daily_problem(date or "2026-06-02")
+        problem["title"] = "Current" if date is None else "Explicit"
+        if date is None:
+            problem.pop("date")
+        return problem
+
+    monkeypatch.setattr(ui_helpers, "datetime", SimpleNamespace(now=lambda tz=None: fixed_now))
+    monkeypatch.setattr(ui_helpers, "generate_history_dates", lambda anchor_date: [])
+    bot.api.get_daily.side_effect = fetch_daily
+
+    current_payload = await get_daily_payload(bot, "com")
+    explicit_payload = await get_daily_payload(bot, "com", "2026-06-02")
+
+    assert current_payload["challenge_info"]["title"] == "Current"
+    assert explicit_payload["challenge_info"]["title"] == "Explicit"
+    assert calls == [None, "2026-06-02"]
+
+
+@pytest.mark.asyncio
+async def test_get_daily_payload_shields_shared_fetch_from_waiter_cancellation(monkeypatch):
+    bot = _make_bot()
+    started = asyncio.Event()
+    release = asyncio.Event()
+    calls = 0
+
+    async def fetch_daily(domain, date=None):
+        nonlocal calls
+        calls += 1
+        started.set()
+        await release.wait()
+        return _daily_problem(date or "2026-06-03")
+
+    monkeypatch.setattr(ui_helpers, "generate_history_dates", lambda anchor_date: [])
+    bot.api.get_daily.side_effect = fetch_daily
+
+    first = asyncio.create_task(get_daily_payload(bot, "com"))
+    await started.wait()
+    second = asyncio.create_task(get_daily_payload(bot, "com"))
+    first.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await first
+
+    release.set()
+    payload = await second
+
+    assert payload["challenge_info"]["id"] == "1"
+    assert calls == 1

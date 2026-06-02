@@ -927,6 +927,7 @@ def create_inspiration_embed(
 
 
 _DAILY_PAYLOAD_CACHE_TTL_SECONDS = 60
+_CURRENT_DAILY_PAYLOAD_KEY = "__current__"
 
 
 def _get_daily_payload_state(
@@ -1008,9 +1009,17 @@ async def _fetch_daily_payload(
 
 
 async def get_daily_payload(bot: Any, domain: str = "com", date_str: str | None = None) -> dict[str, Any] | None:
-    resolved_date = date_str or datetime.now(pytz.UTC).strftime("%Y-%m-%d")
-    cache_key = (domain, resolved_date)
+    fallback_date = datetime.now(pytz.UTC).strftime("%Y-%m-%d")
+    cache_key = (domain, date_str or _CURRENT_DAILY_PAYLOAD_KEY)
     cache, in_flight, lock = _get_daily_payload_state(bot)
+
+    async def cleanup_in_flight(completed_task: asyncio.Task) -> None:
+        async with lock:
+            if in_flight.get(cache_key) is completed_task:
+                in_flight.pop(cache_key, None)
+
+    def schedule_cleanup(completed_task: asyncio.Task) -> None:
+        asyncio.create_task(cleanup_in_flight(completed_task))
 
     async with lock:
         now = time.monotonic()
@@ -1022,15 +1031,11 @@ async def get_daily_payload(bot: Any, domain: str = "com", date_str: str | None 
 
         task = in_flight.get(cache_key)
         if task is None:
-            task = asyncio.create_task(_fetch_daily_payload(bot, domain, date_str, resolved_date))
+            task = asyncio.create_task(_fetch_daily_payload(bot, domain, date_str, fallback_date))
+            task.add_done_callback(schedule_cleanup)
             in_flight[cache_key] = task
 
-    try:
-        payload = await task
-    finally:
-        async with lock:
-            if in_flight.get(cache_key) is task:
-                in_flight.pop(cache_key, None)
+    payload = await asyncio.shield(task)
 
     if payload:
         async with lock:
@@ -1038,7 +1043,7 @@ async def get_daily_payload(bot: Any, domain: str = "com", date_str: str | None 
             _prune_expired_daily_payloads(cache, inserted_at)
             cache[cache_key] = (inserted_at, payload)
             actual_date = payload.get("resolved_date")
-            if actual_date and actual_date != resolved_date:
+            if actual_date and (date_str or payload["challenge_info"].get("date")):
                 cache[(domain, actual_date)] = (inserted_at, payload)
     return payload
 
