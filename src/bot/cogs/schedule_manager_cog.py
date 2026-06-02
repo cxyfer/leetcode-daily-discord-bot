@@ -157,6 +157,7 @@ class ScheduleManagerCog(commands.Cog):
                         channel_id=channel_id,
                         role_id=role_id,
                         guild_locale=guild_locale,
+                        date_str=daily_date,
                     )
                     if result:
                         self.logger.info(f"Sent daily challenge for server {server_id}: {result.get('title')}")

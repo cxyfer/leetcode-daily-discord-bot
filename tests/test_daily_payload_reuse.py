@@ -1,22 +1,15 @@
 import asyncio
+from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest
+import pytz
 from discord.ext import commands
 
 from bot.utils import ui_helpers
 from bot.utils.ui_helpers import get_daily_payload, send_daily_challenge
-
-
-@pytest.fixture(autouse=True)
-def clear_daily_payload_state():
-    ui_helpers._DAILY_PAYLOAD_CACHE.clear()
-    ui_helpers._DAILY_PAYLOAD_IN_FLIGHT.clear()
-    yield
-    ui_helpers._DAILY_PAYLOAD_CACHE.clear()
-    ui_helpers._DAILY_PAYLOAD_IN_FLIGHT.clear()
 
 
 def _daily_problem(date: str = "2026-06-03") -> dict:
@@ -96,6 +89,58 @@ async def test_get_daily_payload_reuses_short_lived_cache(monkeypatch):
 
     assert first_payload is second_payload
     assert bot.api.get_daily.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_get_daily_payload_cache_is_scoped_to_bot_instance(monkeypatch):
+    first_bot = _make_bot()
+    second_bot = _make_bot()
+    monkeypatch.setattr(ui_helpers, "generate_history_dates", lambda anchor_date: [])
+
+    await get_daily_payload(first_bot, "com", "2026-06-03")
+    await get_daily_payload(second_bot, "com", "2026-06-03")
+
+    assert first_bot.api.get_daily.await_count == 1
+    assert second_bot.api.get_daily.await_count == 1
+    assert first_bot._daily_payload_cache is not second_bot._daily_payload_cache
+
+
+@pytest.mark.asyncio
+async def test_get_daily_payload_prunes_expired_cache_entries(monkeypatch):
+    bot = _make_bot()
+    old_payload = {
+        "challenge_info": _daily_problem("2026-06-01"),
+        "history_problems": [],
+        "resolved_date": "2026-06-01",
+    }
+    bot._daily_payload_cache = {("com", "2026-06-01"): (0.0, old_payload)}
+    monkeypatch.setattr(ui_helpers, "generate_history_dates", lambda anchor_date: [])
+    monkeypatch.setattr(ui_helpers.time, "monotonic", lambda: 61.0)
+
+    await get_daily_payload(bot, "com", "2026-06-03")
+
+    assert ("com", "2026-06-01") not in bot._daily_payload_cache
+    assert ("com", "2026-06-03") in bot._daily_payload_cache
+
+
+@pytest.mark.asyncio
+async def test_send_daily_challenge_uses_resolved_date_when_api_omits_date(monkeypatch):
+    bot = _make_bot()
+    problem = _daily_problem()
+    problem.pop("date")
+    bot.api.get_daily.return_value = problem
+    fixed_now = datetime(2026, 6, 3, tzinfo=pytz.UTC)
+    monkeypatch.setattr(ui_helpers, "datetime", SimpleNamespace(now=lambda tz=None: fixed_now))
+    monkeypatch.setattr(ui_helpers, "generate_history_dates", lambda anchor_date: [])
+    bot.i18n.t = MagicMock(
+        side_effect=lambda key, locale, **kwargs: f"Daily | {kwargs['date']}" if key == "ui.embed.daily_footer" else key
+    )
+    interaction = _make_interaction()
+
+    await send_daily_challenge(bot=bot, interaction=interaction, domain="com", ephemeral=True)
+
+    embed = interaction.followup.send.await_args.kwargs["embed"]
+    assert embed.footer.text == "Daily | 2026-06-03"
 
 
 @pytest.mark.asyncio

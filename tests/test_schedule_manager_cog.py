@@ -1,8 +1,10 @@
 import asyncio
+from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+import pytz
 from discord.ext import commands
 
 from bot.cogs import schedule_manager_cog as schedule_module
@@ -70,6 +72,25 @@ async def test_duplicate_scheduled_delivery_is_skipped(monkeypatch):
 
     assert send_calls == 1
     assert cog.scheduled_deliveries_in_progress == set()
+
+
+@pytest.mark.asyncio
+async def test_scheduled_delivery_passes_guard_date_to_sender(monkeypatch):
+    cog = ScheduleManagerCog(_make_bot())
+    fixed_now = datetime(2026, 6, 3, tzinfo=pytz.UTC)
+    sent_kwargs = None
+
+    async def send_daily_challenge(**kwargs):
+        nonlocal sent_kwargs
+        sent_kwargs = kwargs
+        return {"title": "Two Sum"}
+
+    monkeypatch.setattr(schedule_module, "datetime", SimpleNamespace(now=lambda tz=None: fixed_now))
+    monkeypatch.setattr(schedule_module, "send_daily_challenge", send_daily_challenge)
+
+    await cog.send_daily_challenge_job(123, 456, 789)
+
+    assert sent_kwargs["date_str"] == "2026-06-03"
 
 
 @pytest.mark.asyncio

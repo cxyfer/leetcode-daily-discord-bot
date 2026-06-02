@@ -927,9 +927,40 @@ def create_inspiration_embed(
 
 
 _DAILY_PAYLOAD_CACHE_TTL_SECONDS = 60
-_DAILY_PAYLOAD_CACHE: dict[tuple[str, str], tuple[float, dict[str, Any]]] = {}
-_DAILY_PAYLOAD_IN_FLIGHT: dict[tuple[str, str], asyncio.Task] = {}
-_DAILY_PAYLOAD_LOCK = asyncio.Lock()
+
+
+def _get_daily_payload_state(
+    bot: Any,
+) -> tuple[dict[tuple[str, str], tuple[float, dict[str, Any]]], dict[tuple[str, str], asyncio.Task], asyncio.Lock]:
+    cache = getattr(bot, "_daily_payload_cache", None)
+    if cache is None:
+        cache = {}
+        setattr(bot, "_daily_payload_cache", cache)
+
+    in_flight = getattr(bot, "_daily_payload_in_flight", None)
+    if in_flight is None:
+        in_flight = {}
+        setattr(bot, "_daily_payload_in_flight", in_flight)
+
+    lock = getattr(bot, "_daily_payload_lock", None)
+    running_loop = asyncio.get_running_loop()
+    if lock is None or getattr(bot, "_daily_payload_lock_loop", None) is not running_loop:
+        lock = asyncio.Lock()
+        setattr(bot, "_daily_payload_lock", lock)
+        setattr(bot, "_daily_payload_lock_loop", running_loop)
+
+    return cache, in_flight, lock
+
+
+def _prune_expired_daily_payloads(
+    cache: dict[tuple[str, str], tuple[float, dict[str, Any]]],
+    now: float,
+) -> None:
+    expired_keys = [
+        key for key, (created_at, _) in cache.items() if now - created_at >= _DAILY_PAYLOAD_CACHE_TTL_SECONDS
+    ]
+    for key in expired_keys:
+        cache.pop(key, None)
 
 
 async def _fetch_daily_history(bot: Any, domain: str, anchor_date: str) -> List[Dict[str, Any]]:
@@ -979,31 +1010,36 @@ async def _fetch_daily_payload(
 async def get_daily_payload(bot: Any, domain: str = "com", date_str: str | None = None) -> dict[str, Any] | None:
     resolved_date = date_str or datetime.now(pytz.UTC).strftime("%Y-%m-%d")
     cache_key = (domain, resolved_date)
-    now = time.monotonic()
+    cache, in_flight, lock = _get_daily_payload_state(bot)
 
-    async with _DAILY_PAYLOAD_LOCK:
-        cached = _DAILY_PAYLOAD_CACHE.get(cache_key)
-        if cached and now - cached[0] < _DAILY_PAYLOAD_CACHE_TTL_SECONDS:
+    async with lock:
+        now = time.monotonic()
+        _prune_expired_daily_payloads(cache, now)
+
+        cached = cache.get(cache_key)
+        if cached:
             return cached[1]
 
-        task = _DAILY_PAYLOAD_IN_FLIGHT.get(cache_key)
+        task = in_flight.get(cache_key)
         if task is None:
             task = asyncio.create_task(_fetch_daily_payload(bot, domain, date_str, resolved_date))
-            _DAILY_PAYLOAD_IN_FLIGHT[cache_key] = task
+            in_flight[cache_key] = task
 
     try:
         payload = await task
     finally:
-        async with _DAILY_PAYLOAD_LOCK:
-            if _DAILY_PAYLOAD_IN_FLIGHT.get(cache_key) is task:
-                _DAILY_PAYLOAD_IN_FLIGHT.pop(cache_key, None)
+        async with lock:
+            if in_flight.get(cache_key) is task:
+                in_flight.pop(cache_key, None)
 
     if payload:
-        async with _DAILY_PAYLOAD_LOCK:
-            _DAILY_PAYLOAD_CACHE[cache_key] = (time.monotonic(), payload)
+        async with lock:
+            inserted_at = time.monotonic()
+            _prune_expired_daily_payloads(cache, inserted_at)
+            cache[cache_key] = (inserted_at, payload)
             actual_date = payload.get("resolved_date")
             if actual_date and actual_date != resolved_date:
-                _DAILY_PAYLOAD_CACHE[(domain, actual_date)] = (time.monotonic(), payload)
+                cache[(domain, actual_date)] = (inserted_at, payload)
     return payload
 
 
@@ -1044,7 +1080,7 @@ async def send_daily_challenge(
             bot=bot,
             domain=domain,
             is_daily=True,
-            date_str=date_str,
+            date_str=date_str or payload.get("resolved_date"),
             history_problems=payload["history_problems"],
             locale=locale,
         )
