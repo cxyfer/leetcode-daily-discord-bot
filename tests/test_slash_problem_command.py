@@ -529,6 +529,4 @@ async def test_daily_by_date_not_found_keeps_date_specific_error(monkeypatch):
 
     interaction.response.defer.assert_awaited_once_with(ephemeral=True)
     get_payload.assert_awaited_once_with(bot, "com", "2026-06-03")
-    interaction.followup.send.assert_awaited_once_with(
-        "errors.validation.not_found_for_date", ephemeral=True
-    )
+    interaction.followup.send.assert_awaited_once_with("errors.validation.not_found_for_date", ephemeral=True)
