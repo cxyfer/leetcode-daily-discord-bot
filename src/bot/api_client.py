@@ -250,13 +250,24 @@ class OjApiClient:
         return items[0] if items else None
 
     async def get_tags(self, source: str) -> list[str]:
-        """Fetch valid tags for a problem source via GET /api/v1/tags/{source}."""
+        """Fetch valid tags for a problem source using the current metadata route."""
+        encoded_source = quote(source)
         try:
-            response = await self._request("GET", f"tags/{quote(source)}")
+            response = await self._request("GET", f"problems/tags/{encoded_source}")
         except ApiError as e:
-            if e.status == 400:
-                return []
-            raise
+            if e.status not in {400, 404}:
+                raise
+            response = None
+
+        if response is None:
+            logger.info("Falling back to oj-api-rs v0.4 tags endpoint for source %s", source)
+            try:
+                response = await self._request("GET", f"tags/{encoded_source}")
+            except ApiError as e:
+                if e.status in {400, 404}:
+                    return []
+                raise
+
         if not response or not isinstance(response, list):
             return []
         return response

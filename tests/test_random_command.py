@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import aiohttp
 import discord
@@ -650,14 +650,30 @@ async def test_get_tags_returns_list_on_200():
     result = await api.get_tags("leetcode")
 
     assert result == ["Array", "DP", "Graph"]
-    api._request.assert_awaited_once_with("GET", "tags/leetcode")
+    api._request.assert_awaited_once_with("GET", "problems/tags/leetcode")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("new_route_result", [None, ApiError(400, "invalid source: tags")])
+async def test_get_tags_falls_back_to_v040_route(new_route_result):
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(side_effect=[new_route_result, ["Array", "DP"]])
+
+    result = await api.get_tags("leetcode")
+
+    assert result == ["Array", "DP"]
+    assert api._request.await_args_list == [
+        call("GET", "problems/tags/leetcode"),
+        call("GET", "tags/leetcode"),
+    ]
 
 
 @pytest.mark.asyncio
 async def test_get_tags_returns_empty_on_400():
     api = OjApiClient("http://test")
     api._session = AsyncMock()
-    api._request = AsyncMock(side_effect=ApiError(400, "Bad Request"))
+    api._request = AsyncMock(side_effect=[ApiError(400, "Bad Request"), ApiError(400, "Bad Request")])
 
     result = await api.get_tags("invalid")
 
@@ -668,7 +684,7 @@ async def test_get_tags_returns_empty_on_400():
 async def test_get_tags_returns_empty_on_404():
     api = OjApiClient("http://test")
     api._session = AsyncMock()
-    api._request = AsyncMock(return_value=None)
+    api._request = AsyncMock(side_effect=[None, None])
 
     result = await api.get_tags("nonexistent")
 

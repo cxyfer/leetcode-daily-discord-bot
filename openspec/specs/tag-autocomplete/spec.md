@@ -5,11 +5,16 @@ Tags autocomplete capability for the `/random` command, providing dynamic tag su
 
 ## Requirements
 ### Requirement: Tags by source API method
-The `OjApiClient` SHALL provide a `get_tags(source)` method that retrieves the valid tag list for a given problem source via `GET /api/v1/tags/{source}`.
+The `OjApiClient` SHALL provide a `get_tags(source)` method that retrieves the valid tag list for a given problem source via `GET /api/v1/problems/tags/{source}`. While oj-api-rs v0.4 remains supported, the client SHALL retry the legacy `GET /api/v1/tags/{source}` route only when the current route is unavailable.
 
 #### Scenario: Successful tag retrieval
 - **WHEN** `get_tags("leetcode")` is called
-- **THEN** the method SHALL send a `GET /api/v1/tags/leetcode` request and return the response as a list of strings
+- **THEN** the method SHALL send a `GET /api/v1/problems/tags/leetcode` request and return the response as a list of strings
+
+#### Scenario: oj-api-rs v0.4 compatibility
+- **WHEN** `GET /api/v1/problems/tags/leetcode` is unavailable because the configured backend still uses the v0.4 route contract
+- **THEN** the method SHALL retry `GET /api/v1/tags/leetcode`
+- **AND** the compatibility fallback SHALL be observable through an informational log entry
 
 #### Scenario: Empty tag list
 - **WHEN** the API returns an empty array for a valid source
