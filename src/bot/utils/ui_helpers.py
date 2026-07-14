@@ -930,6 +930,19 @@ _DAILY_PAYLOAD_CACHE_TTL_SECONDS = 60
 _CURRENT_DAILY_PAYLOAD_KEY = "__current__"
 
 
+def _get_primary_daily_problem(response: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not response:
+        return None
+    problems = response.get("problems")
+    if not isinstance(problems, list) or not problems or not isinstance(problems[0], dict):
+        return None
+
+    problem = dict(problems[0])
+    if response.get("date"):
+        problem["date"] = response["date"]
+    return problem
+
+
 def _get_daily_payload_state(
     bot: Any,
 ) -> tuple[dict[tuple[str, str], tuple[float, dict[str, Any]]], dict[tuple[str, str], asyncio.Task], asyncio.Lock]:
@@ -983,7 +996,12 @@ async def _fetch_daily_history(bot: Any, domain: str, anchor_date: str) -> List[
                 return None
 
     results = await asyncio.gather(*[fetch_one(d) for d in history_dates])
-    return [r for r in results if r]
+    history_problems = []
+    for response in results:
+        problem = _get_primary_daily_problem(response)
+        if problem:
+            history_problems.append(problem)
+    return history_problems
 
 
 async def _fetch_daily_payload(
@@ -993,13 +1011,14 @@ async def _fetch_daily_payload(
     fallback_date: str,
 ) -> dict[str, Any] | None:
     if date_str:
-        challenge_info = await bot.api.get_daily(domain, date_str)
+        daily_response = await bot.api.get_daily(domain, date_str)
     else:
-        challenge_info = await bot.api.get_daily(domain)
+        daily_response = await bot.api.get_daily(domain)
+    challenge_info = _get_primary_daily_problem(daily_response)
     if not challenge_info:
         return None
 
-    history_anchor = challenge_info.get("date") or date_str or fallback_date
+    history_anchor = daily_response.get("date") or date_str or fallback_date
     history_problems = await _fetch_daily_history(bot, domain, history_anchor)
     return {
         "challenge_info": challenge_info,

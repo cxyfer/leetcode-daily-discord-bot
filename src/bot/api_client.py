@@ -167,11 +167,29 @@ class OjApiClient:
     async def get_problem(self, source: str, id: str) -> dict | None:
         return await self._request("GET", f"problems/{quote(source)}/{quote(id)}")
 
+    @staticmethod
+    def _normalize_daily_response(response: dict, domain: str) -> dict:
+        if isinstance(response.get("problems"), list) or "id" not in response:
+            return response
+
+        legacy_problem = {key: value for key, value in response.items() if key not in {"date", "domain"}}
+        legacy_problem.setdefault("source", "leetcode")
+        legacy_domain = response.get("domain") or domain
+        logger.info("Normalizing oj-api-rs v0.4 daily response for domain %s", legacy_domain)
+        return {
+            "date": response.get("date"),
+            "source": "leetcode.cn" if legacy_domain == "cn" else "leetcode.com",
+            "problems": [legacy_problem],
+        }
+
     async def get_daily(self, domain: str = "com", date: str | None = None) -> dict | None:
         params = {"domain": domain}
         if date:
             params["date"] = date
-        return await self._request("GET", "daily", params=params)
+        response = await self._request("GET", "daily", params=params)
+        if response is None:
+            return None
+        return self._normalize_daily_response(response, domain)
 
     async def resolve(self, query: str) -> dict | None:
         return await self._request("GET", f"resolve/{quote(query, safe='')}")

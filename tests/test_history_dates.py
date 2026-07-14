@@ -42,7 +42,17 @@ def test_generate_history_dates_invalid_format():
 
 @pytest.mark.asyncio
 async def test_fetch_daily_history_uses_module_level_generate_history_dates():
-    bot = SimpleNamespace(api=SimpleNamespace(get_daily=AsyncMock(side_effect=lambda domain, day: {"date": day})))
+    bot = SimpleNamespace(
+        api=SimpleNamespace(
+            get_daily=AsyncMock(
+                side_effect=lambda domain, day: {
+                    "date": day,
+                    "source": f"leetcode.{domain}",
+                    "problems": [{"id": day, "source": "leetcode", "title": day}],
+                }
+            )
+        )
+    )
 
     history = await _fetch_daily_history(bot, "com", "2026-01-07")
 
