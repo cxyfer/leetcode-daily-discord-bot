@@ -63,3 +63,29 @@ async def test_fetch_daily_history_uses_module_level_generate_history_dates():
         "2022-01-07",
         "2021-01-07",
     ]
+
+
+@pytest.mark.asyncio
+async def test_fetch_daily_history_uses_requested_date_when_response_omits_date():
+    responses = {}
+
+    async def get_daily(domain, day):
+        response = {
+            "source": f"leetcode.{domain}",
+            "problems": [{"id": day, "source": "leetcode", "title": day}],
+        }
+        responses[day] = response
+        return response
+
+    bot = SimpleNamespace(api=SimpleNamespace(get_daily=AsyncMock(side_effect=get_daily)))
+
+    history = await _fetch_daily_history(bot, "com", "2026-01-07")
+
+    assert [entry["date"] for entry in history] == [
+        "2025-01-07",
+        "2024-01-07",
+        "2023-01-07",
+        "2022-01-07",
+        "2021-01-07",
+    ]
+    assert all("date" not in response["problems"][0] for response in responses.values())

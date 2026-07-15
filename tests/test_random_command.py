@@ -673,11 +673,12 @@ async def test_get_tags_falls_back_to_v040_route(new_route_result):
 async def test_get_tags_returns_empty_on_400():
     api = OjApiClient("http://test")
     api._session = AsyncMock()
-    api._request = AsyncMock(side_effect=[ApiError(400, "Bad Request"), ApiError(400, "Bad Request")])
+    api._request = AsyncMock(side_effect=ApiError(400, "invalid source: invalid"))
 
     result = await api.get_tags("invalid")
 
     assert result == []
+    api._request.assert_awaited_once_with("GET", "problems/tags/invalid")
 
 
 @pytest.mark.asyncio

@@ -273,6 +273,8 @@ class OjApiClient:
         try:
             response = await self._request("GET", f"problems/tags/{encoded_source}")
         except ApiError as e:
+            if e.status == 400 and e.detail != "invalid source: tags":
+                return []
             if e.status not in {400, 404}:
                 raise
             response = None

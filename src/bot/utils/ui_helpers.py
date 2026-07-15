@@ -997,9 +997,10 @@ async def _fetch_daily_history(bot: Any, domain: str, anchor_date: str) -> List[
 
     results = await asyncio.gather(*[fetch_one(d) for d in history_dates])
     history_problems = []
-    for response in results:
+    for requested_date, response in zip(history_dates, results):
         problem = _get_primary_daily_problem(response)
         if problem:
+            problem.setdefault("date", requested_date)
             history_problems.append(problem)
     return history_problems
 
