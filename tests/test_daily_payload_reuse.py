@@ -8,7 +8,7 @@ import pytest
 import pytz
 from discord.ext import commands
 
-from bot.api_client import ApiProcessingError
+from bot.api_client import ApiProcessingError, OjApiClient
 from bot.utils import ui_helpers
 from bot.utils.ui_helpers import get_daily_payload, send_daily_challenge
 
@@ -28,9 +28,19 @@ def _daily_problem(date: str = "2026-06-03") -> dict:
     }
 
 
+def _daily_response(date: str = "2026-06-03", domain: str = "com") -> dict:
+    problem = _daily_problem(date)
+    problem.pop("date")
+    return {
+        "date": date,
+        "source": f"leetcode.{domain}",
+        "problems": [problem],
+    }
+
+
 def _make_bot():
     bot = MagicMock(spec=commands.Bot)
-    bot.api = SimpleNamespace(get_daily=AsyncMock(return_value=_daily_problem()))
+    bot.api = SimpleNamespace(get_daily=AsyncMock(return_value=_daily_response()))
     bot.llm = MagicMock()
     bot.llm_pro = MagicMock()
     bot.config = SimpleNamespace(default_locale="zh-TW")
@@ -52,6 +62,56 @@ def _make_interaction():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("domain", "daily_source"),
+    [("com", "leetcode.com"), ("cn", "leetcode.cn")],
+)
+async def test_get_daily_wraps_v040_flat_response(domain, daily_source):
+    legacy_response = {
+        "date": "2026-06-03",
+        "domain": domain,
+        "id": "1",
+        "slug": "two-sum",
+        "title": "Two Sum",
+        "title_cn": "兩數之和",
+    }
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(return_value=legacy_response)
+
+    result = await api.get_daily(domain, "2026-06-03")
+
+    assert result == {
+        "date": "2026-06-03",
+        "source": daily_source,
+        "problems": [
+            {
+                "id": "1",
+                "source": "leetcode",
+                "slug": "two-sum",
+                "title": "Two Sum",
+                "title_cn": "兩數之和",
+            }
+        ],
+    }
+    assert legacy_response["domain"] == domain
+    api._request.assert_awaited_once_with("GET", "daily", params={"domain": domain, "date": "2026-06-03"})
+
+
+@pytest.mark.asyncio
+async def test_get_daily_preserves_current_envelope_response():
+    current_response = _daily_response()
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(return_value=current_response)
+
+    result = await api.get_daily("com")
+
+    assert result is current_response
+    api._request.assert_awaited_once_with("GET", "daily", params={"domain": "com"})
+
+
+@pytest.mark.asyncio
 async def test_get_daily_payload_coalesces_concurrent_identical_requests(monkeypatch):
     bot = _make_bot()
     started = asyncio.Event()
@@ -63,7 +123,7 @@ async def test_get_daily_payload_coalesces_concurrent_identical_requests(monkeyp
         calls += 1
         started.set()
         await release.wait()
-        return _daily_problem(date or "2026-06-03")
+        return _daily_response(date or "2026-06-03", domain)
 
     monkeypatch.setattr(ui_helpers, "generate_history_dates", lambda anchor_date: [])
     bot.api.get_daily.side_effect = fetch_daily
@@ -106,7 +166,7 @@ async def test_current_daily_payload_cache_is_scoped_to_fallback_date(monkeypatc
     monkeypatch.setattr(ui_helpers, "generate_history_dates", lambda anchor_date: [])
 
     async def fetch_daily(domain, date=None):
-        return _daily_problem(next(fetched_dates))
+        return _daily_response(next(fetched_dates), domain)
 
     bot.api.get_daily.side_effect = fetch_daily
 
@@ -173,9 +233,9 @@ async def test_get_daily_payload_prunes_expired_cache_entries(monkeypatch):
 @pytest.mark.asyncio
 async def test_send_daily_challenge_uses_resolved_date_when_api_omits_date(monkeypatch):
     bot = _make_bot()
-    problem = _daily_problem()
-    problem.pop("date")
-    bot.api.get_daily.return_value = problem
+    response = _daily_response()
+    response.pop("date")
+    bot.api.get_daily.return_value = response
     fixed_now = datetime(2026, 6, 3, tzinfo=pytz.UTC)
     monkeypatch.setattr(ui_helpers, "datetime", SimpleNamespace(now=lambda tz=None: fixed_now))
     monkeypatch.setattr(ui_helpers, "generate_history_dates", lambda anchor_date: [])
@@ -215,11 +275,11 @@ async def test_current_daily_payload_does_not_pollute_explicit_fallback_date(mon
 
     async def fetch_daily(domain, date=None):
         calls.append(date)
-        problem = _daily_problem(date or "2026-06-02")
-        problem["title"] = "Current" if date is None else "Explicit"
+        response = _daily_response(date or "2026-06-02", domain)
+        response["problems"][0]["title"] = "Current" if date is None else "Explicit"
         if date is None:
-            problem.pop("date")
-        return problem
+            response.pop("date")
+        return response
 
     monkeypatch.setattr(ui_helpers, "datetime", SimpleNamespace(now=lambda tz=None: fixed_now))
     monkeypatch.setattr(ui_helpers, "generate_history_dates", lambda anchor_date: [])
@@ -245,7 +305,7 @@ async def test_get_daily_payload_shields_shared_fetch_from_waiter_cancellation(m
         calls += 1
         started.set()
         await release.wait()
-        return _daily_problem(date or "2026-06-03")
+        return _daily_response(date or "2026-06-03", domain)
 
     monkeypatch.setattr(ui_helpers, "generate_history_dates", lambda anchor_date: [])
     bot.api.get_daily.side_effect = fetch_daily

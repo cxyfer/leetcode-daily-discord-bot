@@ -167,11 +167,29 @@ class OjApiClient:
     async def get_problem(self, source: str, id: str) -> dict | None:
         return await self._request("GET", f"problems/{quote(source)}/{quote(id)}")
 
+    @staticmethod
+    def _normalize_daily_response(response: dict, domain: str) -> dict:
+        if isinstance(response.get("problems"), list) or "id" not in response:
+            return response
+
+        legacy_problem = {key: value for key, value in response.items() if key not in {"date", "domain"}}
+        legacy_problem.setdefault("source", "leetcode")
+        legacy_domain = response.get("domain") or domain
+        logger.info("Normalizing oj-api-rs v0.4 daily response for domain %s", legacy_domain)
+        return {
+            "date": response.get("date"),
+            "source": "leetcode.cn" if legacy_domain == "cn" else "leetcode.com",
+            "problems": [legacy_problem],
+        }
+
     async def get_daily(self, domain: str = "com", date: str | None = None) -> dict | None:
         params = {"domain": domain}
         if date:
             params["date"] = date
-        return await self._request("GET", "daily", params=params)
+        response = await self._request("GET", "daily", params=params)
+        if response is None:
+            return None
+        return self._normalize_daily_response(response, domain)
 
     async def resolve(self, query: str) -> dict | None:
         return await self._request("GET", f"resolve/{quote(query, safe='')}")
@@ -250,13 +268,26 @@ class OjApiClient:
         return items[0] if items else None
 
     async def get_tags(self, source: str) -> list[str]:
-        """Fetch valid tags for a problem source via GET /api/v1/tags/{source}."""
+        """Fetch valid tags for a problem source using the current metadata route."""
+        encoded_source = quote(source)
         try:
-            response = await self._request("GET", f"tags/{quote(source)}")
+            response = await self._request("GET", f"problems/tags/{encoded_source}")
         except ApiError as e:
-            if e.status == 400:
+            if e.status == 400 and e.detail != "invalid source: tags":
                 return []
-            raise
+            if e.status not in {400, 404}:
+                raise
+            response = None
+
+        if response is None:
+            logger.info("Falling back to oj-api-rs v0.4 tags endpoint for source %s", source)
+            try:
+                response = await self._request("GET", f"tags/{encoded_source}")
+            except ApiError as e:
+                if e.status in {400, 404}:
+                    return []
+                raise
+
         if not response or not isinstance(response, list):
             return []
         return response

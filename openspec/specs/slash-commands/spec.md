@@ -4,7 +4,7 @@
 TBD - created by archiving change init-project-specs. Update Purpose after archive.
 ## Requirements
 ### Requirement: Daily challenge command
-The `/daily` command SHALL fetch and display the current daily challenge from LeetCode with user-facing text localized to the resolved locale, reusing in-flight or cached daily payload data where available without suppressing valid user responses.
+The `/daily` command SHALL fetch and display the current daily challenge from LeetCode with user-facing text localized to the resolved locale, reusing in-flight or cached daily payload data where available without suppressing valid user responses. The API client SHALL expose daily data through the current `{date, source, problems}` envelope and SHALL normalize the oj-api-rs v0.4 flat response into that envelope while v0.4 remains supported.
 
 #### Scenario: Fetch today's challenge
 - **WHEN** a user runs `/daily`
@@ -17,6 +17,15 @@ The `/daily` command SHALL fetch and display the current daily challenge from Le
 #### Scenario: CN domain support
 - **WHEN** a user runs `/daily_cn`
 - **THEN** the bot SHALL fetch the daily challenge from leetcode.cn instead of leetcode.com
+
+#### Scenario: Current upstream daily response
+- **WHEN** oj-api-rs returns `{date, source, problems}` for a LeetCode daily request
+- **THEN** the existing `/daily` or `/daily_cn` flow SHALL render the first problem and preserve the envelope date for the footer and history lookup
+
+#### Scenario: oj-api-rs v0.4 daily compatibility
+- **WHEN** the configured backend returns the v0.4 flat daily problem response
+- **THEN** the API client SHALL wrap it in the current daily envelope before downstream processing
+- **AND** the compatibility normalization SHALL be observable through an informational log entry
 
 #### Scenario: Public toggle
 - **WHEN** a user runs `/daily` with the `public` parameter set to True
