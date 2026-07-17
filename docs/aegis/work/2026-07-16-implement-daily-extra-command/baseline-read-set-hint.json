@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "candidateDocs": [
+    "openspec/changes/add-daily-extra-command",
+    "docs/aegis/plans/2026-07-16-add-daily-extra-command.md",
+    "/home/usaya/workspace/github/oj-api-rs/openspec/specs/daily-challenge/spec.md@4536487"
+  ],
+  "whyRelevant": "These refs define accepted behavior, owner boundaries, upstream query shape, and verification obligations",
+  "missingAuthority": []
+}

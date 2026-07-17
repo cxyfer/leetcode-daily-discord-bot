@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "taskId": "2026-07-16-implement-daily-extra-command",
+  "taskIntentRef": "docs/aegis/work/2026-07-16-implement-daily-extra-command/task-intent-draft.json",
+  "baselineRefs": [
+    "openspec/changes/add-daily-extra-command",
+    "docs/aegis/plans/2026-07-16-add-daily-extra-command.md"
+  ],
+  "scopeStatus": "manual daily_extra only; no scheduler DB config or new interaction route",
+  "compatStatus": "existing daily daily_cn schedule and v0.4 compatibility focused regressions pass",
+  "retirementStatus": "no owner or path retired; unified problem view route reused",
+  "newRiskSignals": [
+    "three pre-existing path assertions fail because worktree runtime assets are symlinked to main checkout"
+  ],
+  "decision": "continue"
+}

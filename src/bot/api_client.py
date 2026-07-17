@@ -191,6 +191,12 @@ class OjApiClient:
             return None
         return self._normalize_daily_response(response, domain)
 
+    async def get_daily_by_source(self, source: str, date: str | None = None) -> dict | None:
+        params = {"source": source}
+        if date:
+            params["date"] = date
+        return await self._request("GET", "daily", params=params)
+
     async def resolve(self, query: str) -> dict | None:
         return await self._request("GET", f"resolve/{quote(query, safe='')}")
 

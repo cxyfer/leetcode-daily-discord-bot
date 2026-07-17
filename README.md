@@ -148,6 +148,7 @@ See `config.toml.example` for all available options.
 |---------|-------------|---------------------|
 | `/daily [date] [public]` | Display the LeetCode.com daily challenge<br>• Optional: `YYYY-MM-DD` for historical challenges<br>• Optional: `public` to show the response publicly<br>• Historical data is available from April 2020 onwards | None |
 | `/daily_cn [date] [public]` | Display the LeetCode.cn daily challenge<br>• Optional: `YYYY-MM-DD` for historical challenges<br>• Optional: `public` to show the response publicly | None |
+| `/daily_extra <source> [date] [public]` | Query daily problems from Sheep or 0x3f<br>• `source`: `sheep` or `0x3f`<br>• Optional: `YYYY-MM-DD` date<br>• Optional: `public` shows the initial response publicly<br>• Multi-problem results open as an overview; selected details are always private | None |
 | `/problem <problem_ids> [source] [domain] [public] [message] [title]` | Query one or multiple problems<br>• `problem_ids`: Single ID or comma-separated IDs<br>• Supports `source:id` format such as `atcoder:abc001_a` or `leetcode:1`<br>• `source`: Problem source filter or hint<br>• `domain`: `com` or `cn` for LeetCode (default: `com`)<br>• `public`: Show the response publicly<br>• `message`: Optional personal note (max 500 chars)<br>• `title`: Custom title for multi-problem mode (max 100 chars)<br>• Supports up to 20 problems per query | None |
 | `/recent <username> [limit] [public]` | View recent accepted submissions for a user<br>• `username`: LeetCode username (LCUS only)<br>• `limit`: Number of submissions (1-50, default: 20)<br>• `public`: Show the response publicly | None |
 | `/similar [query] [problem] [top_k] [source] [public]` | Find similar problems through the configured remote API backend<br>• `query`: Free-text query (optional when `problem` is provided)<br>• `problem`: Existing problem ID or URL<br>• `top_k`: Number of results (default: 5, capped at 20)<br>• `source`: Problem source filter<br>• `public`: Show the response publicly | None |
@@ -164,6 +165,7 @@ See `config.toml.example` for all available options.
 
 The `/problem` command supports querying multiple problems at once.
 
+When `/daily_extra` returns multiple problems, it uses overview mode. Clicking a problem ID opens a private full-problem card for that user, even when the overview is public.
 #### Overview Mode
 
 When querying multiple problems, the bot displays:
@@ -189,6 +191,9 @@ When querying multiple problems, the bot displays:
 /daily
 /daily public:true
 /daily date:2024-01-15
+/daily_extra source:0x3f date:2026-06-09
+/daily_extra source:sheep
+/daily_extra source:sheep public:true
 ```
 
 </details>

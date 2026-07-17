@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "taskId": "2026-07-16-implement-daily-extra-command",
+  "requiredBaselineRefs": [
+    "openspec/changes/add-daily-extra-command",
+    "openspec/specs/interaction-handler/spec.md",
+    "openspec/specs/discord-ui/spec.md"
+  ],
+  "deliveredContextRefs": [
+    "existing api_client ui_helpers slash_commands interaction_handler and locale owners"
+  ],
+  "acknowledgedBeforePlanRefs": [
+    "docs/aegis/plans/2026-07-16-add-daily-extra-command.md"
+  ],
+  "citedInPlanRefs": [
+    "upstream oj-api-rs dev daily source contract"
+  ],
+  "missingRefs": [],
+  "decision": "continue"
+}

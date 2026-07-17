@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "requestedOutcome": "Implement the approved manual /daily_extra command for sheep and 0x3f with ordered multi-problem overview and private selected details",
+  "goal": "Complete all four implementation-plan slices and prove the OpenSpec acceptance boundary",
+  "successEvidence": [
+    "Focused and full pytest pass; Ruff, OpenSpec strict validation, Aegis workspace check, and diff check pass"
+  ],
+  "stopCondition": "done when every plan/OpenSpec task is implemented and verified; otherwise report blocked, needs-verification, or scope-exceeded",
+  "nonGoals": [
+    "No scheduler support for extra sources",
+    "No database or configuration changes",
+    "No pagination, message editing, or new interaction protocol"
+  ],
+  "scope": "API client, daily payload cache, overview UI safety, slash command, i18n, privacy regression tests, README, and verification",
+  "changeKinds": [
+    "feature"
+  ],
+  "riskHints": [
+    "Cross-module API/cache/UI contract; preserve v0.4 LeetCode and scheduled delivery behavior"
+  ]
+}

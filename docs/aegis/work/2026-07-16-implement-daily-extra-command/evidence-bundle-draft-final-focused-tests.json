@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "artifactKey": "final-focused-tests",
+  "type": "test",
+  "source": "pytest focused API payload UI slash interaction history schedule suite",
+  "summary": "86 passed in 4.50s",
+  "verifier": "codex"
+}

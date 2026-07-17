@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "artifactKey": "final-static-spec-checks",
+  "type": "verification",
+  "source": "ruff, openspec strict, git diff check",
+  "summary": "Ruff clean; OpenSpec valid; CRLF-aware diff check clean",
+  "verifier": "codex"
+}
