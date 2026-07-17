@@ -34,6 +34,7 @@ from .ui_constants import (
     MAX_BUTTON_CUSTOM_ID_LENGTH,
     MAX_BUTTON_LABEL_LENGTH,
     MAX_DAILY_SIMILAR_FIELD_LENGTH,
+    MAX_EMBED_LENGTH,
     MAX_FIELD_LENGTH,
     MAX_PROBLEMS_PER_OVERVIEW,
     MAX_SIMILAR_RESULT_DETAIL_BUTTONS,
@@ -332,6 +333,7 @@ def _can_create_problem_detail_view(
     *,
     max_items: int,
     was_truncated: bool = False,
+    default_source: str | None = None,
 ) -> bool:
     return (
         bool(problems)
@@ -339,10 +341,10 @@ def _can_create_problem_detail_view(
         and len(problems) <= max_items
         and all(
             isinstance(problem, dict)
-            and _is_safe_problem_button_segment(problem.get("source"))
+            and _is_safe_problem_button_segment(problem.get("source", default_source))
             and _is_safe_problem_button_segment(problem.get("id"), max_length=MAX_BUTTON_LABEL_LENGTH)
             and max(
-                len(_build_problem_custom_id(problem.get("source"), problem.get("id"), action))
+                len(_build_problem_custom_id(problem.get("source", default_source), problem.get("id"), action))
                 for action in ("desc", "translate", "inspire", "similar")
             )
             <= MAX_BUTTON_CUSTOM_ID_LENGTH
@@ -830,16 +832,29 @@ def create_problems_overview_embed(
     return embed
 
 
-def create_problems_overview_view(problems: List[Dict[str, Any]], domain: str) -> discord.ui.View | None:
+def is_embed_within_limits(embed: discord.Embed) -> bool:
+    return len(embed) <= MAX_EMBED_LENGTH and all(len(field.value) <= MAX_FIELD_LENGTH for field in embed.fields)
+
+
+def create_problems_overview_view(
+    problems: List[Dict[str, Any]],
+    domain: str,
+    *,
+    default_source: str | None = "leetcode",
+) -> discord.ui.View | None:
     """Create a view with buttons for each problem"""
-    if not _can_create_problem_detail_view(problems, max_items=MAX_PROBLEMS_PER_OVERVIEW):
+    if not _can_create_problem_detail_view(
+        problems,
+        max_items=MAX_PROBLEMS_PER_OVERVIEW,
+        default_source=default_source,
+    ):
         return None
 
     view = discord.ui.View()
 
     for i, problem in enumerate(problems):
         emoji = get_problem_emoji(problem)
-        source, problem_id = _normalize_problem_button_segments(problem["source"], problem["id"])
+        source, problem_id = _normalize_problem_button_segments(problem.get("source", default_source), problem["id"])
 
         button = discord.ui.Button(
             style=discord.ButtonStyle.secondary,

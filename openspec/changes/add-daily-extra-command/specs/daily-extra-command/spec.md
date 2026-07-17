@@ -73,7 +73,7 @@ Every full problem detail opened from a `/daily_extra` overview SHALL be sent as
 - **AND** neither interaction SHALL overwrite the other user's response or the overview
 
 ### Requirement: Complete and safe overview interaction
-The bot SHALL attach a `/daily_extra` overview view only when every displayed problem can be represented completely within Discord's 25-button, label, row, and custom-id limits. It SHALL reject an unsafe payload with a localized error instead of attaching a partial button set.
+The bot SHALL attach a `/daily_extra` overview view only when every displayed problem can be represented completely within Discord's 25-button, label, row, custom-id, embed-field, and total-embed limits. It SHALL reject an unsafe payload with a localized error instead of attaching a partial button set.
 
 #### Scenario: Exact 25-problem boundary
 - **WHEN** an additional daily payload contains exactly 25 button-safe problems
@@ -88,6 +88,16 @@ The bot SHALL attach a `/daily_extra` overview view only when every displayed pr
 - **WHEN** any returned problem lacks a non-empty `source` or `id`, contains the custom-id separator in either routing segment, or would exceed a Discord label/custom-id limit
 - **THEN** the command SHALL send a localized payload error
 - **AND** it SHALL NOT send a partial overview
+
+#### Scenario: Oversized overview embed
+- **WHEN** the generated overview exceeds a Discord embed field or total-length limit
+- **THEN** the command SHALL send a localized payload error
+- **AND** it SHALL NOT send the invalid overview
+
+#### Scenario: Existing generic overview keeps its LeetCode source default
+- **WHEN** an existing `/problem` multi-problem response omits `source`
+- **THEN** its overview buttons SHALL continue to route with `leetcode` as the default source
+- **AND** `/daily_extra` SHALL continue to require an explicit source on every returned problem
 
 ### Requirement: Visibility, localization, and error handling
 The initial `/daily_extra` response SHALL be ephemeral by default and public only when `public=true`. Command metadata and all user-facing text SHALL be available in zh-TW, en-US, and zh-CN through the existing locale system.

@@ -21,6 +21,7 @@ from bot.utils.ui_helpers import (
     get_daily_payload,
     get_source_label,
     get_source_logo_url,
+    is_embed_within_limits,
     send_api_error,
     send_daily_challenge,
 )
@@ -115,7 +116,7 @@ class SlashCommandsCog(commands.Cog):
                 date=resolved_date,
             )
 
-            overview_view = create_problems_overview_view(problems, "com")
+            overview_view = create_problems_overview_view(problems, "com", default_source=None)
             if overview_view is None:
                 await interaction.followup.send(
                     i18n.t("errors.validation.daily_extra_unsafe_payload", locale),
@@ -158,6 +159,12 @@ class SlashCommandsCog(commands.Cog):
                     bot=self.bot,
                     locale=locale,
                 )
+                if not is_embed_within_limits(embed):
+                    await interaction.followup.send(
+                        i18n.t("errors.validation.daily_extra_unsafe_payload", locale),
+                        ephemeral=not public,
+                    )
+                    return
 
             await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
             self.logger.info(

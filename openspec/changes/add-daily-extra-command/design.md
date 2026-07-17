@@ -47,7 +47,7 @@ Alternative considered: create a separate uncached `get_extra_daily_payload()` p
 
 For one problem, `/daily_extra` uses the existing full problem embed/view builders with an additional-source daily footer. For multiple problems, it uses the existing overview embed/view builders, preserving upstream order and using each problem's own `source` and `id` in `problem|{source}|{problem_id}|view`.
 
-The overview builder receives localized daily-specific title/footer text. The generic problem-overview view gains an all-or-nothing safety decision shared with existing detail-button validation: every displayed item must have safe routing segments, every custom id must fit Discord limits, and the complete result set must fit within 25 buttons. An unsafe payload produces a localized command error and no partial overview.
+The overview builder receives localized daily-specific title/footer text. The generic problem-overview view gains an all-or-nothing safety decision shared with existing detail-button validation: every displayed item must have safe routing segments, every custom id must fit Discord limits, and the complete result set must fit within 25 buttons. Generic `/problem` overviews retain the existing missing-source default of `leetcode`, while `/daily_extra` opts into explicit-source validation and rejects generated overviews that exceed Discord embed field or total-length limits. An unsafe additional-source payload produces a localized command error and no partial overview.
 
 Alternative considered: add two daily-specific toggle buttons or edit the original message in place. That would introduce shared state and allow concurrent users to overwrite the same message.
 

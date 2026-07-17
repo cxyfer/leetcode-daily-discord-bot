@@ -14,6 +14,7 @@ from bot.utils.ui_helpers import (
     create_problem_view,
     create_problems_overview_embed,
     create_problems_overview_view,
+    is_embed_within_limits,
 )
 
 
@@ -114,6 +115,12 @@ async def test_daily_overview_view_accepts_longest_safe_follow_up_action():
     assert max(len(button.custom_id) for button in detail_view.children) == 100
 
 
+def test_daily_overview_view_can_require_explicit_source():
+    problem = {key: value for key, value in _problem("100A").items() if key != "source"}
+
+    assert create_problems_overview_view([problem], "com", default_source=None) is None
+
+
 def test_daily_overview_embed_accepts_daily_footer_override():
     problems = [_problem("100A"), _problem("200B")]
 
@@ -129,6 +136,16 @@ def test_daily_overview_embed_accepts_daily_footer_override():
     assert isinstance(embed, discord.Embed)
     assert embed.title == "Sheep Daily | 2026-06-02"
     assert embed.footer.text == "Sheep Daily | 2026-06-02"
+
+
+def test_overview_embed_rejects_total_length_when_individual_fields_fit():
+    embed = discord.Embed()
+    for index in range(6):
+        embed.add_field(name=str(index), value="x" * 1000)
+
+    assert all(len(field.value) <= 1024 for field in embed.fields)
+    assert len(embed) > 6000
+    assert is_embed_within_limits(embed) is False
 
 
 def test_daily_extra_source_choices_are_exact():
@@ -195,7 +212,8 @@ async def test_daily_extra_multiple_problems_uses_ordered_overview(monkeypatch):
         "get_daily_payload",
         AsyncMock(return_value=_payload("sheep", problems)),
     )
-    overview_embed = MagicMock(return_value=sentinel.embed)
+    embed = discord.Embed(title="Safe overview")
+    overview_embed = MagicMock(return_value=embed)
     overview_view = MagicMock(return_value=sentinel.view)
     monkeypatch.setattr(slash_commands_module, "create_problems_overview_embed", overview_embed)
     monkeypatch.setattr(slash_commands_module, "create_problems_overview_view", overview_view)
@@ -211,9 +229,35 @@ async def test_daily_extra_multiple_problems_uses_ordered_overview(monkeypatch):
     assert overview_embed.call_args.args[0] == problems
     assert overview_view.call_args.args[0] == problems
     interaction.followup.send.assert_awaited_once_with(
-        embed=sentinel.embed,
+        embed=embed,
         view=sentinel.view,
         ephemeral=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_daily_extra_rejects_oversized_overview_embed(monkeypatch):
+    bot = _make_bot()
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+    problems = [_problem(str(index)) | {"title": "x" * 300} for index in range(5)]
+    monkeypatch.setattr(
+        slash_commands_module,
+        "get_daily_payload",
+        AsyncMock(return_value=_payload("sheep", problems)),
+    )
+
+    await cog.daily_extra_command.callback(
+        cog,
+        interaction,
+        source="sheep",
+        date="2026-06-02",
+        public=False,
+    )
+
+    interaction.followup.send.assert_awaited_once_with(
+        "errors.validation.daily_extra_unsafe_payload",
+        ephemeral=True,
     )
 
 
