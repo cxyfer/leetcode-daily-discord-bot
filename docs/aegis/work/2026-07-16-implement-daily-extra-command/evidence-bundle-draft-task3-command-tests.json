@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "artifactKey": "task3-command-tests",
+  "type": "test",
+  "source": "pytest daily_extra slash_problem and focused ruff",
+  "summary": "31 tests passed; command choices, visibility, API errors, and locale parity verified; Ruff clean",
+  "verifier": "codex"
+}

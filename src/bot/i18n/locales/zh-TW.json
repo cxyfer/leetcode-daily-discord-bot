@@ -27,7 +27,9 @@
       "invalid_limit": "數量至少為 1",
       "random_not_found": "沒有找到符合 {filters} 的題目，請調整篩選條件後重試。",
       "random_no_filter": "無篩選條件",
-      "random_error": "❌ 隨機題目時發生未預期錯誤，請稍後重試。"
+      "random_error": "❌ 隨機題目時發生未預期錯誤，請稍後重試。",
+      "daily_extra_not_found": "找不到 {source_label} 在 {date} 的每日題目。",
+      "daily_extra_unsafe_payload": "每日題目數量或題號無法安全顯示，請稍後再試。"
     },
     "unexpected": "發生未預期錯誤：{error}",
     "config": {
@@ -87,6 +89,9 @@
       "similar_questions": "🔍 Similar Questions ({count}{suffix})",
       "history_problems": "History Problems",
       "daily_footer": "📅 LeetCode Daily Challenge | {date}",
+      "daily_extra_title": "📅 {source_label} Daily（{date}，共 {count} 題）",
+      "daily_extra_footer": "📅 {source_label} Daily | {date}",
+      "today": "今天",
       "problem_footer": "📖 LeetCode Problem",
       "random_footer": "🎲 Random Problem",
       "similar_footer": "🔍 Similar Problems",
@@ -136,6 +141,12 @@
       "description": "取得 LeetCode 每日挑戰 (LCCN)",
       "date": "查詢指定日期的每日挑戰 (YYYY-MM-DD 格式)，不填則為今天，最早為 2020-04-01",
       "public": "是否公開顯示回覆 (預設為私密回覆)"
+    },
+    "daily_extra": {
+      "description": "查詢 Sheep 或 0x3f 每日題目",
+      "source": "每日題目來源",
+      "date": "指定日期（YYYY-MM-DD），不填則為今天",
+      "public": "是否公開顯示初始回覆（題目詳情仍為私密）"
     },
     "problem": {
       "description": "根據題號查詢題目資訊",

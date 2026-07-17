@@ -92,6 +92,8 @@ SOURCE_LABELS = {
     "luogu": "Luogu",
     "codeforces": "Codeforces",
     "spoj": "SPOJ",
+    "sheep": "Sheep",
+    "0x3f": "0x3f",
 }
 
 SOURCE_LOGOS = {

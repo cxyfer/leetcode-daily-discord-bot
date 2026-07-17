@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "artifactKey": "task1-focused-tests",
+  "type": "test",
+  "source": "pytest test_daily_payload_reuse.py test_history_dates.py test_schedule_manager_cog.py",
+  "summary": "29 tests passed with sandbox log directory redirected to /tmp",
+  "verifier": "codex"
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "affectedLayers": [
+    "API client",
+    "daily payload cache",
+    "Discord command/UI"
+  ],
+  "owners": [
+    "Existing OjApiClient, get_daily_payload, ui_helpers, SlashCommandsCog, and InteractionHandlerCog owners"
+  ],
+  "invariants": [
+    "Cache identity is request-target namespace plus date; selected details are always ephemeral"
+  ],
+  "compatBoundary": "Keep get_daily(domain,date), v0.4 normalization, /daily, /daily_cn, scheduling, DB, config, and problem custom ids stable",
+  "nonGoals": [
+    "No scheduler support for extra sources",
+    "No database or configuration changes",
+    "No pagination, message editing, or new interaction protocol"
+  ]
+}

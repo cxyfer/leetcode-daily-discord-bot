@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "artifactKey": "task2-focused-tests",
+  "type": "test",
+  "source": "pytest daily_extra similar_results similar_cog slash_problem",
+  "summary": "40 tests passed, including 25-button order and unsafe payload rejection",
+  "verifier": "codex"
+}

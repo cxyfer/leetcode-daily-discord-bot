@@ -34,6 +34,7 @@ from .ui_constants import (
     MAX_BUTTON_CUSTOM_ID_LENGTH,
     MAX_BUTTON_LABEL_LENGTH,
     MAX_DAILY_SIMILAR_FIELD_LENGTH,
+    MAX_EMBED_LENGTH,
     MAX_FIELD_LENGTH,
     MAX_PROBLEMS_PER_OVERVIEW,
     MAX_SIMILAR_RESULT_DETAIL_BUTTONS,
@@ -327,17 +328,36 @@ def _build_problem_custom_id(source: Any, problem_id: Any, action: str) -> str:
     return PROBLEM_CUSTOM_ID_FMT.format(source=normalized_source, pid=normalized_problem_id, action=action)
 
 
-def _can_create_similar_result_view(results: List[Dict[str, Any]], *, was_truncated: bool) -> bool:
+def _can_create_problem_detail_view(
+    problems: List[Dict[str, Any]],
+    *,
+    max_items: int,
+    was_truncated: bool = False,
+    default_source: str | None = None,
+) -> bool:
     return (
-        bool(results)
+        bool(problems)
         and not was_truncated
-        and len(results) <= MAX_SIMILAR_RESULT_DETAIL_BUTTONS
+        and len(problems) <= max_items
         and all(
-            _is_safe_problem_button_segment(item.get("source"))
-            and _is_safe_problem_button_segment(item.get("id"), max_length=MAX_BUTTON_LABEL_LENGTH)
-            and len(_build_problem_custom_id(item.get("source"), item.get("id"), "view")) <= MAX_BUTTON_CUSTOM_ID_LENGTH
-            for item in results
+            isinstance(problem, dict)
+            and _is_safe_problem_button_segment(problem.get("source", default_source))
+            and _is_safe_problem_button_segment(problem.get("id"), max_length=MAX_BUTTON_LABEL_LENGTH)
+            and max(
+                len(_build_problem_custom_id(problem.get("source", default_source), problem.get("id"), action))
+                for action in ("desc", "translate", "inspire", "similar")
+            )
+            <= MAX_BUTTON_CUSTOM_ID_LENGTH
+            for problem in problems
         )
+    )
+
+
+def _can_create_similar_result_view(results: List[Dict[str, Any]], *, was_truncated: bool) -> bool:
+    return _can_create_problem_detail_view(
+        results,
+        max_items=MAX_SIMILAR_RESULT_DETAIL_BUTTONS,
+        was_truncated=was_truncated,
     )
 
 
@@ -734,6 +754,7 @@ def create_problems_overview_embed(
     footer_icon_url: Optional[str] = LEETCODE_LOGO_URL,
     bot: Any = None,
     locale: str = "zh-TW",
+    footer_text: Optional[str] = None,
 ) -> discord.Embed:
     """Create an overview embed showing all problems with basic info in user-provided order"""
     i18n = bot.i18n if bot else None
@@ -797,33 +818,49 @@ def create_problems_overview_embed(
             inline=False,
         )
 
-    footer_text = (
+    resolved_footer_text = footer_text or (
         i18n.t("ui.embed.problems_overview", locale, source_label=source_label)
         if i18n
         else f"📋 {source_label} Problems Overview"
     )
     if footer_icon_url:
-        embed.set_footer(text=footer_text, icon_url=footer_icon_url)
+        embed.set_footer(text=resolved_footer_text, icon_url=footer_icon_url)
     else:
-        embed.set_footer(text=footer_text)
+        embed.set_footer(text=resolved_footer_text)
     embed.timestamp = datetime.now(timezone.utc)
 
     return embed
 
 
-def create_problems_overview_view(problems: List[Dict[str, Any]], domain: str) -> discord.ui.View:
+def is_embed_within_limits(embed: discord.Embed) -> bool:
+    return len(embed) <= MAX_EMBED_LENGTH and all(len(field.value) <= MAX_FIELD_LENGTH for field in embed.fields)
+
+
+def create_problems_overview_view(
+    problems: List[Dict[str, Any]],
+    domain: str,
+    *,
+    default_source: str | None = "leetcode",
+) -> discord.ui.View | None:
     """Create a view with buttons for each problem"""
+    if not _can_create_problem_detail_view(
+        problems,
+        max_items=MAX_PROBLEMS_PER_OVERVIEW,
+        default_source=default_source,
+    ):
+        return None
+
     view = discord.ui.View()
 
-    for i, problem in enumerate(problems[:MAX_PROBLEMS_PER_OVERVIEW]):
+    for i, problem in enumerate(problems):
         emoji = get_problem_emoji(problem)
-        source = problem.get("source", "leetcode")
+        source, problem_id = _normalize_problem_button_segments(problem.get("source", default_source), problem["id"])
 
         button = discord.ui.Button(
             style=discord.ButtonStyle.secondary,
-            label=f"{problem['id']}",
+            label=problem_id,
             emoji=emoji,
-            custom_id=_build_problem_custom_id(source, problem["id"], "view"),
+            custom_id=_build_problem_custom_id(source, problem_id, "view"),
             row=i // 5,
         )
         view.add_item(button)
@@ -930,17 +967,27 @@ _DAILY_PAYLOAD_CACHE_TTL_SECONDS = 60
 _CURRENT_DAILY_PAYLOAD_KEY = "__current__"
 
 
-def _get_primary_daily_problem(response: dict[str, Any] | None) -> dict[str, Any] | None:
+def _get_daily_problems(response: dict[str, Any] | None) -> list[dict[str, Any]] | None:
     if not response:
         return None
     problems = response.get("problems")
-    if not isinstance(problems, list) or not problems or not isinstance(problems[0], dict):
+    if (
+        not isinstance(problems, list)
+        or not problems
+        or not all(isinstance(problem, dict) for problem in problems)
+    ):
         return None
 
-    problem = dict(problems[0])
+    resolved = [dict(problem) for problem in problems]
     if response.get("date"):
-        problem["date"] = response["date"]
-    return problem
+        for problem in resolved:
+            problem["date"] = response["date"]
+    return resolved
+
+
+def _get_primary_daily_problem(response: dict[str, Any] | None) -> dict[str, Any] | None:
+    problems = _get_daily_problems(response)
+    return problems[0] if problems else None
 
 
 def _get_daily_payload_state(
@@ -1010,32 +1057,55 @@ async def _fetch_daily_payload(
     domain: str,
     date_str: str | None,
     fallback_date: str,
+    *,
+    source: str | None = None,
 ) -> dict[str, Any] | None:
-    if date_str:
+    if source is not None:
+        daily_response = await bot.api.get_daily_by_source(source, date_str)
+    elif date_str:
         daily_response = await bot.api.get_daily(domain, date_str)
     else:
         daily_response = await bot.api.get_daily(domain)
-    challenge_info = _get_primary_daily_problem(daily_response)
-    if not challenge_info:
+
+    problems = _get_daily_problems(daily_response)
+    if not problems:
         return None
 
-    history_anchor = daily_response.get("date") or date_str or fallback_date
-    history_problems = await _fetch_daily_history(bot, domain, history_anchor)
+    resolved_date = daily_response.get("date") or date_str or fallback_date
+    history_problems = [] if source is not None else await _fetch_daily_history(bot, domain, resolved_date)
     return {
-        "challenge_info": challenge_info,
+        "challenge_info": problems[0],
+        "problems": problems,
         "history_problems": history_problems,
-        "resolved_date": history_anchor,
+        "resolved_date": resolved_date,
+        "daily_source": daily_response.get("source")
+        or source
+        or ("leetcode.cn" if domain == "cn" else "leetcode.com"),
     }
 
 
-async def get_daily_payload(bot: Any, domain: str = "com", date_str: str | None = None) -> dict[str, Any] | None:
-    fallback_date = datetime.now(pytz.UTC).strftime("%Y-%m-%d")
-    cache_key = (domain, date_str or f"{_CURRENT_DAILY_PAYLOAD_KEY}:{fallback_date}")
+async def get_daily_payload(
+    bot: Any,
+    domain: str = "com",
+    date_str: str | None = None,
+    *,
+    source: str | None = None,
+) -> dict[str, Any] | None:
+    fallback_timezone = pytz.timezone("Asia/Taipei") if source is not None else pytz.UTC
+    fallback_date = datetime.now(fallback_timezone).strftime("%Y-%m-%d")
+    target_key = f"source:{source}" if source is not None else f"domain:{domain}"
+    cache_key = (target_key, date_str or f"{_CURRENT_DAILY_PAYLOAD_KEY}:{fallback_date}")
     cache, in_flight, lock = _get_daily_payload_state(bot)
 
     async def fetch_and_cleanup() -> dict[str, Any] | None:
         try:
-            return await _fetch_daily_payload(bot, domain, date_str, fallback_date)
+            return await _fetch_daily_payload(
+                bot,
+                domain,
+                date_str,
+                fallback_date,
+                source=source,
+            )
         finally:
             current_task = asyncio.current_task()
             async with lock:
@@ -1067,7 +1137,7 @@ async def get_daily_payload(bot: Any, domain: str = "com", date_str: str | None 
             cache[cache_key] = (inserted_at, payload)
             actual_date = payload.get("resolved_date")
             if actual_date and (date_str or payload["challenge_info"].get("date")):
-                cache[(domain, actual_date)] = (inserted_at, payload)
+                cache[(target_key, actual_date)] = (inserted_at, payload)
     return payload
 
 

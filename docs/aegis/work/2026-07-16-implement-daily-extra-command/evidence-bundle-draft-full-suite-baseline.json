@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "artifactKey": "full-suite-baseline",
+  "type": "test",
+  "source": "pytest all repository tests",
+  "summary": "229 passed; 3 existing worktree symlink path assertions failed outside changed files",
+  "verifier": "codex"
+}

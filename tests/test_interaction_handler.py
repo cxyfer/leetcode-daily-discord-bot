@@ -1,6 +1,6 @@
 # tests/test_interaction_handler.py
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, sentinel
 
 import discord
 import pytest
@@ -423,6 +423,68 @@ class TestInteractionHandler:
         assert "view" in kwargs
         assert kwargs["embed"].title.startswith("🔴 P1001:")
         assert kwargs["view"].children[0].custom_id == "problem|luogu|P1001|desc"
+        assert kwargs["ephemeral"] is True
+        mock_interaction.edit_original_response.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_problem_view_clicks_are_private_and_independent_per_user(self, cog, mock_bot, monkeypatch):
+        def make_click(user_id: int, problem_id: str):
+            interaction = AsyncMock(spec=discord.Interaction)
+            interaction.type = discord.InteractionType.component
+            interaction.data = {"custom_id": f"problem|codeforces|{problem_id}|view"}
+            interaction.user = MagicMock(id=user_id, name=f"user-{user_id}")
+            interaction.response = AsyncMock()
+            interaction.response.defer = AsyncMock()
+            interaction.followup = AsyncMock()
+            interaction.followup.send = AsyncMock()
+            interaction.guild = MagicMock(id=987654321)
+            interaction.guild_locale = None
+            interaction.locale = discord.Locale.taiwan_chinese
+            return interaction
+
+        first = make_click(1, "100A")
+        second = make_click(2, "200B")
+        problems = {
+            "100A": {
+                "id": "100A",
+                "source": "codeforces",
+                "title": "First",
+                "link": "https://example.com/100A",
+            },
+            "200B": {
+                "id": "200B",
+                "source": "codeforces",
+                "title": "Second",
+                "link": "https://example.com/200B",
+            },
+        }
+
+        async def get_problem(source, problem_id):
+            assert source == "codeforces"
+            return problems[problem_id]
+
+        async def create_embed(*, problem_info, **kwargs):
+            return sentinel.first_embed if problem_info["id"] == "100A" else sentinel.second_embed
+
+        async def create_view(*, problem_info, **kwargs):
+            return sentinel.first_view if problem_info["id"] == "100A" else sentinel.second_view
+
+        mock_bot.api.get_problem.side_effect = get_problem
+        monkeypatch.setattr(interaction_handler_module, "create_problem_embed", AsyncMock(side_effect=create_embed))
+        monkeypatch.setattr(interaction_handler_module, "create_problem_view", AsyncMock(side_effect=create_view))
+
+        await asyncio.gather(cog.on_interaction(first), cog.on_interaction(second))
+
+        first.response.defer.assert_awaited_once_with(ephemeral=True)
+        second.response.defer.assert_awaited_once_with(ephemeral=True)
+        first_kwargs = first.followup.send.await_args.kwargs
+        second_kwargs = second.followup.send.await_args.kwargs
+        assert first_kwargs["ephemeral"] is True
+        assert second_kwargs["ephemeral"] is True
+        assert first_kwargs["embed"] is sentinel.first_embed
+        assert second_kwargs["embed"] is sentinel.second_embed
+        first.edit_original_response.assert_not_awaited()
+        second.edit_original_response.assert_not_awaited()
 
 
 if __name__ == "__main__":

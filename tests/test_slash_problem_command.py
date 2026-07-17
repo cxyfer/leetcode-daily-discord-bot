@@ -125,6 +125,19 @@ def _make_atcoder_problem(problem_id: str) -> dict:
     }
 
 
+def _make_legacy_leetcode_problem(problem_id: str) -> dict:
+    return {
+        "id": problem_id,
+        "slug": f"problem-{problem_id}",
+        "title": f"Problem {problem_id}",
+        "difficulty": "Easy",
+        "ac_rate": 50.0,
+        "rating": None,
+        "tags": ["Array"],
+        "link": f"https://leetcode.com/problems/problem-{problem_id}/",
+    }
+
+
 def _make_luogu_problem(problem_id: str, difficulty: str = "入门") -> dict:
     return {
         "id": problem_id,
@@ -225,6 +238,35 @@ async def test_problem_command_atcoder_multiple_sends_overview_buttons():
         assert emoji_value == NON_DIFFICULTY_EMOJI
         assert button.custom_id.startswith("problem|atcoder|")
         assert button.custom_id.endswith("|view")
+
+
+@pytest.mark.asyncio
+async def test_problem_command_legacy_leetcode_multiple_defaults_missing_source_for_overview_buttons():
+    bot = _make_bot()
+
+    async def _resolve(query):
+        return {"problem": _make_legacy_leetcode_problem(query)}
+
+    bot.api.resolve.side_effect = _resolve
+    cog = SlashCommandsCog(bot)
+    interaction = _make_interaction()
+
+    await cog.problem_command.callback(
+        cog,
+        interaction,
+        problem_ids="1,2",
+        domain="com",
+        public=False,
+        message=None,
+        title=None,
+        source=None,
+    )
+
+    _, kwargs = interaction.followup.send.call_args
+    assert [button.custom_id for button in kwargs["view"].children] == [
+        "problem|leetcode|1|view",
+        "problem|leetcode|2|view",
+    ]
 
 
 @pytest.mark.asyncio

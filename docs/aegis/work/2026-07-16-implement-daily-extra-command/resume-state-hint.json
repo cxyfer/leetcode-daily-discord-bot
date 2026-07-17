@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "taskId": "2026-07-16-implement-daily-extra-command",
+  "lastCheckpointRef": "docs/aegis/work/2026-07-16-implement-daily-extra-command/todo-checkpoint-draft.json",
+  "resumeInstruction": "Review git diff and verification evidence; do not rerun implementation slices",
+  "knownPartialWork": [
+    "Tasks 1-4 and all approved implementation scope completed"
+  ],
+  "mustReadBeforeContinuing": [
+    "docs/aegis/work/2026-07-16-implement-daily-extra-command/10-intent.md",
+    "docs/aegis/work/2026-07-16-implement-daily-extra-command/20-checkpoint.md",
+    "docs/aegis/work/2026-07-16-implement-daily-extra-command/todo-checkpoint-draft.json"
+  ],
+  "unsafeToAssume": []
+}

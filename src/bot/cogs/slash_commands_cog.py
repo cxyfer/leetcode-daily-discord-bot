@@ -21,6 +21,7 @@ from bot.utils.ui_helpers import (
     get_daily_payload,
     get_source_label,
     get_source_logo_url,
+    is_embed_within_limits,
     send_api_error,
     send_daily_challenge,
 )
@@ -59,6 +60,132 @@ class SlashCommandsCog(commands.Cog):
             await self._daily_by_date(interaction, "cn", date, public)
         else:
             await send_daily_challenge(bot=self.bot, interaction=interaction, domain="cn", ephemeral=not public)
+
+    @app_commands.command(name="daily_extra", description=app_commands.locale_str("daily_extra.description"))
+    @app_commands.describe(
+        source=app_commands.locale_str("daily_extra.source"),
+        date=app_commands.locale_str("daily_extra.date"),
+        public=app_commands.locale_str("daily_extra.public"),
+    )
+    @app_commands.choices(
+        source=[
+            app_commands.Choice(name="Sheep", value="sheep"),
+            app_commands.Choice(name="0x3f", value="0x3f"),
+        ]
+    )
+    async def daily_extra_command(
+        self,
+        interaction: discord.Interaction,
+        source: str,
+        date: str = None,
+        public: bool = False,
+    ):
+        await interaction.response.defer(ephemeral=not public)
+        locale = _get_locale(self.bot, interaction)
+        i18n = self.bot.i18n
+
+        if date and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+            await interaction.followup.send(
+                i18n.t("errors.validation.date_format", locale),
+                ephemeral=not public,
+            )
+            return
+
+        try:
+            payload = await get_daily_payload(self.bot, date_str=date, source=source)
+            source_label = get_source_label(source)
+            requested_date = date or (payload.get("resolved_date") if payload else i18n.t("ui.embed.today", locale))
+            if not payload:
+                await interaction.followup.send(
+                    i18n.t(
+                        "errors.validation.daily_extra_not_found",
+                        locale,
+                        source_label=source_label,
+                        date=requested_date,
+                    ),
+                    ephemeral=not public,
+                )
+                return
+
+            problems = payload["problems"]
+            resolved_date = payload["resolved_date"]
+            footer_text = i18n.t(
+                "ui.embed.daily_extra_footer",
+                locale,
+                source_label=source_label,
+                date=resolved_date,
+            )
+
+            overview_view = create_problems_overview_view(problems, "com", default_source=None)
+            if overview_view is None:
+                await interaction.followup.send(
+                    i18n.t("errors.validation.daily_extra_unsafe_payload", locale),
+                    ephemeral=not public,
+                )
+                return
+
+            if len(problems) == 1:
+                problem = problems[0]
+                embed = await create_problem_embed(
+                    problem_info=problem,
+                    bot=self.bot,
+                    domain="com",
+                    is_daily=False,
+                    date_str=resolved_date,
+                    locale=locale,
+                    footer_text=footer_text,
+                )
+                view = await create_problem_view(
+                    problem_info=problem,
+                    bot=self.bot,
+                    domain="com",
+                    locale=locale,
+                )
+            else:
+                view = overview_view
+                embed = create_problems_overview_embed(
+                    problems,
+                    "com",
+                    title=i18n.t(
+                        "ui.embed.daily_extra_title",
+                        locale,
+                        source_label=source_label,
+                        date=resolved_date,
+                        count=len(problems),
+                    ),
+                    source_label=source_label,
+                    footer_icon_url=get_source_logo_url(source),
+                    footer_text=footer_text,
+                    bot=self.bot,
+                    locale=locale,
+                )
+                if not is_embed_within_limits(embed):
+                    await interaction.followup.send(
+                        i18n.t("errors.validation.daily_extra_unsafe_payload", locale),
+                        ephemeral=not public,
+                    )
+                    return
+
+            await interaction.followup.send(embed=embed, view=view, ephemeral=not public)
+            self.logger.info(
+                "Sent %s daily challenge for %s with %d problems to user %s",
+                source,
+                resolved_date,
+                len(problems),
+                interaction.user.name,
+            )
+        except ApiProcessingError:
+            await send_api_error(interaction, "processing", self.bot, ephemeral=not public)
+        except ApiNetworkError:
+            await send_api_error(interaction, "network", self.bot, ephemeral=not public)
+        except ApiRateLimitError:
+            await send_api_error(interaction, "rate_limit", self.bot, ephemeral=not public)
+        except ApiError as error:
+            self.logger.error("API error in daily_extra command: %s", error)
+            await send_api_error(interaction, "generic", self.bot, ephemeral=not public)
+        except Exception as error:
+            self.logger.error("Unexpected error in daily_extra command: %s", error, exc_info=True)
+            await send_api_error(interaction, "generic", self.bot, ephemeral=not public)
 
     async def _daily_by_date(self, interaction: discord.Interaction, domain: str, date: str, public: bool):
         locale = _get_locale(self.bot, interaction)

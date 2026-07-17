@@ -38,9 +38,43 @@ def _daily_response(date: str = "2026-06-03", domain: str = "com") -> dict:
     }
 
 
+def _extra_daily_response(source: str = "sheep", date: str = "2026-06-02") -> dict:
+    return {
+        "date": date,
+        "source": source,
+        "problems": [
+            {
+                "id": "100A",
+                "source": "codeforces",
+                "slug": "100A",
+                "title": "First",
+                "difficulty": None,
+                "ac_rate": None,
+                "rating": 1200,
+                "tags": ["implementation"],
+                "link": "https://codeforces.com/problemset/problem/100/A",
+            },
+            {
+                "id": "200B",
+                "source": "codeforces",
+                "slug": "200B",
+                "title": "Second",
+                "difficulty": None,
+                "ac_rate": None,
+                "rating": 1400,
+                "tags": ["math"],
+                "link": "https://codeforces.com/problemset/problem/200/B",
+            },
+        ],
+    }
+
+
 def _make_bot():
     bot = MagicMock(spec=commands.Bot)
-    bot.api = SimpleNamespace(get_daily=AsyncMock(return_value=_daily_response()))
+    bot.api = SimpleNamespace(
+        get_daily=AsyncMock(return_value=_daily_response()),
+        get_daily_by_source=AsyncMock(),
+    )
     bot.llm = MagicMock()
     bot.llm_pro = MagicMock()
     bot.config = SimpleNamespace(default_locale="zh-TW")
@@ -109,6 +143,106 @@ async def test_get_daily_preserves_current_envelope_response():
 
     assert result is current_response
     api._request.assert_awaited_once_with("GET", "daily", params={"domain": "com"})
+
+
+@pytest.mark.asyncio
+async def test_get_daily_by_source_sends_source_without_domain():
+    response = _extra_daily_response("sheep", "2026-06-02")
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(return_value=response)
+
+    result = await api.get_daily_by_source("sheep", "2026-06-02")
+
+    assert result is response
+    api._request.assert_awaited_once_with(
+        "GET",
+        "daily",
+        params={"source": "sheep", "date": "2026-06-02"},
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_daily_by_source_omits_date_when_not_requested():
+    response = _extra_daily_response("0x3f")
+    api = OjApiClient("http://test")
+    api._session = AsyncMock()
+    api._request = AsyncMock(return_value=response)
+
+    result = await api.get_daily_by_source("0x3f")
+
+    assert result is response
+    api._request.assert_awaited_once_with("GET", "daily", params={"source": "0x3f"})
+
+
+@pytest.mark.asyncio
+async def test_extra_daily_payload_preserves_order_and_skips_history(monkeypatch):
+    bot = _make_bot()
+    response = _extra_daily_response()
+    bot.api.get_daily_by_source.return_value = response
+    history = AsyncMock()
+    monkeypatch.setattr(ui_helpers, "_fetch_daily_history", history)
+
+    payload = await get_daily_payload(bot, date_str="2026-06-02", source="sheep")
+
+    assert [problem["id"] for problem in payload["problems"]] == ["100A", "200B"]
+    assert payload["challenge_info"]["id"] == "100A"
+    assert payload["daily_source"] == "sheep"
+    assert payload["resolved_date"] == "2026-06-02"
+    assert payload["history_problems"] == []
+    history.assert_not_awaited()
+    bot.api.get_daily_by_source.assert_awaited_once_with("sheep", "2026-06-02")
+
+
+@pytest.mark.asyncio
+async def test_daily_payload_cache_isolated_by_target(monkeypatch):
+    bot = _make_bot()
+    monkeypatch.setattr(ui_helpers, "generate_history_dates", lambda anchor_date: [])
+    bot.api.get_daily_by_source.side_effect = [
+        _extra_daily_response("sheep"),
+        _extra_daily_response("0x3f"),
+    ]
+
+    leetcode = await get_daily_payload(bot, "com", "2026-06-02")
+    sheep = await get_daily_payload(bot, date_str="2026-06-02", source="sheep")
+    zero_x3f = await get_daily_payload(bot, date_str="2026-06-02", source="0x3f")
+    sheep_again = await get_daily_payload(bot, date_str="2026-06-02", source="sheep")
+
+    assert leetcode["daily_source"] == "leetcode.com"
+    assert sheep["daily_source"] == "sheep"
+    assert zero_x3f["daily_source"] == "0x3f"
+    assert sheep_again is sheep
+    assert bot.api.get_daily.await_count == 1
+    assert bot.api.get_daily_by_source.await_count == 2
+    assert ("domain:com", "2026-06-02") in bot._daily_payload_cache
+    assert ("source:sheep", "2026-06-02") in bot._daily_payload_cache
+    assert ("source:0x3f", "2026-06-02") in bot._daily_payload_cache
+
+
+@pytest.mark.asyncio
+async def test_extra_daily_payload_coalesces_identical_in_flight_requests():
+    bot = _make_bot()
+    started = asyncio.Event()
+    release = asyncio.Event()
+    calls = 0
+
+    async def fetch(source, date=None):
+        nonlocal calls
+        calls += 1
+        started.set()
+        await release.wait()
+        return _extra_daily_response(source, date or "2026-06-02")
+
+    bot.api.get_daily_by_source.side_effect = fetch
+    first = asyncio.create_task(get_daily_payload(bot, date_str="2026-06-02", source="sheep"))
+    await started.wait()
+    second = asyncio.create_task(get_daily_payload(bot, date_str="2026-06-02", source="sheep"))
+    release.set()
+
+    first_payload, second_payload = await asyncio.gather(first, second)
+
+    assert first_payload is second_payload
+    assert calls == 1
 
 
 @pytest.mark.asyncio
@@ -190,7 +324,7 @@ async def test_get_daily_payload_ignores_completed_failed_in_flight_task(monkeyp
     with pytest.raises(ApiProcessingError):
         await failed_task
 
-    bot._daily_payload_in_flight = {("com", "2026-06-03"): failed_task}
+    bot._daily_payload_in_flight = {("domain:com", "2026-06-03"): failed_task}
 
     payload = await get_daily_payload(bot, "com", "2026-06-03")
 
@@ -220,14 +354,14 @@ async def test_get_daily_payload_prunes_expired_cache_entries(monkeypatch):
         "history_problems": [],
         "resolved_date": "2026-06-01",
     }
-    bot._daily_payload_cache = {("com", "2026-06-01"): (0.0, old_payload)}
+    bot._daily_payload_cache = {("domain:com", "2026-06-01"): (0.0, old_payload)}
     monkeypatch.setattr(ui_helpers, "generate_history_dates", lambda anchor_date: [])
     monkeypatch.setattr(ui_helpers.time, "monotonic", lambda: 61.0)
 
     await get_daily_payload(bot, "com", "2026-06-03")
 
-    assert ("com", "2026-06-01") not in bot._daily_payload_cache
-    assert ("com", "2026-06-03") in bot._daily_payload_cache
+    assert ("domain:com", "2026-06-01") not in bot._daily_payload_cache
+    assert ("domain:com", "2026-06-03") in bot._daily_payload_cache
 
 
 @pytest.mark.asyncio

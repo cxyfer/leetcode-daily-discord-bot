@@ -27,7 +27,9 @@
       "invalid_limit": "Limit must be at least 1.",
       "random_not_found": "No problems found matching {filters}. Please adjust your filters and try again.",
       "random_no_filter": "no filters",
-      "random_error": "❌ An unexpected error occurred while fetching a random problem. Please try again."
+      "random_error": "❌ An unexpected error occurred while fetching a random problem. Please try again.",
+      "daily_extra_not_found": "No {source_label} daily problems were found for {date}.",
+      "daily_extra_unsafe_payload": "The daily problem set cannot be displayed safely. Please try again later."
     },
     "unexpected": "An unexpected error occurred: {error}",
     "config": {
@@ -87,6 +89,9 @@
       "similar_questions": "🔍 Similar Questions ({count}{suffix})",
       "history_problems": "History Problems",
       "daily_footer": "📅 LeetCode Daily Challenge | {date}",
+      "daily_extra_title": "📅 {source_label} Daily ({date}, {count} problems)",
+      "daily_extra_footer": "📅 {source_label} Daily | {date}",
+      "today": "today",
       "problem_footer": "📖 LeetCode Problem",
       "random_footer": "🎲 Random Problem",
       "similar_footer": "🔍 Similar Problems",
@@ -156,6 +161,12 @@
       "description": "Get LeetCode Daily Challenge (LCCN)",
       "date": "Query daily challenge for a specific date (YYYY-MM-DD), defaults to today, earliest 2020-04-01",
       "public": "Whether to show the reply publicly (default: private)"
+    },
+    "daily_extra": {
+      "description": "Query Sheep or 0x3f daily problems",
+      "source": "Daily problem source",
+      "date": "Date (YYYY-MM-DD), defaults to today",
+      "public": "Show the initial response publicly (details remain private)"
     },
     "problem": {
       "description": "Query problem information by ID",
