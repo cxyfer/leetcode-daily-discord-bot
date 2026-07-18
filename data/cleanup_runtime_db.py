@@ -12,6 +12,7 @@ DEFAULT_DB_PATH = DATA_DIR / "data.db"
 DEFAULT_INIT_SCRIPT_PATH = DATA_DIR / "init_db_schema.sql"
 PRESERVED_TABLES = (
     "server_settings",
+    "daily_push_settings",
     "llm_translate_results",
     "llm_inspire_results",
 )
@@ -133,6 +134,28 @@ def get_select_expressions(
     return expressions
 
 
+def copy_legacy_daily_push_settings(conn: sqlite3.Connection) -> bool:
+    if table_exists(conn, "old", "daily_push_settings"):
+        return False
+
+    legacy_columns = set(get_table_columns(conn, "old", "server_settings"))
+    required_columns = {"server_id", "channel_id", "role_id", "post_time", "timezone"}
+    if not required_columns.issubset(legacy_columns):
+        return False
+
+    conn.execute(
+        """
+        INSERT INTO main.daily_push_settings
+            (server_id, source, channel_id, role_id, post_time, timezone, created_at, updated_at)
+        SELECT
+            server_id, 'leetcode.com', channel_id, role_id, post_time, timezone,
+            created_at, updated_at
+        FROM old.server_settings
+        """
+    )
+    return True
+
+
 def rebuild_database(db_path: Path, init_script_path: Path, temp_db_path: Path) -> list[str]:
     init_sql = init_script_path.read_text(encoding="utf-8")
     copied_tables: list[str] = []
@@ -159,6 +182,9 @@ def rebuild_database(db_path: Path, init_script_path: Path, temp_db_path: Path) 
                 f"SELECT {select_columns} FROM old.{quote_ident(table_name)}"
             )
             copied_tables.append(table_name)
+
+        if copy_legacy_daily_push_settings(conn):
+            copied_tables.append("daily_push_settings")
 
     return copied_tables
 

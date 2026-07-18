@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "artifactKey": "task2-database-green",
+  "type": "command",
+  "source": "uv run pytest tests/test_settings_database.py tests/test_database_schema_assets.py tests/test_bootstrap_and_paths.py; targeted Ruff",
+  "summary": "Runtime backup/migration/rollback/idempotency and normalized settings CRUD tests pass; targeted lint and format pass",
+  "verifier": "Codex"
+}

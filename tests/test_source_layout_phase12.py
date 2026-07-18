@@ -44,6 +44,7 @@ def test_database_manager_resolves_relative_path_from_repo_root(monkeypatch, tmp
     from bot.utils.database import SettingsDatabaseManager
 
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(SettingsDatabaseManager, "_init_db", lambda self: None)
 
     manager = SettingsDatabaseManager(db_path="data/test-settings.db")
 

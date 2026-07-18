@@ -14,6 +14,7 @@ from bot.api_client import (
     ApiRateLimitError,
 )
 from bot.leetcode import html_to_text
+from bot.utils.daily_sources import validate_daily_push_source
 from bot.utils.logger import get_commands_logger
 from bot.utils.ui_helpers import (
     _get_locale,
@@ -101,6 +102,58 @@ class InteractionHandlerCog(commands.Cog):
             return
         await self.bot.reschedule_daily_challenge(guild_id, "config_reset")
         await interaction.response.edit_message(content=i18n.t("errors.reset.success", locale), embed=None, view=None)
+
+    async def _handle_config_remove(self, interaction: discord.Interaction):
+        locale = _get_locale(self.bot, interaction)
+        i18n = self.bot.i18n
+
+        custom_id = interaction.data.get("custom_id", "")
+        parts = custom_id.split("|")
+        try:
+            if len(parts) != 5:
+                raise ValueError
+            action, raw_guild_id, raw_user_id, raw_exp_unix, source = parts
+            guild_id = int(raw_guild_id)
+            user_id = int(raw_user_id)
+            exp_unix = int(raw_exp_unix)
+            validate_daily_push_source(source)
+        except (ValueError, TypeError):
+            await interaction.response.send_message(i18n.t("errors.remove.invalid_action", locale), ephemeral=True)
+            return
+
+        if action not in ("config_remove_cancel", "config_remove_confirm"):
+            await interaction.response.send_message(i18n.t("errors.remove.invalid_action", locale), ephemeral=True)
+            return
+        if not interaction.guild or guild_id != interaction.guild.id:
+            await interaction.response.send_message(i18n.t("errors.remove.invalid_action", locale), ephemeral=True)
+            return
+        if user_id != interaction.user.id:
+            await interaction.response.send_message(i18n.t("errors.remove.wrong_user", locale), ephemeral=True)
+            return
+        if int(time.time()) > exp_unix:
+            await interaction.response.send_message(i18n.t("errors.remove.expired", locale), ephemeral=True)
+            return
+
+        if action == "config_remove_cancel":
+            await interaction.response.edit_message(
+                content=i18n.t("errors.remove.cancelled", locale),
+                embed=None,
+                view=None,
+            )
+            return
+
+        if not interaction.user.guild_permissions.manage_guild:
+            await interaction.response.send_message(i18n.t("errors.remove.permission_denied", locale), ephemeral=True)
+            return
+        if not self.bot.db.delete_daily_push(guild_id, source):
+            await interaction.response.send_message(i18n.t("errors.remove.error", locale), ephemeral=True)
+            return
+        await self.bot.reschedule_daily_challenge(guild_id, "config_remove", source=source)
+        await interaction.response.edit_message(
+            content=i18n.t("errors.remove.success", locale),
+            embed=None,
+            view=None,
+        )
 
     # -- Submission navigation (preserved) --
 
@@ -406,6 +459,10 @@ class InteractionHandlerCog(commands.Cog):
             return
 
         custom_id = interaction.data.get("custom_id", "")
+
+        if custom_id.startswith("config_remove_confirm|") or custom_id.startswith("config_remove_cancel|"):
+            await self._handle_config_remove(interaction)
+            return
 
         # Config reset (preserved)
         if custom_id.startswith("config_reset_confirm|") or custom_id.startswith("config_reset_cancel|"):

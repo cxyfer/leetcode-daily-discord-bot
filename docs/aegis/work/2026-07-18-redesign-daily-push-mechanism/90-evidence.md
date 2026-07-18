@@ -1,0 +1,83 @@
+# Redesign daily push mechanism - Evidence
+
+No evidence has been recorded yet.
+
+## EvidenceBundleDraft
+
+- Artifact key: openspec-strict-validation
+- Type: command
+- Source: openspec validate redesign-daily-push-mechanism --strict
+- Summary: OpenSpec change is valid
+- Verifier: Codex
+
+## EvidenceBundleDraft
+
+- Artifact key: aegis-workspace-check
+- Type: command
+- Source: aegis-workspace.py check --root .
+- Summary: Aegis workspace structure is valid
+- Verifier: Codex
+
+## EvidenceBundleDraft
+
+- Artifact key: task1-schema-assets-green
+- Type: command
+- Source: uv run pytest tests/test_database_schema_assets.py; ruff targeted checks
+- Summary: Normalized schema, constraints, and legacy cleanup conversion tests pass; targeted lint and format pass
+- Verifier: Codex
+
+## EvidenceBundleDraft
+
+- Artifact key: task2-database-green
+- Type: command
+- Source: uv run pytest tests/test_settings_database.py tests/test_database_schema_assets.py tests/test_bootstrap_and_paths.py; targeted Ruff
+- Summary: Runtime backup/migration/rollback/idempotency and normalized settings CRUD tests pass; targeted lint and format pass
+- Verifier: Codex
+
+## EvidenceBundleDraft
+
+- Artifact key: task3-daily-source-delivery-green
+- Type: command
+- Source: uv run pytest tests/test_daily_source_delivery.py tests/test_daily_payload_reuse.py; targeted Ruff
+- Summary: Source API params, domain compatibility, cache isolation, single/multi-problem rendering, role mention, and source-not-found propagation pass
+- Verifier: Codex
+
+## EvidenceBundleDraft
+
+- Artifact key: task4-source-scoped-scheduler-green
+- Type: command
+- Source: uv run pytest tests/test_schedule_manager_cog.py tests/test_daily_source_delivery.py; targeted Ruff
+- Summary: Startup jobs, job identity, targeted and whole-server rescheduling, source-scoped deduplication, retry, not-found skip, and source forwarding pass
+- Verifier: Codex
+
+## EvidenceBundleDraft
+
+- Artifact key: task5-source-config-green
+- Type: command
+- Source: uv run pytest tests/test_config_command.py tests/test_settings_database.py tests/test_schedule_manager_cog.py; targeted Ruff
+- Summary: Fixed source choices, LeetCode default updates, three-source creation, partial updates, global language, removal confirmation IDs, and multi-push display pass
+- Verifier: Codex
+
+## EvidenceBundleDraft
+
+- Artifact key: task6-source-removal-green
+- Type: command
+- Source: uv run pytest tests/test_interaction_handler.py tests/test_config_command.py; targeted Ruff
+- Summary: Source removal confirm/cancel and security guards pass; exact source deletion and targeted rescheduling are verified; legacy whole-guild reset routing remains valid
+- Verifier: Codex
+
+## EvidenceBundleDraft
+
+- Artifact key: task7-locales-docs-green
+- Type: command
+- Source: uv run pytest tests/test_source_layout_phase56.py tests/test_config_command.py tests/test_interaction_handler.py; openspec validate redesign-daily-push-mechanism --strict; targeted Ruff
+- Summary: New user-facing keys exist in all supported locales, README documents independent pushes and backed-up migration, and strict OpenSpec validation passes
+- Verifier: Codex
+
+## EvidenceBundleDraft
+
+- Artifact key: final-full-verification-green
+- Type: command
+- Source: targeted pytest; full pytest; ruff check .; ruff format --check .; openspec strict; retirement rg
+- Summary: All targeted and full regression commands exited 0; Ruff and strict OpenSpec passed; no combined settings CRUD or server-only scheduler job IDs remain; legacy column access is isolated to the one-way migration owner.
+- Verifier: Codex

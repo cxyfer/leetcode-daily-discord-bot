@@ -12,8 +12,8 @@
 
 ## ✨ Features
 
-- 🔄 **Automatic Daily Challenge**: Automatically posts the daily challenge to Discord
-- ⏰ **Scheduled Delivery**: Configure a posting time and timezone for each server
+- 🔄 **Automatic Daily Challenges**: Schedule `leetcode.com`, `sheep`, and `0x3f` problem sets
+- ⏰ **Independent Scheduled Delivery**: Configure up to three independent daily pushes per server, each with its own channel, role, time, and timezone
 - 🎮 **Slash Commands**: Simple slash-command interface for daily problems, lookup, recent submissions, and settings
 - 🌐 **Multi-server Support**: Each Discord server keeps its own configuration
 - 🔔 **Custom Notifications**: Configure the target channel and optional role mention
@@ -88,6 +88,8 @@ uv run python data/cleanup_runtime_db.py --db-path /path/to/data.db --skip-vacuu
 
 The helper creates a timestamped backup, rebuilds the runtime schema from `data/init_db_schema.sql`, migrates `server_settings`, `llm_translate_results`, and `llm_inspire_results` when present, and runs `VACUUM` unless you pass `--skip-vacuum`.
 
+The bot also migrates the former single-push `server_settings` schema automatically at startup. Before changing the schema it creates a timestamped `.pre-push-redesign.bak` SQLite backup, then each legacy schedule is migrated to the `leetcode.com` source. The backup is retained for operator rollback and is never read by the normal runtime path.
+
 If you need to initialize an empty database manually:
 
 ```bash
@@ -151,14 +153,15 @@ See `config.toml.example` for all available options.
 | `/problem <problem_ids> [source] [domain] [public] [message] [title]` | Query one or multiple problems<br>• `problem_ids`: Single ID or comma-separated IDs<br>• Supports `source:id` format such as `atcoder:abc001_a` or `leetcode:1`<br>• `source`: Problem source filter or hint<br>• `domain`: `com` or `cn` for LeetCode (default: `com`)<br>• `public`: Show the response publicly<br>• `message`: Optional personal note (max 500 chars)<br>• `title`: Custom title for multi-problem mode (max 100 chars)<br>• Supports up to 20 problems per query | None |
 | `/recent <username> [limit] [public]` | View recent accepted submissions for a user<br>• `username`: LeetCode username (LCUS only)<br>• `limit`: Number of submissions (1-50, default: 20)<br>• `public`: Show the response publicly | None |
 | `/similar [query] [problem] [top_k] [source] [public]` | Find similar problems through the configured remote API backend<br>• `query`: Free-text query (optional when `problem` is provided)<br>• `problem`: Existing problem ID or URL<br>• `top_k`: Number of results (default: 5, capped at 20)<br>• `source`: Problem source filter<br>• `public`: Show the response publicly | None |
-| `/config [channel] [role] [time] [timezone] [clear_role] [reset]` | View or update daily-challenge server settings<br>• No parameters: Show current settings<br>• `channel`: Notification channel (required on first setup)<br>• `role`: Role to mention with daily challenges<br>• `time`: Posting time in `HH:MM` or `H:MM` format<br>• `timezone`: Timezone such as `Asia/Taipei` or `UTC+8`<br>• `clear_role`: Remove the configured role mention<br>• `reset`: Reset all settings and stop scheduling<br>• `reset` cannot be combined with other options | Manage Guild |
+| `/config [source] [channel] [role] [time] [timezone] [clear_role] [language] [remove] [reset]` | View or update daily-push settings<br>• No parameters: Show the shared language and all configured pushes<br>• `source`: `leetcode.com`, `sheep`, or `0x3f`; push updates default to `leetcode.com` when omitted<br>• `channel`, `role`, `time`, `timezone`, and `clear_role`: Update only the selected source<br>• `language`: Shared by every push in the server<br>• `remove`: Remove only the explicitly selected source after confirmation<br>• `reset`: Reset the language and all pushes after confirmation | Manage Guild |
 
 ### Server setup for daily notifications
 
-1. Run `/config channel:<channel>` for the initial setup.
-2. Optionally set `role`, `time`, and `timezone` in the same command or later updates.
-3. Use `/config` with no arguments to review the current configuration.
-4. Use `/config reset:true` to reset all settings and stop scheduling.
+1. Run `/config channel:<channel>` to create the default `leetcode.com` push.
+2. Add optional independent pushes with `/config source:sheep channel:<channel>` and `/config source:0x3f channel:<channel>`.
+3. Set `role`, `time`, and `timezone` independently by including the target `source`; each server can have at most one push per source.
+4. Use `/config` with no arguments to review the shared language and all pushes.
+5. Use `/config source:<source> remove:true` to remove one push, or `/config reset:true` to remove every server setting.
 
 ### Multi-Problem Features
 
@@ -249,8 +252,11 @@ When querying multiple problems, the bot displays:
 /config
 /config channel:#general
 /config channel:#general time:08:00 timezone:UTC+8
-/config role:@DailyChallenge
-/config clear_role:true
+/config source:sheep channel:#sheep-daily time:09:00 timezone:Asia/Taipei
+/config source:0x3f channel:#daily-problems role:@DailyChallenge
+/config source:sheep clear_role:true
+/config language:en-US
+/config source:0x3f remove:true
 /config reset:true
 ```
 

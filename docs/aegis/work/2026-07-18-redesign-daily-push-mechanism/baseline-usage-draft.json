@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "taskId": "2026-07-18-redesign-daily-push-mechanism",
+  "requiredBaselineRefs": [
+    "openspec/specs/database-layer/spec.md",
+    "openspec/specs/daily-schedule/spec.md",
+    "openspec/specs/slash-commands/spec.md",
+    "openspec/specs/leetcode-client/spec.md"
+  ],
+  "deliveredContextRefs": [],
+  "acknowledgedBeforePlanRefs": [],
+  "citedInPlanRefs": [],
+  "missingRefs": [
+    "openspec/specs/database-layer/spec.md",
+    "openspec/specs/daily-schedule/spec.md",
+    "openspec/specs/slash-commands/spec.md",
+    "openspec/specs/leetcode-client/spec.md"
+  ],
+  "decision": "needs-baseline-readback"
+}

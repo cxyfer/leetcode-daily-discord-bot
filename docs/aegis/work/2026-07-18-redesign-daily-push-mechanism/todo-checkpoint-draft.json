@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "taskId": "2026-07-18-redesign-daily-push-mechanism",
+  "currentTodo": "Complete final evidence and branch handoff",
+  "completedTodos": [
+    "Tasks 1-7 implementation and targeted verification",
+    "Fresh full pytest, Ruff, strict OpenSpec, retirement scan, ADR backfill, and baseline sync closure"
+  ],
+  "activeSlice": "Task 8 completion evidence",
+  "evidenceRefs": [
+    "evidence-bundle-draft-final-full-verification-green.json",
+    "docs/aegis/adr/ADR-0001-normalize-daily-push-ownership-by-source.md"
+  ],
+  "blockedOn": null,
+  "nextStep": "Commit final evidence and present branch handoff options",
+  "updatedAt": "2026-07-18"
+}

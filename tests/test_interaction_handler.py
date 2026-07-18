@@ -32,6 +32,8 @@ class TestInteractionHandler:
         bot.i18n = MagicMock()
         bot.i18n.t = MagicMock(side_effect=lambda key, locale, **kwargs: key.replace(".", "_"))
         bot.i18n.resolve_locale = MagicMock(return_value="zh-TW")
+        bot.db = MagicMock()
+        bot.reschedule_daily_challenge = AsyncMock()
         return bot
 
     @pytest.fixture
@@ -103,6 +105,109 @@ class TestInteractionHandler:
 
         # Cleanup non-existent request should not raise error
         await cog._cleanup_request(request_key)  # Should use discard, not remove
+
+    @pytest.mark.asyncio
+    async def test_config_remove_confirm_deletes_and_reschedules_only_selected_source(
+        self, cog, mock_bot, mock_interaction, monkeypatch
+    ):
+        monkeypatch.setattr(interaction_handler_module.time, "time", lambda: 100)
+        mock_bot.db.delete_daily_push.return_value = True
+        mock_interaction.user.guild_permissions.manage_guild = True
+        mock_interaction.data = {
+            "custom_id": "config_remove_confirm|987654321|123456789|200|sheep",
+        }
+
+        await cog.on_interaction(mock_interaction)
+
+        mock_bot.db.delete_daily_push.assert_called_once_with(987654321, "sheep")
+        mock_bot.db.delete_server_settings.assert_not_called()
+        mock_bot.reschedule_daily_challenge.assert_awaited_once_with(
+            987654321,
+            "config_remove",
+            source="sheep",
+        )
+        mock_interaction.response.edit_message.assert_awaited_once_with(
+            content="errors_remove_success",
+            embed=None,
+            view=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_config_remove_cancel_does_not_delete(self, cog, mock_bot, mock_interaction, monkeypatch):
+        monkeypatch.setattr(interaction_handler_module.time, "time", lambda: 100)
+        mock_interaction.data = {
+            "custom_id": "config_remove_cancel|987654321|123456789|200|0x3f",
+        }
+
+        await cog.on_interaction(mock_interaction)
+
+        mock_bot.db.delete_daily_push.assert_not_called()
+        mock_bot.reschedule_daily_challenge.assert_not_awaited()
+        mock_interaction.response.edit_message.assert_awaited_once_with(
+            content="errors_remove_cancelled",
+            embed=None,
+            view=None,
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("custom_id", "expected_message"),
+        [
+            ("config_remove_confirm|987654321|123456789|200", "errors_remove_invalid_action"),
+            ("config_remove_confirm|bad|123456789|200|sheep", "errors_remove_invalid_action"),
+            ("config_remove_confirm|987654321|123456789|200|unknown", "errors_remove_invalid_action"),
+            ("config_remove_confirm|111|123456789|200|sheep", "errors_remove_invalid_action"),
+            ("config_remove_confirm|987654321|111|200|sheep", "errors_remove_wrong_user"),
+            ("config_remove_confirm|987654321|123456789|99|sheep", "errors_remove_expired"),
+        ],
+    )
+    async def test_config_remove_rejects_invalid_context(
+        self,
+        cog,
+        mock_bot,
+        mock_interaction,
+        monkeypatch,
+        custom_id,
+        expected_message,
+    ):
+        monkeypatch.setattr(interaction_handler_module.time, "time", lambda: 100)
+        mock_interaction.data = {"custom_id": custom_id}
+
+        await cog.on_interaction(mock_interaction)
+
+        mock_interaction.response.send_message.assert_awaited_once_with(expected_message, ephemeral=True)
+        mock_bot.db.delete_daily_push.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_config_remove_requires_manage_guild_permission(self, cog, mock_bot, mock_interaction, monkeypatch):
+        monkeypatch.setattr(interaction_handler_module.time, "time", lambda: 100)
+        mock_interaction.user.guild_permissions.manage_guild = False
+        mock_interaction.data = {
+            "custom_id": "config_remove_confirm|987654321|123456789|200|leetcode.com",
+        }
+
+        await cog.on_interaction(mock_interaction)
+
+        mock_interaction.response.send_message.assert_awaited_once_with(
+            "errors_remove_permission_denied",
+            ephemeral=True,
+        )
+        mock_bot.db.delete_daily_push.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_legacy_config_reset_routing_remains_whole_guild(self, cog, mock_bot, mock_interaction, monkeypatch):
+        monkeypatch.setattr(interaction_handler_module.time, "time", lambda: 100)
+        mock_bot.db.delete_server_settings.return_value = True
+        mock_interaction.user.guild_permissions.manage_guild = True
+        mock_interaction.data = {
+            "custom_id": "config_reset_confirm|987654321|123456789|200",
+        }
+
+        await cog.on_interaction(mock_interaction)
+
+        mock_bot.db.delete_server_settings.assert_called_once_with(987654321)
+        mock_bot.db.delete_daily_push.assert_not_called()
+        mock_bot.reschedule_daily_challenge.assert_awaited_once_with(987654321, "config_reset")
 
     @pytest.mark.asyncio
     async def test_concurrent_requests_atomic(self, cog, mock_interaction):

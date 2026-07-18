@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 
@@ -12,6 +13,7 @@ PYPROJECT_PATH = REPO_ROOT / "pyproject.toml"
 README_PATH = REPO_ROOT / "README.md"
 CLAUDE_PATH = REPO_ROOT / "CLAUDE.md"
 TESTS_ROOT = REPO_ROOT / "tests"
+LOCALES_ROOT = REPO_ROOT / "src" / "bot" / "i18n" / "locales"
 
 
 def _read_text(path: Path) -> str:
@@ -68,3 +70,43 @@ def test_claude_md_matches_packaged_runtime_contract():
     assert "embedding_cli.py" not in claude_md
     assert "embeddings/" not in claude_md
     assert "migrate_embeddings.sql" not in claude_md
+
+
+def test_daily_push_redesign_keys_exist_in_every_supported_locale():
+    required_keys = (
+        "errors.config.source_invalid",
+        "errors.config.remove_conflict",
+        "errors.config.remove_source_required",
+        "errors.config.source_not_configured",
+        "errors.config.remove_confirm_message",
+        "errors.remove.invalid_action",
+        "errors.remove.wrong_user",
+        "errors.remove.expired",
+        "errors.remove.cancelled",
+        "errors.remove.permission_denied",
+        "errors.remove.error",
+        "errors.remove.success",
+        "ui.buttons.confirm_remove",
+        "ui.settings.no_pushes",
+        "commands.config.source",
+        "commands.config.remove",
+    )
+
+    for locale in ("zh-TW", "en-US", "zh-CN"):
+        data = json.loads(_read_text(LOCALES_ROOT / f"{locale}.json"))
+        for dotted_key in required_keys:
+            value = data
+            for part in dotted_key.split("."):
+                value = value[part]
+            assert isinstance(value, str) and value.strip(), f"{locale}: {dotted_key}"
+
+
+def test_readme_documents_independent_daily_sources_and_legacy_migration():
+    readme = _read_text(README_PATH)
+
+    assert "leetcode.com`, `sheep`, and `0x3f" in readme
+    assert "up to three independent daily pushes" in readme
+    assert "/config source:sheep channel:#sheep-daily" in readme
+    assert "/config source:0x3f remove:true" in readme
+    assert ".pre-push-redesign.bak" in readme
+    assert "migrated to the `leetcode.com` source" in readme

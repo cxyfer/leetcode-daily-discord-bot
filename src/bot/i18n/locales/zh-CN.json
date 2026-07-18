@@ -31,8 +31,13 @@
     },
     "unexpected": "发生未预期错误：{error}",
     "config": {
-      "not_configured": "尚未设置 LeetCode 每日挑战频道。使用 /config channel:<频道> 开始设置。",
+      "not_configured": "尚未设置每日推送。使用 /config channel:<频道> 创建默认 LeetCode 推送。",
       "reset_conflict": "`reset` 不可与其他设置参数同时使用。",
+      "source_invalid": "不支持的每日推送来源。",
+      "remove_conflict": "`remove` 不可与其他设置参数同时使用。",
+      "remove_source_required": "移除推送时必须明确指定 `source`。",
+      "source_not_configured": "尚未设置 {source} 每日推送。",
+      "remove_confirm_message": "⚠️ 确定要移除 {source} 每日推送吗？其他来源不受影响。",
       "role_clear_conflict": "`role` 与 `clear_role` 不可同时使用。",
       "time_format_error": "时间格式错误，请使用 HH:MM 格式（例如 08:00 或 23:59）。",
       "timezone_error": "无效的时区：{error}",
@@ -54,6 +59,15 @@
       "success": "✅ 已重置所有设置并停止排程。",
       "confirm_message": "⚠️ 确定要重置此服务器的所有设置吗？这将停止每日挑战排程。"
     },
+    "remove": {
+      "invalid_action": "无效的操作。",
+      "wrong_user": "此操作仅限原发起者使用。",
+      "expired": "此确认已过期，请重新使用 /config remove:True。",
+      "cancelled": "已取消移除推送。",
+      "permission_denied": "您需要「管理服务器」权限才能执行此操作。",
+      "error": "移除推送时发生错误，请稍后再试。",
+      "success": "✅ 已移除指定来源的每日推送。"
+    },
     "navigation": {
       "error": "导航时发生错误：{error}"
     },
@@ -72,6 +86,7 @@
       "inspire": "灵感启发",
       "similar": "相似题目",
       "confirm_reset": "确认重置",
+      "confirm_remove": "确认移除",
       "cancel": "取消"
     },
     "embed": {
@@ -109,6 +124,7 @@
       "role": "标记身份组",
       "time": "发送时间",
       "language": "显示语言",
+      "no_pushes": "尚未设置任何每日推送。",
       "not_set": "未设置",
       "unknown_channel": "未知频道 (ID: {id})",
       "unknown_role": "未知身份组 (ID: {id})"
@@ -167,13 +183,15 @@
       "source": "题库来源 (例如 leetcode/atcoder/codeforces)，也可以在题号前加上 source: 前缀"
     },
     "config": {
-      "description": "设置 LeetCode 每日挑战的所有配置",
-      "channel": "发送每日挑战的频道",
+      "description": "设置各来源的每日题目推送",
+      "channel": "选定来源的发送频道",
       "role": "要标记的身份组",
       "time": "发送时间 (HH:MM 或 H:MM，例如 08:00)",
       "timezone": "时区 (例如 Asia/Taipei 或 UTC+8)",
       "clear_role": "清除身份组标记设置",
       "reset": "重置所有设置并停止排程（需确认）",
+      "source": "每日题目来源（未指定时为 LeetCode）",
+      "remove": "移除选定来源的推送（需确认）",
       "language": "设置机器人的显示语言",
       "language_current": "当前语言：{locale}",
       "language_updated": "✅ 语言已更新为 {locale}"

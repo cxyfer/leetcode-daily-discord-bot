@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "artifactKey": "final-full-verification-green",
+  "type": "command",
+  "source": "targeted pytest; full pytest; ruff check .; ruff format --check .; openspec strict; retirement rg",
+  "summary": "All targeted and full regression commands exited 0; Ruff and strict OpenSpec passed; no combined settings CRUD or server-only scheduler job IDs remain; legacy column access is isolated to the one-way migration owner.",
+  "verifier": "Codex"
+}

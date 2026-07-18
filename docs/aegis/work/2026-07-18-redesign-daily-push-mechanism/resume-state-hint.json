@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "taskId": "2026-07-18-redesign-daily-push-mechanism",
+  "lastCheckpointRef": "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/todo-checkpoint-draft.json",
+  "resumeInstruction": "Verify git status, commit final evidence, then use finishing-a-development-branch.",
+  "knownPartialWork": [
+    "Tasks 1-7 implementation and targeted verification",
+    "Fresh full pytest, Ruff, strict OpenSpec, retirement scan, ADR backfill, and baseline sync closure"
+  ],
+  "mustReadBeforeContinuing": [
+    "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/10-intent.md",
+    "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/20-checkpoint.md",
+    "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/todo-checkpoint-draft.json"
+  ],
+  "unsafeToAssume": [
+    "Do not claim merge or deployment; only local branch verification is complete."
+  ]
+}

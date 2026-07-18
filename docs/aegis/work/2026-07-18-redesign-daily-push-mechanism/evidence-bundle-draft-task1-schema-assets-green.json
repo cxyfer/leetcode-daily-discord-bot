@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "artifactKey": "task1-schema-assets-green",
+  "type": "command",
+  "source": "uv run pytest tests/test_database_schema_assets.py; ruff targeted checks",
+  "summary": "Normalized schema, constraints, and legacy cleanup conversion tests pass; targeted lint and format pass",
+  "verifier": "Codex"
+}
