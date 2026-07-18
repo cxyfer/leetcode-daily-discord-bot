@@ -135,3 +135,24 @@
 - targeted Ruff check and format: pass
 - Blocked on: none
 - Next step: Write RED component tests for source removal and legacy reset preservation
+
+## DriftCheckDraft
+
+- Scope status: Task 6 stayed within interaction routing and its focused regression suite
+- Compatibility status: Existing four-part reset IDs and whole-guild reset action remain unchanged
+- Retirement status: Source removal has a distinct five-part route and cannot invoke whole-guild deletion
+- New risk signals:
+- none
+- Advisory decision: continue
+
+## Checkpoint Update
+
+- Current todo: Implement Task 7 localization and documentation
+- Active slice: Task 7 locales, README, and strict spec validation
+- Completed todos:
+- Task 6 secure source removal confirmation with targeted deletion/rescheduling and legacy reset preservation
+- Evidence refs:
+- tests/test_interaction_handler.py and tests/test_config_command.py: pass
+- targeted Ruff check and format: pass
+- Blocked on: none
+- Next step: Add locale parity and README assertions, then update all supported locales and configuration docs

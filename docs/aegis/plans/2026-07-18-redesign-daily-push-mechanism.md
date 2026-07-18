@@ -276,11 +276,11 @@ Use fixed `app_commands.Choice` values from the canonical source owner. Keep `re
 
 **Verification:** `uv run pytest tests/test_interaction_handler.py tests/test_config_command.py`
 
-- [ ] Add failing tests for valid confirm/cancel, malformed IDs, wrong guild/user, expiry, permission denial, exact source deletion, peer-source preservation, legacy reset routing, and maximum custom-ID length.
-- [ ] Run the verification command and confirm source-removal tests fail while existing interaction tests establish the baseline.
-- [ ] Implement a focused `_handle_config_remove()` route or a shared confirmation parser without weakening validation; pass source to the reschedule helper.
-- [ ] Re-run the verification command and confirm new removal and existing reset tests pass.
-- [ ] Commit with `✨ feat(config): confirm source push removal`.
+- [x] Add failing tests for valid confirm/cancel, malformed IDs, wrong guild/user, expiry, permission denial, exact source deletion, peer-source preservation, legacy reset routing, and maximum custom-ID length.
+- [x] Run the verification command and confirm source-removal tests fail while existing interaction tests establish the baseline.
+- [x] Implement a focused `_handle_config_remove()` route or a shared confirmation parser without weakening validation; pass source to the reschedule helper.
+- [x] Re-run the verification command and confirm new removal and existing reset tests pass.
+- [x] Commit with `✨ feat(config): confirm source push removal`.
 
 ## Task 7: Localize And Document The New Configuration Workflow
 

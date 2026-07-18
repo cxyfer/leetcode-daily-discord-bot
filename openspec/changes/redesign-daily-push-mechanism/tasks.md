@@ -31,8 +31,8 @@
 - [x] 5.1 Extend `/config` with fixed source choices and source-specific removal.
 - [x] 5.2 Preserve source-less LeetCode edits and global language updates.
 - [x] 5.3 Display guild language plus all independent push settings.
-- [ ] 5.4 Add secure source-removal confirmation while preserving reset.
-- [ ] 5.5 Add command and interaction regression tests, including custom-ID limits.
+- [x] 5.4 Add secure source-removal confirmation while preserving reset.
+- [x] 5.5 Add command and interaction regression tests, including custom-ID limits.
 
 ## 6. Localization And Documentation
 

@@ -57,3 +57,11 @@ No evidence has been recorded yet.
 - Source: uv run pytest tests/test_config_command.py tests/test_settings_database.py tests/test_schedule_manager_cog.py; targeted Ruff
 - Summary: Fixed source choices, LeetCode default updates, three-source creation, partial updates, global language, removal confirmation IDs, and multi-push display pass
 - Verifier: Codex
+
+## EvidenceBundleDraft
+
+- Artifact key: task6-source-removal-green
+- Type: command
+- Source: uv run pytest tests/test_interaction_handler.py tests/test_config_command.py; targeted Ruff
+- Summary: Source removal confirm/cancel and security guards pass; exact source deletion and targeted rescheduling are verified; legacy whole-guild reset routing remains valid
+- Verifier: Codex
