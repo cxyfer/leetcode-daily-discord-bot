@@ -257,11 +257,11 @@ Use fixed `app_commands.Choice` values from the canonical source owner. Keep `re
 
 **Verification:** `uv run pytest tests/test_config_command.py`
 
-- [ ] Write failing callback/helper tests for list, legacy default source, each source create, partial update, language-only update, first-source channel requirement, role conflict, remove-without-source rejection, remove/reset conflict, and custom-ID length.
-- [ ] Run the verification command and confirm failures reflect the old combined row model.
-- [ ] Refactor `/config` input classification, persistence calls, source-specific reschedule calls, and settings rendering while keeping changes out of unrelated slash commands.
-- [ ] Re-run the verification command and confirm all command tests pass.
-- [ ] Commit with `✨ feat(config): manage source-specific pushes`.
+- [x] Write failing callback/helper tests for list, legacy default source, each source create, partial update, language-only update, first-source channel requirement, role conflict, remove-without-source rejection, remove/reset conflict, and custom-ID length.
+- [x] Run the verification command and confirm failures reflect the old combined row model.
+- [x] Refactor `/config` input classification, persistence calls, source-specific reschedule calls, and settings rendering while keeping changes out of unrelated slash commands.
+- [x] Re-run the verification command and confirm all command tests pass.
+- [x] Commit with `✨ feat(config): manage source-specific pushes`.
 
 ## Task 6: Add Confirmed Source Removal And Preserve Whole-Guild Reset
 

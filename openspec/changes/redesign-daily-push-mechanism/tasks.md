@@ -9,7 +9,7 @@
 
 - [x] 2.1 Add backed-up transactional legacy migration with row identity/count validation.
 - [x] 2.2 Add normalized guild-language and daily-push CRUD methods.
-- [ ] 2.3 Remove internal reliance on combined legacy settings CRUD.
+- [x] 2.3 Remove internal reliance on combined legacy settings CRUD.
 - [x] 2.4 Add migration, rollback, idempotency, constraint, and CRUD tests.
 
 ## 3. Daily API And Rendering
@@ -28,9 +28,9 @@
 
 ## 5. Configuration And Confirmations
 
-- [ ] 5.1 Extend `/config` with fixed source choices and source-specific removal.
-- [ ] 5.2 Preserve source-less LeetCode edits and global language updates.
-- [ ] 5.3 Display guild language plus all independent push settings.
+- [x] 5.1 Extend `/config` with fixed source choices and source-specific removal.
+- [x] 5.2 Preserve source-less LeetCode edits and global language updates.
+- [x] 5.3 Display guild language plus all independent push settings.
 - [ ] 5.4 Add secure source-removal confirmation while preserving reset.
 - [ ] 5.5 Add command and interaction regression tests, including custom-ID limits.
 

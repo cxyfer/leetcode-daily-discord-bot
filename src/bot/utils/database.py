@@ -525,7 +525,14 @@ class LLMInspireDatabaseManager:
 if __name__ == "__main__":
     # Example usage
     db_manager = SettingsDatabaseManager()
-    db_manager.set_server_settings(123456789, 987654321, role_id=111222333, post_time="12:00", timezone="UTC")
-    settings = db_manager.get_server_settings(123456789)
-    logger.debug(settings)
+    db_manager.set_daily_push(
+        123456789,
+        "leetcode.com",
+        987654321,
+        role_id=111222333,
+        post_time="12:00",
+        timezone="UTC",
+    )
+    logger.debug(db_manager.get_server_settings(123456789))
+    logger.debug(db_manager.get_daily_pushes(123456789))
     db_manager.delete_server_settings(123456789)  # Delete settings for server ID 123456789

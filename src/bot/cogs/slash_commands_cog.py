@@ -8,6 +8,11 @@ from discord.ext import commands
 
 from bot.api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
 from bot.utils.config import DEFAULT_POST_TIME, DEFAULT_TIMEZONE, parse_timezone
+from bot.utils.daily_sources import (
+    DAILY_PUSH_SOURCE_LABELS,
+    DEFAULT_DAILY_PUSH_SOURCE,
+    validate_daily_push_source,
+)
 from bot.utils.logger import get_commands_logger
 from bot.utils.ui_helpers import (
     _get_locale,
@@ -31,8 +36,8 @@ class SlashCommandsCog(commands.Cog):
         self.bot = bot
         self.logger = get_commands_logger()
 
-    async def _reschedule_if_available(self, server_id: int, context: str = ""):
-        await self.bot.reschedule_daily_challenge(server_id, context)
+    async def _reschedule_if_available(self, server_id: int, context: str = "", source: str | None = None):
+        await self.bot.reschedule_daily_challenge(server_id, context, source=source)
 
     # ── /daily ────────────────────────────────────────────────────────
 
@@ -379,6 +384,44 @@ class SlashCommandsCog(commands.Cog):
         app_commands.Choice(name="简体中文", value="zh-CN"),
     ]
 
+    _DAILY_SOURCE_CHOICES = [
+        app_commands.Choice(name=label, value=source) for source, label in DAILY_PUSH_SOURCE_LABELS.items()
+    ]
+
+    def _create_config_embed(
+        self,
+        interaction: discord.Interaction,
+        language: str,
+        pushes: list[dict],
+        locale: str,
+    ) -> discord.Embed:
+        i18n = self.bot.i18n
+        display_pushes = []
+        for push in pushes:
+            display_push = dict(push)
+            channel_id = push["channel_id"]
+            channel = self.bot.get_channel(channel_id)
+            display_push["channel_mention"] = (
+                channel.mention if channel else i18n.t("ui.settings.unknown_channel", locale, id=channel_id)
+            )
+            role_id = push.get("role_id")
+            if role_id:
+                role = interaction.guild.get_role(int(role_id))
+                display_push["role_mention"] = (
+                    role.mention if role else i18n.t("ui.settings.unknown_role", locale, id=role_id)
+                )
+            else:
+                display_push["role_mention"] = i18n.t("ui.settings.not_set", locale)
+            display_pushes.append(display_push)
+
+        return create_settings_embed(
+            interaction.guild.name,
+            pushes=display_pushes,
+            language=language,
+            bot=self.bot,
+            locale=locale,
+        )
+
     @app_commands.command(name="config", description=app_commands.locale_str("config.description"))
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(manage_guild=True)
@@ -390,13 +433,12 @@ class SlashCommandsCog(commands.Cog):
         clear_role=app_commands.locale_str("config.clear_role"),
         language=app_commands.locale_str("config.language"),
         reset=app_commands.locale_str("config.reset"),
+        source=app_commands.locale_str("config.source"),
+        remove=app_commands.locale_str("config.remove"),
     )
     @app_commands.choices(
-        language=[
-            app_commands.Choice(name="繁體中文", value="zh-TW"),
-            app_commands.Choice(name="English", value="en-US"),
-            app_commands.Choice(name="简体中文", value="zh-CN"),
-        ]
+        language=_LANGUAGE_CHOICES,
+        source=_DAILY_SOURCE_CHOICES,
     )
     @app_commands.rename(post_time="time")
     async def config_command(
@@ -409,44 +451,49 @@ class SlashCommandsCog(commands.Cog):
         clear_role: bool = False,
         language: str = None,
         reset: bool = False,
+        source: str = None,
+        remove: bool = False,
     ):
         server_id = interaction.guild.id
 
         locale = _get_locale(self.bot, interaction)
         i18n = self.bot.i18n
 
-        if reset and any([channel, role, post_time is not None, timezone is not None, clear_role, language]):
+        if source is not None:
+            try:
+                validate_daily_push_source(source)
+            except ValueError:
+                await interaction.response.send_message(i18n.t("errors.config.source_invalid", locale), ephemeral=True)
+                return
+
+        push_update_requested = any([channel, role, post_time is not None, timezone is not None, clear_role])
+
+        if remove and any([reset, channel, role, post_time is not None, timezone is not None, clear_role, language]):
+            await interaction.response.send_message(i18n.t("errors.config.remove_conflict", locale), ephemeral=True)
+            return
+        if remove and source is None:
+            await interaction.response.send_message(
+                i18n.t("errors.config.remove_source_required", locale),
+                ephemeral=True,
+            )
+            return
+
+        if reset and any([channel, role, post_time is not None, timezone is not None, clear_role, language, source]):
             await interaction.response.send_message(i18n.t("errors.config.reset_conflict", locale), ephemeral=True)
             return
 
-        has_update = any([channel, role, post_time is not None, timezone is not None, clear_role, language, reset])
+        has_update = push_update_requested or language is not None or reset or remove
         if not has_update:
             settings = self.bot.db.get_server_settings(server_id)
-            if not settings or not settings.get("channel_id"):
+            pushes = self.bot.db.get_daily_pushes(server_id)
+            if not settings and not pushes:
                 await interaction.response.send_message(
                     i18n.t("errors.config.not_configured", locale),
                     ephemeral=True,
                 )
                 return
-            ch = self.bot.get_channel(settings["channel_id"])
-            ch_mention = ch.mention if ch else i18n.t("ui.settings.unknown_channel", locale, id=settings["channel_id"])
-            role_mention = i18n.t("ui.settings.not_set", locale)
-            if settings.get("role_id"):
-                r = interaction.guild.get_role(int(settings["role_id"]))
-                role_mention = r.mention if r else i18n.t("ui.settings.unknown_role", locale, id=settings["role_id"])
-            post_time = settings.get("post_time", DEFAULT_POST_TIME)
-            tz = settings.get("timezone", DEFAULT_TIMEZONE)
-            lang = settings.get("language", "zh-TW")
-            embed = create_settings_embed(
-                interaction.guild.name,
-                ch_mention,
-                role_mention,
-                post_time,
-                tz,
-                language=lang,
-                bot=self.bot,
-                locale=locale,
-            )
+            lang = settings.get("language", "zh-TW") if settings else "zh-TW"
+            embed = self._create_config_embed(interaction, lang, pushes, locale)
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
@@ -455,24 +502,11 @@ class SlashCommandsCog(commands.Cog):
             if not settings:
                 await interaction.response.send_message(i18n.t("errors.config.not_setup", locale), ephemeral=True)
                 return
-            ch = self.bot.get_channel(settings["channel_id"])
-            ch_mention = ch.mention if ch else i18n.t("ui.settings.unknown_channel", locale, id=settings["channel_id"])
-            role_mention = i18n.t("ui.settings.not_set", locale)
-            if settings.get("role_id"):
-                r = interaction.guild.get_role(int(settings["role_id"]))
-                role_mention = r.mention if r else i18n.t("ui.settings.unknown_role", locale, id=settings["role_id"])
-            post_time = settings.get("post_time", DEFAULT_POST_TIME)
-            tz = settings.get("timezone", DEFAULT_TIMEZONE)
-            lang = settings.get("language", "zh-TW")
-            preview_embed = create_settings_embed(
-                interaction.guild.name,
-                ch_mention,
-                role_mention,
-                post_time,
-                tz,
-                language=lang,
-                bot=self.bot,
-                locale=locale,
+            preview_embed = self._create_config_embed(
+                interaction,
+                settings.get("language", "zh-TW"),
+                self.bot.db.get_daily_pushes(server_id),
+                locale,
             )
 
             exp_unix = int(time.time()) + 180
@@ -493,6 +527,54 @@ class SlashCommandsCog(commands.Cog):
             )
             await interaction.response.send_message(
                 content=i18n.t("errors.reset.confirm_message", locale),
+                embed=preview_embed,
+                view=view,
+                ephemeral=True,
+            )
+            return
+
+        if remove:
+            push = self.bot.db.get_daily_push(server_id, source)
+            if not push:
+                await interaction.response.send_message(
+                    i18n.t(
+                        "errors.config.source_not_configured",
+                        locale,
+                        source=DAILY_PUSH_SOURCE_LABELS[source],
+                    ),
+                    ephemeral=True,
+                )
+                return
+
+            settings = self.bot.db.get_server_settings(server_id) or {}
+            preview_embed = self._create_config_embed(
+                interaction,
+                settings.get("language", "zh-TW"),
+                [push],
+                locale,
+            )
+            exp_unix = int(time.time()) + 180
+            view = discord.ui.View(timeout=180)
+            view.add_item(
+                discord.ui.Button(
+                    label=i18n.t("ui.buttons.confirm_remove", locale),
+                    style=discord.ButtonStyle.danger,
+                    custom_id=f"config_remove_confirm|{server_id}|{interaction.user.id}|{exp_unix}|{source}",
+                )
+            )
+            view.add_item(
+                discord.ui.Button(
+                    label=i18n.t("ui.buttons.cancel", locale),
+                    style=discord.ButtonStyle.secondary,
+                    custom_id=f"config_remove_cancel|{server_id}|{interaction.user.id}|{exp_unix}|{source}",
+                )
+            )
+            await interaction.response.send_message(
+                content=i18n.t(
+                    "errors.config.remove_confirm_message",
+                    locale,
+                    source=DAILY_PUSH_SOURCE_LABELS[source],
+                ),
                 embed=preview_embed,
                 view=view,
                 ephemeral=True,
@@ -525,31 +607,6 @@ class SlashCommandsCog(commands.Cog):
                 await interaction.response.send_message(tz_err_msg, ephemeral=True)
                 return
 
-        settings = self.bot.db.get_server_settings(server_id)
-        if not settings and not channel:
-            await interaction.response.send_message(
-                i18n.t("errors.config.first_setup_required", locale),
-                ephemeral=True,
-            )
-            return
-
-        base = {
-            "channel_id": settings["channel_id"] if settings else None,
-            "role_id": settings.get("role_id") if settings else None,
-            "post_time": settings.get("post_time", DEFAULT_POST_TIME) if settings else DEFAULT_POST_TIME,
-            "timezone": settings.get("timezone", DEFAULT_TIMEZONE) if settings else DEFAULT_TIMEZONE,
-            "language": settings.get("language", "zh-TW") if settings else "zh-TW",
-        }
-        if channel:
-            base["channel_id"] = channel.id
-        if role:
-            base["role_id"] = role.id
-        if clear_role:
-            base["role_id"] = None
-        if validated_time is not None:
-            base["post_time"] = validated_time
-        if timezone is not None:
-            base["timezone"] = timezone
         if language:
             supported = self.bot.i18n.get_supported_locales()
             if language not in supported:
@@ -558,36 +615,61 @@ class SlashCommandsCog(commands.Cog):
                     ephemeral=True,
                 )
                 return
-            base["language"] = language
 
-        success = self.bot.db.set_server_settings(
-            server_id, base["channel_id"], base["role_id"], base["post_time"], base["timezone"], base["language"]
-        )
+        selected_source = source or DEFAULT_DAILY_PUSH_SOURCE
+        push_success = True
+        if push_update_requested:
+            current_push = self.bot.db.get_daily_push(server_id, selected_source)
+            if not current_push and not channel:
+                await interaction.response.send_message(
+                    i18n.t("errors.config.first_setup_required", locale),
+                    ephemeral=True,
+                )
+                return
 
-        if not success:
+            base = {
+                "channel_id": current_push["channel_id"] if current_push else channel.id,
+                "role_id": current_push.get("role_id") if current_push else None,
+                "post_time": current_push.get("post_time", DEFAULT_POST_TIME) if current_push else DEFAULT_POST_TIME,
+                "timezone": current_push.get("timezone", DEFAULT_TIMEZONE) if current_push else DEFAULT_TIMEZONE,
+            }
+            if channel:
+                base["channel_id"] = channel.id
+            if role:
+                base["role_id"] = role.id
+            if clear_role:
+                base["role_id"] = None
+            if validated_time is not None:
+                base["post_time"] = validated_time
+            if timezone is not None:
+                base["timezone"] = timezone
+
+            push_success = self.bot.db.set_daily_push(
+                server_id,
+                selected_source,
+                base["channel_id"],
+                base["role_id"],
+                base["post_time"],
+                base["timezone"],
+            )
+
+        language_success = self.bot.db.set_server_language(server_id, language) if language else True
+        if not push_success or not language_success:
             await interaction.response.send_message(i18n.t("errors.config.settings_error", locale), ephemeral=True)
             return
 
-        ch_obj = self.bot.get_channel(base["channel_id"])
-        ch_display = ch_obj.mention if ch_obj else i18n.t("ui.settings.unknown_channel", locale, id=base["channel_id"])
-        role_display = i18n.t("ui.settings.not_set", locale)
-        if base["role_id"]:
-            r = interaction.guild.get_role(base["role_id"])
-            role_display = r.mention if r else i18n.t("ui.settings.unknown_role", locale, id=base["role_id"])
-
-        embed = create_settings_embed(
-            interaction.guild.name,
-            ch_display,
-            role_display,
-            base["post_time"],
-            base["timezone"],
-            language=base["language"],
-            bot=self.bot,
-            locale=locale,
+        settings = self.bot.db.get_server_settings(server_id) or {}
+        current_language = language or settings.get("language", "zh-TW")
+        embed = self._create_config_embed(
+            interaction,
+            current_language,
+            self.bot.db.get_daily_pushes(server_id),
+            locale,
         )
         updated_msg = i18n.t("errors.config.settings_updated", locale)
         await interaction.response.send_message(content=updated_msg, embed=embed, ephemeral=True)
-        await self._reschedule_if_available(server_id, "config")
+        if push_update_requested:
+            await self._reschedule_if_available(server_id, "config", selected_source)
 
     @config_command.autocomplete("timezone")
     async def config_timezone_autocomplete(self, interaction: discord.Interaction, current: str):

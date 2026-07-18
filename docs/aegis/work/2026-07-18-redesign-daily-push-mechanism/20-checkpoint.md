@@ -114,3 +114,24 @@
 - targeted Ruff check and format: pass
 - Blocked on: none
 - Next step: Inspect config callback and write RED command tests for global language plus selected push
+
+## DriftCheckDraft
+
+- Scope status: Task 5 stayed within the config callback, existing settings embed owner, normalized CRUD example, and focused command tests
+- Compatibility status: Source-less push fields target leetcode.com; language-only updates do not require or create a push
+- Retirement status: All Python runtime and example calls to combined legacy settings CRUD are removed
+- New risk signals:
+- none
+- Advisory decision: continue
+
+## Checkpoint Update
+
+- Current todo: Implement Task 6 confirmed source removal
+- Active slice: Task 6 interaction routing and security checks
+- Completed todos:
+- Task 5 fixed source choices, source-specific create/update/removal request, global language, and multi-push settings display
+- Evidence refs:
+- tests/test_config_command.py, tests/test_settings_database.py, and tests/test_schedule_manager_cog.py: pass
+- targeted Ruff check and format: pass
+- Blocked on: none
+- Next step: Write RED component tests for source removal and legacy reset preservation

@@ -49,3 +49,11 @@ No evidence has been recorded yet.
 - Source: uv run pytest tests/test_schedule_manager_cog.py tests/test_daily_source_delivery.py; targeted Ruff
 - Summary: Startup jobs, job identity, targeted and whole-server rescheduling, source-scoped deduplication, retry, not-found skip, and source forwarding pass
 - Verifier: Codex
+
+## EvidenceBundleDraft
+
+- Artifact key: task5-source-config-green
+- Type: command
+- Source: uv run pytest tests/test_config_command.py tests/test_settings_database.py tests/test_schedule_manager_cog.py; targeted Ruff
+- Summary: Fixed source choices, LeetCode default updates, three-source creation, partial updates, global language, removal confirmation IDs, and multi-push display pass
+- Verifier: Codex

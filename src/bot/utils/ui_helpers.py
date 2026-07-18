@@ -19,6 +19,7 @@ from bot.api_client import ApiDailyNotFoundError, ApiError, ApiNetworkError, Api
 from bot.i18n import I18nService
 from bot.leetcode import generate_history_dates
 
+from .config import DEFAULT_POST_TIME, DEFAULT_TIMEZONE
 from .daily_sources import DAILY_PUSH_SOURCE_LABELS
 from .ui_constants import (
     BUTTON_EMOJIS,
@@ -834,15 +835,12 @@ def create_problems_overview_view(problems: List[Dict[str, Any]], domain: str) -
 
 def create_settings_embed(
     guild_name: str,
-    channel_mention: str,
-    role_mention: str,
-    post_time: str,
-    timezone: str,
+    pushes: list[dict[str, Any]],
     language: str = "zh-TW",
     bot: Any = None,
     locale: str = "zh-TW",
 ) -> discord.Embed:
-    """Create an embed for server settings display"""
+    """Create an embed for guild language and source-specific push settings."""
     i18n = bot.i18n if bot else None
     title = i18n.t("ui.settings.title", locale, guild_name=guild_name) if i18n else f"{guild_name} Settings"
     embed = discord.Embed(title=title, color=DEFAULT_COLOR)
@@ -852,12 +850,29 @@ def create_settings_embed(
     time_label = i18n.t("ui.settings.time", locale) if i18n else "Post Time"
     language_label = i18n.t("ui.settings.language", locale) if i18n else "Language"
 
-    embed.add_field(name=channel_label, value=channel_mention, inline=False)
-    embed.add_field(name=role_label, value=role_mention, inline=False)
-    embed.add_field(name=time_label, value=f"{post_time} ({timezone})", inline=False)
-
     language_display = i18n.t(f"locale.{language}", locale) if i18n else language
     embed.add_field(name=language_label, value=language_display, inline=False)
+
+    if not pushes:
+        no_pushes = i18n.t("ui.settings.no_pushes", locale) if i18n else "No daily pushes configured"
+        embed.add_field(name="Daily Pushes", value=no_pushes, inline=False)
+        return embed
+
+    for push in pushes:
+        source = push.get("source", "")
+        source_label = DAILY_PUSH_SOURCE_LABELS.get(source, source)
+        channel_mention = push.get("channel_mention", str(push.get("channel_id", "")))
+        role_mention = push.get("role_mention", i18n.t("ui.settings.not_set", locale) if i18n else "Not set")
+        post_time = push.get("post_time", DEFAULT_POST_TIME)
+        timezone_name = push.get("timezone", DEFAULT_TIMEZONE)
+        value = "\n".join(
+            [
+                f"**{channel_label}**: {channel_mention}",
+                f"**{role_label}**: {role_mention}",
+                f"**{time_label}**: {post_time} ({timezone_name})",
+            ]
+        )
+        embed.add_field(name=source_label, value=value, inline=False)
 
     return embed
 
