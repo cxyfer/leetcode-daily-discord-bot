@@ -3,11 +3,11 @@
   "taskId": "2026-07-18-redesign-daily-push-mechanism",
   "taskIntentRef": "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/task-intent-draft.json",
   "baselineRefs": [
-    "openspec/changes/redesign-daily-push-mechanism/design.md"
+    "openspec/changes/redesign-daily-push-mechanism/specs/database-layer/spec.md"
   ],
-  "scopeStatus": "Specification remains within approved schema, config, scheduling, API, UI, tests, and docs scope",
-  "compatStatus": "Source-less config targets leetcode.com and legacy rows migrate without data loss",
-  "retirementStatus": "Legacy push columns have an approved backed-up transactional retirement path",
+  "scopeStatus": "Task 1 changed only canonical source identity and schema assets",
+  "compatStatus": "Legacy cleanup conversion maps old schedules to leetcode.com",
+  "retirementStatus": "No runtime legacy fallback added; runtime migration remains Task 2",
   "newRiskSignals": [],
-  "decision": "pause-for-user"
+  "decision": "continue"
 }

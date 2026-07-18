@@ -29,3 +29,24 @@
 - aegis-workspace.py check --root .: passed
 - Blocked on: User review of written specification
 - Next step: After approval, use writing-plans to create the implementation plan
+
+## DriftCheckDraft
+
+- Scope status: Task 1 changed only canonical source identity and schema assets
+- Compatibility status: Legacy cleanup conversion maps old schedules to leetcode.com
+- Retirement status: No runtime legacy fallback added; runtime migration remains Task 2
+- New risk signals:
+- none
+- Advisory decision: continue
+
+## Checkpoint Update
+
+- Current todo: Implement Task 2 runtime migration and normalized CRUD
+- Active slice: Task 2 database migration and CRUD
+- Completed todos:
+- Task 1 canonical sources and normalized schema assets
+- Evidence refs:
+- tests/test_database_schema_assets.py: pass
+- targeted Ruff check and format: pass
+- Blocked on: none
+- Next step: Write RED tests in tests/test_settings_database.py

@@ -2,12 +2,9 @@
   "schemaVersion": "aegis.schema.v0",
   "taskId": "2026-07-18-redesign-daily-push-mechanism",
   "lastCheckpointRef": "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/todo-checkpoint-draft.json",
-  "resumeInstruction": "Read the approved OpenSpec change and latest checkpoint; do not edit runtime code before written-spec approval",
+  "resumeInstruction": "Read Task 2 in the plan and current database.py; preserve Task 1 schema contracts",
   "knownPartialWork": [
-    "Explore current schema, scheduler, API, command, and test owners",
-    "Confirm one push per source and independent per-push fields",
-    "Approve normalized schema and explicit legacy migration",
-    "Write and strictly validate OpenSpec proposal, design, and delta specs"
+    "Task 1 canonical sources and normalized schema assets"
   ],
   "mustReadBeforeContinuing": [
     "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/10-intent.md",
@@ -15,6 +12,6 @@
     "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/todo-checkpoint-draft.json"
   ],
   "unsafeToAssume": [
-    "Do not assume written-spec approval from the earlier oral design approval"
+    "Do not infer runtime migration correctness from cleanup utility tests"
   ]
 }

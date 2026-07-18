@@ -115,11 +115,11 @@ Expected final result: all commands exit `0`; pytest reports no failures; OpenSp
 
 **Verification:** `uv run pytest tests/test_database_schema_assets.py`
 
-- [ ] Write failing schema tests asserting `daily_push_settings`, composite primary key, source `CHECK`, foreign key cascade, updated target tables, normalized cleanup copies, and legacy cleanup conversion.
-- [ ] Run the verification command and confirm failures reference missing `daily_push_settings`/legacy conversion.
-- [ ] Add `DEFAULT_DAILY_PUSH_SOURCE = "leetcode.com"`, immutable supported-source values, choice labels, and a validation helper; update init SQL and cleanup rebuild logic to use the approved schema and legacy conversion.
-- [ ] Re-run the verification command and confirm all schema asset tests pass.
-- [ ] Commit with `🧪 test(db): define normalized push schema assets` or the closest repository-history style.
+- [x] Write failing schema tests asserting `daily_push_settings`, composite primary key, source `CHECK`, foreign key cascade, updated target tables, normalized cleanup copies, and legacy cleanup conversion.
+- [x] Run the verification command and confirm failures reference missing `daily_push_settings`/legacy conversion.
+- [x] Add `DEFAULT_DAILY_PUSH_SOURCE = "leetcode.com"`, immutable supported-source values, choice labels, and a validation helper; update init SQL and cleanup rebuild logic to use the approved schema and legacy conversion.
+- [x] Re-run the verification command and confirm all schema asset tests pass.
+- [x] Commit with `🧪 test(db): define normalized push schema assets` or the closest repository-history style.
 
 ## Task 2: Implement Backed-Up Transactional Migration And Settings CRUD
 
@@ -337,4 +337,3 @@ Use fixed `app_commands.Choice` values from the canonical source owner. Keep `re
 - Retire server-only job ID `daily_challenge_{server_id}` and hard-coded `com` delivery guard keys.
 - Retain source-less `/config` as an external compatibility behavior, not as a persistence fallback.
 - Retain the migration backup as an operator rollback artifact; never read it on the normal runtime path.
-

@@ -1,9 +1,9 @@
 ## 1. Canonical Sources And Schema
 
-- [ ] 1.1 Add one canonical daily-source constants/validation owner.
-- [ ] 1.2 Normalize runtime init SQL into guild settings and source-specific push settings.
-- [ ] 1.3 Update cleanup/rebuild handling for both legacy and normalized inputs.
-- [ ] 1.4 Add schema asset and constraint coverage.
+- [x] 1.1 Add one canonical daily-source constants/validation owner.
+- [x] 1.2 Normalize runtime init SQL into guild settings and source-specific push settings.
+- [x] 1.3 Update cleanup/rebuild handling for both legacy and normalized inputs.
+- [x] 1.4 Add schema asset and constraint coverage.
 
 ## 2. Database Migration And CRUD
 
@@ -46,4 +46,3 @@
 - [ ] 7.2 Run the full test suite and Ruff checks.
 - [ ] 7.3 Verify no runtime reads or writes legacy push columns or server-only job IDs.
 - [ ] 7.4 Complete architecture, complexity, migration-safety, and evidence review.
-
