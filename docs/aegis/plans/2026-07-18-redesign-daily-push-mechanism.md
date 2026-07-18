@@ -228,11 +228,11 @@ Job IDs use a deterministic helper such as `daily_challenge:{server_id}:{source}
 
 **Verification:** `uv run pytest tests/test_schedule_manager_cog.py tests/test_daily_source_delivery.py`
 
-- [ ] Extend failing scheduler tests for three startup jobs, deterministic IDs, targeted reschedule/removal, peer-source survival after invalid config, source-scoped deduplication, 404 skip, and source forwarding.
-- [ ] Run the verification command and confirm failures show server-only job identity and hard-coded `com` delivery.
-- [ ] Refactor job creation/rescheduling around daily push records, pass canonical source through delivery, and treat upstream not-found as expected no-delivery while preserving 202 retry and rate-limit handling.
-- [ ] Re-run the verification command and confirm all scheduler tests pass.
-- [ ] Commit with `✨ feat(schedule): isolate jobs by daily source`.
+- [x] Extend failing scheduler tests for three startup jobs, deterministic IDs, targeted reschedule/removal, peer-source survival after invalid config, source-scoped deduplication, 404 skip, and source forwarding.
+- [x] Run the verification command and confirm failures show server-only job identity and hard-coded `com` delivery.
+- [x] Refactor job creation/rescheduling around daily push records, pass canonical source through delivery, and treat upstream not-found as expected no-delivery while preserving 202 retry and rate-limit handling.
+- [x] Re-run the verification command and confirm all scheduler tests pass.
+- [x] Commit with `✨ feat(schedule): isolate jobs by daily source`.
 
 ## Task 5: Redesign `/config` Around Global Language And Selected Push
 

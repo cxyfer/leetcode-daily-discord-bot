@@ -21,10 +21,10 @@
 
 ## 4. Scheduler
 
-- [ ] 4.1 Create deterministic jobs per `(server_id, source)`.
-- [ ] 4.2 Add targeted source reschedule/removal and whole-server reschedule.
-- [ ] 4.3 Include source in delivery deduplication and logs.
-- [ ] 4.4 Add startup, isolation, error, retry, and deduplication tests.
+- [x] 4.1 Create deterministic jobs per `(server_id, source)`.
+- [x] 4.2 Add targeted source reschedule/removal and whole-server reschedule.
+- [x] 4.3 Include source in delivery deduplication and logs.
+- [x] 4.4 Add startup, isolation, error, retry, and deduplication tests.
 
 ## 5. Configuration And Confirmations
 

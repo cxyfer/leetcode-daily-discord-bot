@@ -56,10 +56,10 @@ async def load_extensions(bot: commands.Bot) -> None:
 
 
 def _create_reschedule_helper(bot: commands.Bot):
-    async def reschedule_daily_challenge(server_id: int, context: str = ""):
+    async def reschedule_daily_challenge(server_id: int, context: str = "", *, source: str | None = None):
         schedule_cog = bot.get_cog("ScheduleManagerCog")
         if schedule_cog:
-            await schedule_cog.reschedule_daily_challenge(server_id)
+            await schedule_cog.reschedule_daily_challenge(server_id, source)
         else:
             bot.logger.warning(
                 f"ScheduleManagerCog not found during {context} for server {server_id}. "

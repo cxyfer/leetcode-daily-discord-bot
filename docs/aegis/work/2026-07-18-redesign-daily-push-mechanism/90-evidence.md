@@ -41,3 +41,11 @@ No evidence has been recorded yet.
 - Source: uv run pytest tests/test_daily_source_delivery.py tests/test_daily_payload_reuse.py; targeted Ruff
 - Summary: Source API params, domain compatibility, cache isolation, single/multi-problem rendering, role mention, and source-not-found propagation pass
 - Verifier: Codex
+
+## EvidenceBundleDraft
+
+- Artifact key: task4-source-scoped-scheduler-green
+- Type: command
+- Source: uv run pytest tests/test_schedule_manager_cog.py tests/test_daily_source_delivery.py; targeted Ruff
+- Summary: Startup jobs, job identity, targeted and whole-server rescheduling, source-scoped deduplication, retry, not-found skip, and source forwarding pass
+- Verifier: Codex

@@ -93,3 +93,24 @@
 - targeted Ruff check and format: pass
 - Blocked on: none
 - Next step: Write RED scheduler tests for per-source job identity and isolation
+
+## DriftCheckDraft
+
+- Scope status: Task 4 stayed within scheduler ownership, the app reschedule adapter, and scheduler tests
+- Compatibility status: Existing server-only reschedule calls rebuild all server pushes; callers may opt into targeted source rescheduling
+- Retirement status: Server-only job IDs, combined settings reads, and hard-coded com delivery keys were removed
+- New risk signals:
+- none
+- Advisory decision: continue
+
+## Checkpoint Update
+
+- Current todo: Implement Task 5 source-specific config command
+- Active slice: Task 5 configuration and settings display
+- Completed todos:
+- Task 4 deterministic per-source jobs, targeted rescheduling, source-scoped delivery guards, and expected not-found handling
+- Evidence refs:
+- tests/test_schedule_manager_cog.py and tests/test_daily_source_delivery.py: pass
+- targeted Ruff check and format: pass
+- Blocked on: none
+- Next step: Inspect config callback and write RED command tests for global language plus selected push
