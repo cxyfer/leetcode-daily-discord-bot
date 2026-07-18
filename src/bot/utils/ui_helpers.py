@@ -15,10 +15,11 @@ from typing import Any, Dict, List, Optional
 import discord
 import pytz
 
-from bot.api_client import ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
+from bot.api_client import ApiDailyNotFoundError, ApiError, ApiNetworkError, ApiProcessingError, ApiRateLimitError
 from bot.i18n import I18nService
 from bot.leetcode import generate_history_dates
 
+from .daily_sources import DAILY_PUSH_SOURCE_LABELS
 from .ui_constants import (
     BUTTON_EMOJIS,
     DEFAULT_COLOR,
@@ -983,7 +984,21 @@ async def _fetch_daily_history(bot: Any, domain: str, anchor_date: str) -> List[
                 return None
 
     results = await asyncio.gather(*[fetch_one(d) for d in history_dates])
-    return [r for r in results if r]
+    history_problems = []
+    for result in results:
+        problems = _get_daily_problems(result)
+        if problems:
+            history_problems.append(problems[0])
+    return history_problems
+
+
+def _get_daily_problems(daily_info: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not daily_info:
+        return []
+    problems = daily_info.get("problems")
+    if isinstance(problems, list):
+        return [problem for problem in problems if isinstance(problem, dict)]
+    return [daily_info]
 
 
 async def _fetch_daily_payload(
@@ -991,31 +1006,48 @@ async def _fetch_daily_payload(
     domain: str,
     date_str: str | None,
     fallback_date: str,
+    source: str | None,
 ) -> dict[str, Any] | None:
-    if date_str:
-        challenge_info = await bot.api.get_daily(domain, date_str)
+    if source:
+        if date_str:
+            daily_info = await bot.api.get_daily(date=date_str, source=source)
+        else:
+            daily_info = await bot.api.get_daily(source=source)
+    elif date_str:
+        daily_info = await bot.api.get_daily(domain, date_str)
     else:
-        challenge_info = await bot.api.get_daily(domain)
-    if not challenge_info:
+        daily_info = await bot.api.get_daily(domain)
+    problems = _get_daily_problems(daily_info)
+    if not problems:
         return None
 
-    history_anchor = challenge_info.get("date") or date_str or fallback_date
-    history_problems = await _fetch_daily_history(bot, domain, history_anchor)
+    challenge_info = problems[0]
+    history_anchor = daily_info.get("date") or challenge_info.get("date") or date_str or fallback_date
+    history_problems = [] if source else await _fetch_daily_history(bot, domain, history_anchor)
     return {
         "challenge_info": challenge_info,
+        "problems": problems,
+        "daily_source": daily_info.get("source") or source,
         "history_problems": history_problems,
         "resolved_date": history_anchor,
     }
 
 
-async def get_daily_payload(bot: Any, domain: str = "com", date_str: str | None = None) -> dict[str, Any] | None:
+async def get_daily_payload(
+    bot: Any,
+    domain: str = "com",
+    date_str: str | None = None,
+    *,
+    source: str | None = None,
+) -> dict[str, Any] | None:
     fallback_date = datetime.now(pytz.UTC).strftime("%Y-%m-%d")
-    cache_key = (domain, date_str or f"{_CURRENT_DAILY_PAYLOAD_KEY}:{fallback_date}")
+    cache_namespace = source or domain
+    cache_key = (cache_namespace, date_str or f"{_CURRENT_DAILY_PAYLOAD_KEY}:{fallback_date}")
     cache, in_flight, lock = _get_daily_payload_state(bot)
 
     async def fetch_and_cleanup() -> dict[str, Any] | None:
         try:
-            return await _fetch_daily_payload(bot, domain, date_str, fallback_date)
+            return await _fetch_daily_payload(bot, domain, date_str, fallback_date, source)
         finally:
             current_task = asyncio.current_task()
             async with lock:
@@ -1047,7 +1079,7 @@ async def get_daily_payload(bot: Any, domain: str = "com", date_str: str | None 
             cache[cache_key] = (inserted_at, payload)
             actual_date = payload.get("resolved_date")
             if actual_date and (date_str or payload["challenge_info"].get("date")):
-                cache[(domain, actual_date)] = (inserted_at, payload)
+                cache[(cache_namespace, actual_date)] = (inserted_at, payload)
     return payload
 
 
@@ -1060,6 +1092,7 @@ async def send_daily_challenge(
     ephemeral: bool = True,
     guild_locale: str = None,
     date_str: str | None = None,
+    daily_source: str | None = None,
 ):
     """Fetches and sends the daily challenge via API."""
     if interaction:
@@ -1071,28 +1104,54 @@ async def send_daily_challenge(
     i18n = bot.i18n
 
     try:
-        logger.info("Attempting to send daily challenge. Domain: %s, Channel: %s", domain, channel_id)
+        logger.info(
+            "Attempting to send daily challenge. Domain: %s, Source: %s, Channel: %s",
+            domain,
+            daily_source,
+            channel_id,
+        )
 
-        payload = await get_daily_payload(bot, domain, date_str)
+        payload = await get_daily_payload(bot, domain, date_str, source=daily_source)
         if not payload:
-            logger.error("No daily challenge for domain %s", domain)
+            logger.error("No daily challenge for domain %s, source %s", domain, daily_source)
             if interaction:
                 await interaction.followup.send(i18n.t("ui.embed.not_found", locale), ephemeral=ephemeral)
             return None
 
         challenge_info = payload["challenge_info"]
-        logger.info("Got daily challenge: %s. %s for domain %s", challenge_info["id"], challenge_info["title"], domain)
-
-        embed = await create_problem_embed(
-            problem_info=challenge_info,
-            bot=bot,
-            domain=domain,
-            is_daily=True,
-            date_str=date_str or payload.get("resolved_date"),
-            history_problems=payload["history_problems"],
-            locale=locale,
+        problems = payload.get("problems") or [challenge_info]
+        logger.info(
+            "Got daily challenge with %s problem(s) for domain %s, source %s",
+            len(problems),
+            domain,
+            daily_source,
         )
-        view = await create_problem_view(problem_info=challenge_info, bot=bot, domain=domain, locale=locale)
+
+        if len(problems) > 1:
+            source_label = DAILY_PUSH_SOURCE_LABELS.get(
+                daily_source or payload.get("daily_source"),
+                daily_source or payload.get("daily_source") or "Daily",
+            )
+            embed = create_problems_overview_embed(
+                problems,
+                domain,
+                source_label=source_label,
+                footer_icon_url=get_source_logo_url(problems[0].get("source")),
+                bot=bot,
+                locale=locale,
+            )
+            view = create_problems_overview_view(problems, domain)
+        else:
+            embed = await create_problem_embed(
+                problem_info=challenge_info,
+                bot=bot,
+                domain=domain,
+                is_daily=True,
+                date_str=date_str or payload.get("resolved_date"),
+                history_problems=payload["history_problems"],
+                locale=locale,
+            )
+            view = await create_problem_view(problem_info=challenge_info, bot=bot, domain=domain, locale=locale)
 
         if interaction:
             await interaction.followup.send(embed=embed, view=view, ephemeral=ephemeral)
@@ -1119,6 +1178,12 @@ async def send_daily_challenge(
 
         return challenge_info
 
+    except ApiDailyNotFoundError:
+        logger.info("No daily challenge available for source %s", daily_source)
+        if interaction:
+            await interaction.followup.send(i18n.t("ui.embed.not_found", locale), ephemeral=ephemeral)
+            return None
+        raise
     except (ApiProcessingError, ApiRateLimitError) as e:
         logger.warning("API error in send_daily_challenge: %s", e)
         if interaction:

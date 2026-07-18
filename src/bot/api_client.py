@@ -16,6 +16,16 @@ class ApiError(Exception):
         super().__init__(f"HTTP {status}: {detail}")
 
 
+class ApiDailyNotFoundError(ApiError):
+    def __init__(self, source: str, date: str | None = None):
+        detail = f"No daily challenge found for source {source}"
+        if date:
+            detail += f" on {date}"
+        super().__init__(404, detail)
+        self.source = source
+        self.date = date
+
+
 class ApiProcessingError(Exception):
     def __init__(self, detail: str = "Resource is being processed"):
         self.detail = detail
@@ -167,11 +177,20 @@ class OjApiClient:
     async def get_problem(self, source: str, id: str) -> dict | None:
         return await self._request("GET", f"problems/{quote(source)}/{quote(id)}")
 
-    async def get_daily(self, domain: str = "com", date: str | None = None) -> dict | None:
-        params = {"domain": domain}
+    async def get_daily(
+        self,
+        domain: str = "com",
+        date: str | None = None,
+        *,
+        source: str | None = None,
+    ) -> dict | None:
+        params = {"source": source} if source else {"domain": domain}
         if date:
             params["date"] = date
-        return await self._request("GET", "daily", params=params)
+        result = await self._request("GET", "daily", params=params)
+        if source and result is None:
+            raise ApiDailyNotFoundError(source, date)
+        return result
 
     async def resolve(self, query: str) -> dict | None:
         return await self._request("GET", f"resolve/{quote(query, safe='')}")

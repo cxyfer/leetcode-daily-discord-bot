@@ -33,3 +33,11 @@ No evidence has been recorded yet.
 - Source: uv run pytest tests/test_settings_database.py tests/test_database_schema_assets.py tests/test_bootstrap_and_paths.py; targeted Ruff
 - Summary: Runtime backup/migration/rollback/idempotency and normalized settings CRUD tests pass; targeted lint and format pass
 - Verifier: Codex
+
+## EvidenceBundleDraft
+
+- Artifact key: task3-daily-source-delivery-green
+- Type: command
+- Source: uv run pytest tests/test_daily_source_delivery.py tests/test_daily_payload_reuse.py; targeted Ruff
+- Summary: Source API params, domain compatibility, cache isolation, single/multi-problem rendering, role mention, and source-not-found propagation pass
+- Verifier: Codex

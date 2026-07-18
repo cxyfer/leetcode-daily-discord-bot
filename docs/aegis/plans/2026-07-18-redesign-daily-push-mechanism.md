@@ -196,11 +196,11 @@ async def send_daily_challenge(
 
 **Verification:** `uv run pytest tests/test_daily_source_delivery.py tests/test_daily_payload_reuse.py`
 
-- [ ] Write failing tests proving `source=sheep|0x3f` request params, domain compatibility, envelope preservation, cache-key isolation, single-problem existing rendering, multi-problem overview/view reuse, role mention, and distinguishable 404 handling.
-- [ ] Run the verification command and confirm the new source/rendering tests fail for the expected missing arguments and single-problem assumption.
-- [ ] Extend `OjApiClient.get_daily()` and the existing daily payload/send helpers; reuse `create_problems_overview_embed()` and `create_problems_overview_view()` without adding new UI protocols.
-- [ ] Re-run the verification command and confirm both new and existing daily payload tests pass.
-- [ ] Commit with `✨ feat(daily): support source-aware push rendering`.
+- [x] Write failing tests proving `source=sheep|0x3f` request params, domain compatibility, envelope preservation, cache-key isolation, single-problem existing rendering, multi-problem overview/view reuse, role mention, and distinguishable 404 handling.
+- [x] Run the verification command and confirm the new source/rendering tests fail for the expected missing arguments and single-problem assumption.
+- [x] Extend `OjApiClient.get_daily()` and the existing daily payload/send helpers; reuse `create_problems_overview_embed()` and `create_problems_overview_view()` without adding new UI protocols.
+- [x] Re-run the verification command and confirm both new and existing daily payload tests pass.
+- [x] Commit with `✨ feat(daily): support source-aware push rendering`.
 
 ## Task 4: Make Scheduler Jobs Independent By Server And Source
 

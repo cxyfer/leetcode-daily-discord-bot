@@ -72,3 +72,24 @@
 - targeted Ruff: pass
 - Blocked on: none
 - Next step: Write RED daily source request and multi-problem delivery tests
+
+## DriftCheckDraft
+
+- Scope status: Task 3 stayed within the API client, existing daily rendering owner, and focused tests
+- Compatibility status: Manual domain calls remain unchanged; source requests use canonical source identity and source-scoped cache keys
+- Retirement status: No alternate rendering protocol or API fallback was added
+- New risk signals:
+- none
+- Advisory decision: continue
+
+## Checkpoint Update
+
+- Current todo: Implement Task 4 source-scoped scheduler jobs
+- Active slice: Task 4 scheduler isolation
+- Completed todos:
+- Task 3 source-aware API access and scheduled single/multi-problem rendering
+- Evidence refs:
+- tests/test_daily_source_delivery.py and tests/test_daily_payload_reuse.py: pass
+- targeted Ruff check and format: pass
+- Blocked on: none
+- Next step: Write RED scheduler tests for per-source job identity and isolation

@@ -14,10 +14,10 @@
 
 ## 3. Daily API And Rendering
 
-- [ ] 3.1 Add canonical `source` daily API requests without breaking domain calls.
-- [ ] 3.2 Scope daily payload reuse by canonical source/domain identity.
-- [ ] 3.3 Render multi-problem scheduled payloads with existing overview helpers.
-- [ ] 3.4 Preserve single-problem, locale, role mention, and 202/404 behavior.
+- [x] 3.1 Add canonical `source` daily API requests without breaking domain calls.
+- [x] 3.2 Scope daily payload reuse by canonical source/domain identity.
+- [x] 3.3 Render multi-problem scheduled payloads with existing overview helpers.
+- [x] 3.4 Preserve single-problem, locale, role mention, and 202/404 behavior.
 
 ## 4. Scheduler
 
