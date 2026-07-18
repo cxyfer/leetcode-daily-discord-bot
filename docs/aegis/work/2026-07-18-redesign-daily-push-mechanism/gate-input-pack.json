@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "baselineRefs": [
+    "openspec/changes/redesign-daily-push-mechanism/design.md",
+    "docs/aegis/adr/ADR-0001-normalize-daily-push-ownership-by-source.md"
+  ],
+  "impactStatement": "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/impact-statement-draft.json",
+  "compatPlan": "Existing /config invocations without source continue to manage leetcode.com and legacy settings migrate without data loss",
+  "retirementPlan": "Combined CRUD, live legacy delivery columns, server-only job IDs, and hard-coded com delivery keys are retired; legacy reads are isolated to the one-way migration owner.",
+  "evidenceBundle": [
+    "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/evidence-bundle-draft-aegis-workspace-check.json",
+    "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/evidence-bundle-draft-final-full-verification-green.json",
+    "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/evidence-bundle-draft-openspec-strict-validation.json",
+    "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/evidence-bundle-draft-task1-schema-assets-green.json",
+    "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/evidence-bundle-draft-task2-database-green.json"
+  ]
+}

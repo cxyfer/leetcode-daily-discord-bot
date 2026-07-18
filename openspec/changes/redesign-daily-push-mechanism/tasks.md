@@ -42,7 +42,7 @@
 
 ## 7. Verification And Retirement
 
-- [ ] 7.1 Run targeted schema, migration, API, rendering, scheduler, command, and interaction tests.
-- [ ] 7.2 Run the full test suite and Ruff checks.
-- [ ] 7.3 Verify no runtime reads or writes legacy push columns or server-only job IDs.
-- [ ] 7.4 Complete architecture, complexity, migration-safety, and evidence review.
+- [x] 7.1 Run targeted schema, migration, API, rendering, scheduler, command, and interaction tests.
+- [x] 7.2 Run the full test suite and Ruff checks.
+- [x] 7.3 Verify no runtime reads or writes legacy push columns or server-only job IDs.
+- [x] 7.4 Complete architecture, complexity, migration-safety, and evidence review.

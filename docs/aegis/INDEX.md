@@ -21,3 +21,7 @@ Entries are workspace records, not authoritative runtime decisions.
 | 2026-07-18 | plan | docs/aegis/plans/2026-07-18-redesign-daily-push-mechanism.md | Redesign Daily Push Mechanism Implementation Plan |
 | 2026-07-18 | artifact | docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/evidence-bundle-draft-task1-schema-assets-green.json | 2026-07-18-redesign-daily-push-mechanism evidence task1-schema-assets-green |
 | 2026-07-18 | artifact | docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/evidence-bundle-draft-task2-database-green.json | 2026-07-18-redesign-daily-push-mechanism evidence task2-database-green |
+| 2026-07-18 | adr | docs/aegis/adr/ADR-0001-normalize-daily-push-ownership-by-source.md | ADR-0001 - Normalize daily push ownership by source |
+| 2026-07-18 | artifact | docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/evidence-bundle-draft-final-full-verification-green.json | 2026-07-18-redesign-daily-push-mechanism evidence final-full-verification-green |
+| 2026-07-18 | artifact | docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/gate-input-pack.json | 2026-07-18-redesign-daily-push-mechanism gate input pack |
+| 2026-07-18 | work | docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/proof-bundle.md | 2026-07-18-redesign-daily-push-mechanism proof bundle |

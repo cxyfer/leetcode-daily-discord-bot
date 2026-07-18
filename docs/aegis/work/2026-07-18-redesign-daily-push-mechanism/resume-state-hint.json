@@ -2,10 +2,10 @@
   "schemaVersion": "aegis.schema.v0",
   "taskId": "2026-07-18-redesign-daily-push-mechanism",
   "lastCheckpointRef": "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/todo-checkpoint-draft.json",
-  "resumeInstruction": "Read Task 3 and existing daily payload helpers; preserve manual domain behavior",
+  "resumeInstruction": "Verify git status, commit final evidence, then use finishing-a-development-branch.",
   "knownPartialWork": [
-    "Task 1 canonical sources and schema assets",
-    "Task 2 backed-up migration and normalized CRUD"
+    "Tasks 1-7 implementation and targeted verification",
+    "Fresh full pytest, Ruff, strict OpenSpec, retirement scan, ADR backfill, and baseline sync closure"
   ],
   "mustReadBeforeContinuing": [
     "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/10-intent.md",
@@ -13,6 +13,6 @@
     "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/todo-checkpoint-draft.json"
   ],
   "unsafeToAssume": [
-    "Do not treat one-problem get_daily_payload as sufficient for additional sources"
+    "Do not claim merge or deployment; only local branch verification is complete."
   ]
 }

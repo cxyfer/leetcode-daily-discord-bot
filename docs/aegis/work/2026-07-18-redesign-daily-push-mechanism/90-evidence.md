@@ -73,3 +73,11 @@ No evidence has been recorded yet.
 - Source: uv run pytest tests/test_source_layout_phase56.py tests/test_config_command.py tests/test_interaction_handler.py; openspec validate redesign-daily-push-mechanism --strict; targeted Ruff
 - Summary: New user-facing keys exist in all supported locales, README documents independent pushes and backed-up migration, and strict OpenSpec validation passes
 - Verifier: Codex
+
+## EvidenceBundleDraft
+
+- Artifact key: final-full-verification-green
+- Type: command
+- Source: targeted pytest; full pytest; ruff check .; ruff format --check .; openspec strict; retirement rg
+- Summary: All targeted and full regression commands exited 0; Ruff and strict OpenSpec passed; no combined settings CRUD or server-only scheduler job IDs remain; legacy column access is isolated to the one-way migration owner.
+- Verifier: Codex

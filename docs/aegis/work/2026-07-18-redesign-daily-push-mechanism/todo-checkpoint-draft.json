@@ -1,17 +1,17 @@
 {
   "schemaVersion": "aegis.schema.v0",
   "taskId": "2026-07-18-redesign-daily-push-mechanism",
-  "currentTodo": "Implement Task 3 source-aware API and scheduled rendering",
+  "currentTodo": "Complete final evidence and branch handoff",
   "completedTodos": [
-    "Task 1 canonical sources and schema assets",
-    "Task 2 backed-up migration and normalized CRUD"
+    "Tasks 1-7 implementation and targeted verification",
+    "Fresh full pytest, Ruff, strict OpenSpec, retirement scan, ADR backfill, and baseline sync closure"
   ],
-  "activeSlice": "Task 3 daily API and rendering",
+  "activeSlice": "Task 8 completion evidence",
   "evidenceRefs": [
-    "settings/schema/path targeted pytest: pass",
-    "targeted Ruff: pass"
+    "evidence-bundle-draft-final-full-verification-green.json",
+    "docs/aegis/adr/ADR-0001-normalize-daily-push-ownership-by-source.md"
   ],
   "blockedOn": null,
-  "nextStep": "Write RED daily source request and multi-problem delivery tests",
+  "nextStep": "Commit final evidence and present branch handoff options",
   "updatedAt": "2026-07-18"
 }

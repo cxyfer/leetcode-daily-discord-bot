@@ -316,11 +316,11 @@ Use fixed `app_commands.Choice` values from the canonical source owner. Keep `re
 
 **Verification:** Run every command in the plan header.
 
-- [ ] Run targeted test groups once more and record exact results.
-- [ ] Run full pytest, Ruff check, Ruff format check, strict OpenSpec validation, lingering-reference searches for legacy push columns and server-only job IDs, and Aegis workspace check.
-- [ ] Fix only failures caused by this change, re-running the narrow failing command after each fix.
-- [ ] Re-run the entire verification set and perform the architecture review: ownership, boundaries, contract, dependency direction, legacy retirement, and complexity closure.
-- [ ] Update OpenSpec task checkboxes and Aegis checkpoint/evidence/drift records, then commit final scoped fixes/evidence with repository-history style.
+- [x] Run targeted test groups once more and record exact results.
+- [x] Run full pytest, Ruff check, Ruff format check, strict OpenSpec validation, lingering-reference searches for legacy push columns and server-only job IDs, and Aegis workspace check.
+- [x] Fix only failures caused by this change, re-running the narrow failing command after each fix.
+- [x] Re-run the entire verification set and perform the architecture review: ownership, boundaries, contract, dependency direction, legacy retirement, and complexity closure.
+- [x] Update OpenSpec task checkboxes and Aegis checkpoint/evidence/drift records, then commit final scoped fixes/evidence with repository-history style.
 
 ## Risks And Rewind Rules
 

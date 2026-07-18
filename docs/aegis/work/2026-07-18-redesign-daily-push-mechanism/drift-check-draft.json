@@ -3,11 +3,14 @@
   "taskId": "2026-07-18-redesign-daily-push-mechanism",
   "taskIntentRef": "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/task-intent-draft.json",
   "baselineRefs": [
-    "openspec/changes/redesign-daily-push-mechanism/design.md"
+    "openspec/changes/redesign-daily-push-mechanism/design.md",
+    "docs/aegis/adr/ADR-0001-normalize-daily-push-ownership-by-source.md"
   ],
-  "scopeStatus": "Task 2 stayed within SettingsDatabaseManager and focused database tests",
-  "compatStatus": "Legacy rows preserve language and delivery fields as leetcode.com; source-less command compatibility remains for later task",
-  "retirementStatus": "Legacy table is dropped only after backup and validation; combined CRUD removed from owner, callers pending",
-  "newRiskSignals": [],
+  "scopeStatus": "Implementation remains within the approved three-source schema, scheduler, config, rendering, localization, tests, and documentation scope.",
+  "compatStatus": "Source-less config still targets leetcode.com; manual domain calls and legacy reset IDs remain supported; legacy rows are backed up and migrated without dual reads.",
+  "retirementStatus": "Combined CRUD, live legacy delivery columns, server-only job IDs, and hard-coded com delivery keys are retired; legacy reads are isolated to the one-way migration owner.",
+  "newRiskSignals": [
+    "ui_helpers.py remains a 1225-line pressure point; future UI-domain extraction is recommended."
+  ],
   "decision": "continue"
 }

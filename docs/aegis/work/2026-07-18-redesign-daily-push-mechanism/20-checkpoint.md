@@ -178,3 +178,25 @@
 - targeted Ruff check and format: pass
 - Blocked on: none
 - Next step: Load verification-before-completion instructions and run every final verification command
+
+## Checkpoint Update
+
+- Current todo: Complete final evidence and branch handoff
+- Active slice: Task 8 completion evidence
+- Completed todos:
+- Tasks 1-7 implementation and targeted verification
+- Fresh full pytest, Ruff, strict OpenSpec, retirement scan, ADR backfill, and baseline sync closure
+- Evidence refs:
+- evidence-bundle-draft-final-full-verification-green.json
+- docs/aegis/adr/ADR-0001-normalize-daily-push-ownership-by-source.md
+- Blocked on: none
+- Next step: Commit final evidence and present branch handoff options
+
+## DriftCheckDraft
+
+- Scope status: Implementation remains within the approved three-source schema, scheduler, config, rendering, localization, tests, and documentation scope.
+- Compatibility status: Source-less config still targets leetcode.com; manual domain calls and legacy reset IDs remain supported; legacy rows are backed up and migrated without dual reads.
+- Retirement status: Combined CRUD, live legacy delivery columns, server-only job IDs, and hard-coded com delivery keys are retired; legacy reads are isolated to the one-way migration owner.
+- New risk signals:
+- ui_helpers.py remains a 1225-line pressure point; future UI-domain extraction is recommended.
+- Advisory decision: continue
