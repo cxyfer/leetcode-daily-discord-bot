@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "affectedLayers": [
+    "persistence",
+    "Discord command surface",
+    "scheduler",
+    "API client and UI rendering"
+  ],
+  "owners": [
+    "SettingsDatabaseManager; SlashCommandsCog; ScheduleManagerCog; OjApiClient; ui_helpers"
+  ],
+  "invariants": [
+    "At most one push per server and supported source, with at most three pushes per server"
+  ],
+  "compatBoundary": "Existing /config invocations without source continue to manage leetcode.com and legacy settings migrate without data loss",
+  "nonGoals": [
+    "Multiple pushes for the same source",
+    "Persistent cross-process delivery history",
+    "Changes to upstream source availability rules"
+  ]
+}

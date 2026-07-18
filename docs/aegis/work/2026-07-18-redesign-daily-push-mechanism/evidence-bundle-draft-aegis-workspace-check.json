@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "artifactKey": "aegis-workspace-check",
+  "type": "command",
+  "source": "aegis-workspace.py check --root .",
+  "summary": "Aegis workspace structure is valid",
+  "verifier": "Codex"
+}

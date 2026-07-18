@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "candidateDocs": [
+    "openspec/specs/database-layer/spec.md",
+    "openspec/specs/daily-schedule/spec.md",
+    "openspec/specs/slash-commands/spec.md",
+    "openspec/specs/leetcode-client/spec.md"
+  ],
+  "whyRelevant": "These existing OpenSpec capabilities own persistence, scheduling, command UX, and daily API access",
+  "missingAuthority": []
+}

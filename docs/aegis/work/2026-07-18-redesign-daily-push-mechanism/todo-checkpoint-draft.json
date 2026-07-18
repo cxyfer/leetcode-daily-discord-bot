@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "taskId": "2026-07-18-redesign-daily-push-mechanism",
+  "currentTodo": "Obtain user review of the written specification",
+  "completedTodos": [
+    "Explore current schema, scheduler, API, command, and test owners",
+    "Confirm one push per source and independent per-push fields",
+    "Approve normalized schema and explicit legacy migration",
+    "Write and strictly validate OpenSpec proposal, design, and delta specs"
+  ],
+  "activeSlice": "Written specification review gate",
+  "evidenceRefs": [
+    "openspec validate redesign-daily-push-mechanism --strict: valid",
+    "aegis-workspace.py check --root .: passed"
+  ],
+  "blockedOn": "User review of written specification",
+  "nextStep": "After approval, use writing-plans to create the implementation plan",
+  "updatedAt": "2026-07-18"
+}
