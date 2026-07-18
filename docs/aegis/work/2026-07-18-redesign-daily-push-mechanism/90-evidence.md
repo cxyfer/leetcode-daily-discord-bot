@@ -65,3 +65,11 @@ No evidence has been recorded yet.
 - Source: uv run pytest tests/test_interaction_handler.py tests/test_config_command.py; targeted Ruff
 - Summary: Source removal confirm/cancel and security guards pass; exact source deletion and targeted rescheduling are verified; legacy whole-guild reset routing remains valid
 - Verifier: Codex
+
+## EvidenceBundleDraft
+
+- Artifact key: task7-locales-docs-green
+- Type: command
+- Source: uv run pytest tests/test_source_layout_phase56.py tests/test_config_command.py tests/test_interaction_handler.py; openspec validate redesign-daily-push-mechanism --strict; targeted Ruff
+- Summary: New user-facing keys exist in all supported locales, README documents independent pushes and backed-up migration, and strict OpenSpec validation passes
+- Verifier: Codex

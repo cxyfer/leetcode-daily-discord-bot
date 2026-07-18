@@ -156,3 +156,25 @@
 - targeted Ruff check and format: pass
 - Blocked on: none
 - Next step: Add locale parity and README assertions, then update all supported locales and configuration docs
+
+## DriftCheckDraft
+
+- Scope status: Task 7 changed only supported locale resources, README usage/migration documentation, and focused documentation tests
+- Compatibility status: Existing reset and configuration keys remain; new source-specific keys are present in all three locales
+- Retirement status: README documents backed-up one-way migration to leetcode.com rather than runtime fallback behavior
+- New risk signals:
+- none
+- Advisory decision: continue
+
+## Checkpoint Update
+
+- Current todo: Run Task 8 full regression and retirement verification
+- Active slice: Task 8 completion evidence
+- Completed todos:
+- Task 7 locale parity, README multi-source workflow, and migration documentation
+- Evidence refs:
+- tests/test_source_layout_phase56.py, tests/test_config_command.py, and tests/test_interaction_handler.py: pass
+- openspec validate redesign-daily-push-mechanism --strict: valid
+- targeted Ruff check and format: pass
+- Blocked on: none
+- Next step: Load verification-before-completion instructions and run every final verification command

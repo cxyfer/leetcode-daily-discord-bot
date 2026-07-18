@@ -31,8 +31,13 @@
     },
     "unexpected": "An unexpected error occurred: {error}",
     "config": {
-      "not_configured": "Daily challenge channel not configured yet. Use /config channel:<channel> to get started.",
+      "not_configured": "No daily push is configured. Use /config channel:<channel> to create the default LeetCode push.",
       "reset_conflict": "`reset` cannot be used with other configuration parameters.",
+      "source_invalid": "Unsupported daily push source.",
+      "remove_conflict": "`remove` cannot be used with other configuration parameters.",
+      "remove_source_required": "You must explicitly specify `source` when removing a push.",
+      "source_not_configured": "No {source} daily push is configured.",
+      "remove_confirm_message": "⚠️ Remove the {source} daily push? Other sources will not be affected.",
       "role_clear_conflict": "`role` and `clear_role` cannot be used together.",
       "time_format_error": "Invalid time format. Please use HH:MM (e.g., 08:00 or 23:59).",
       "timezone_error": "Invalid timezone: {error}",
@@ -54,6 +59,15 @@
       "success": "✅ All settings have been reset and scheduling has been stopped.",
       "confirm_message": "⚠️ Are you sure you want to reset all settings for this server? This will stop the daily challenge schedule."
     },
+    "remove": {
+      "invalid_action": "Invalid action.",
+      "wrong_user": "This action is only available to the original requester.",
+      "expired": "This confirmation has expired. Please use /config remove:True again.",
+      "cancelled": "Daily push removal cancelled.",
+      "permission_denied": "You need the **Manage Server** permission to perform this action.",
+      "error": "An error occurred while removing the daily push. Please try again later.",
+      "success": "✅ The selected daily push has been removed."
+    },
     "navigation": {
       "error": "Navigation error: {error}"
     },
@@ -72,6 +86,7 @@
       "inspire": "Inspiration",
       "similar": "Similar",
       "confirm_reset": "Confirm Reset",
+      "confirm_remove": "Confirm Removal",
       "cancel": "Cancel"
     },
     "embed": {
@@ -109,6 +124,7 @@
       "role": "Role",
       "time": "Post Time",
       "language": "Language",
+      "no_pushes": "No daily pushes configured.",
       "not_set": "Not set",
       "unknown_channel": "Unknown Channel (ID: {id})",
       "unknown_role": "Unknown Role (ID: {id})"
@@ -167,13 +183,15 @@
       "source": "Problem source (e.g., leetcode/atcoder/codeforces), or use source: prefix before problem ID"
     },
     "config": {
-      "description": "Configure all LeetCode Daily Challenge settings",
-      "channel": "Channel to send daily challenges",
+      "description": "Configure source-specific daily problem pushes",
+      "channel": "Channel for the selected source",
       "role": "Role to mention",
       "time": "Send time (HH:MM or H:MM, e.g., 08:00)",
       "timezone": "Timezone (e.g., Asia/Taipei or UTC+8)",
       "clear_role": "Clear role mention setting",
       "reset": "Reset all settings and stop scheduling (requires confirmation)",
+      "source": "Daily problem source (defaults to LeetCode)",
+      "remove": "Remove the selected source push (requires confirmation)",
       "language": "Set the bot's display language",
       "language_current": "Current language: {locale}",
       "language_updated": "✅ Language updated to {locale}"

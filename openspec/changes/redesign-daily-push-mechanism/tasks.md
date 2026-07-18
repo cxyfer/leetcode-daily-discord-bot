@@ -36,9 +36,9 @@
 
 ## 6. Localization And Documentation
 
-- [ ] 6.1 Add equivalent user-facing keys to all supported locales.
-- [ ] 6.2 Update README configuration examples and migration behavior.
-- [ ] 6.3 Validate locale parity and strict OpenSpec consistency.
+- [x] 6.1 Add equivalent user-facing keys to all supported locales.
+- [x] 6.2 Update README configuration examples and migration behavior.
+- [x] 6.3 Validate locale parity and strict OpenSpec consistency.
 
 ## 7. Verification And Retirement
 

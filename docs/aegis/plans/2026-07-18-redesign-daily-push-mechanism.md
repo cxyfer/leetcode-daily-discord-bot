@@ -299,11 +299,11 @@ Use fixed `app_commands.Choice` values from the canonical source owner. Keep `re
 
 **Verification:** `uv run pytest tests/test_source_layout_phase56.py tests/test_config_command.py && openspec validate redesign-daily-push-mechanism --strict`
 
-- [ ] Add or update failing locale-parity and documentation assertions for the new command keys/examples.
-- [ ] Run the verification command and confirm missing keys/checklist entries fail.
-- [ ] Add equivalent keys in all locale JSON files, update README command table/examples/migration note, and mark completed OpenSpec tasks only as implementation evidence is produced.
-- [ ] Re-run the verification command and confirm locale tests and strict OpenSpec validation pass.
-- [ ] Commit with `📝 docs(config): document multi-source daily pushes`.
+- [x] Add or update failing locale-parity and documentation assertions for the new command keys/examples.
+- [x] Run the verification command and confirm missing keys/checklist entries fail.
+- [x] Add equivalent keys in all locale JSON files, update README command table/examples/migration note, and mark completed OpenSpec tasks only as implementation evidence is produced.
+- [x] Re-run the verification command and confirm locale tests and strict OpenSpec validation pass.
+- [x] Commit with `📝 docs(config): document multi-source daily pushes`.
 
 ## Task 8: Full Regression, Architecture Review, And Completion Evidence
 
