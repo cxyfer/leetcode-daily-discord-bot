@@ -151,11 +151,11 @@ delete_server_settings(server_id) -> bool
 
 **Verification:** `uv run pytest tests/test_settings_database.py tests/test_database_schema_assets.py tests/test_bootstrap_and_paths.py`
 
-- [ ] Write failing tests for new-schema CRUD isolation, default language creation, unsupported source rejection, cascade reset, legacy backup creation, exact legacy-to-LeetCode copy, idempotent restart, and transaction rollback under injected validation failure.
-- [ ] Run the verification command and confirm failures arise from missing migration/CRUD behavior.
-- [ ] Centralize settings connections with `PRAGMA foreign_keys = ON`; implement schema detection, SQLite backup, transactional table rebuild and validation, and the target CRUD API using parameterized queries.
-- [ ] Re-run the verification command and confirm migration and CRUD tests pass without changing LLM cache behavior.
-- [ ] Commit with `✨ feat(db): normalize daily push settings`.
+- [x] Write failing tests for new-schema CRUD isolation, default language creation, unsupported source rejection, cascade reset, legacy backup creation, exact legacy-to-LeetCode copy, idempotent restart, and transaction rollback under injected validation failure.
+- [x] Run the verification command and confirm failures arise from missing migration/CRUD behavior.
+- [x] Centralize settings connections with `PRAGMA foreign_keys = ON`; implement schema detection, SQLite backup, transactional table rebuild and validation, and the target CRUD API using parameterized queries.
+- [x] Re-run the verification command and confirm migration and CRUD tests pass without changing LLM cache behavior.
+- [x] Commit with `✨ feat(db): normalize daily push settings`.
 
 ## Task 3: Add Source-Aware Daily API Access And Scheduled Rendering
 

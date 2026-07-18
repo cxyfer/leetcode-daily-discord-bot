@@ -7,10 +7,10 @@
 
 ## 2. Database Migration And CRUD
 
-- [ ] 2.1 Add backed-up transactional legacy migration with row identity/count validation.
-- [ ] 2.2 Add normalized guild-language and daily-push CRUD methods.
+- [x] 2.1 Add backed-up transactional legacy migration with row identity/count validation.
+- [x] 2.2 Add normalized guild-language and daily-push CRUD methods.
 - [ ] 2.3 Remove internal reliance on combined legacy settings CRUD.
-- [ ] 2.4 Add migration, rollback, idempotency, constraint, and CRUD tests.
+- [x] 2.4 Add migration, rollback, idempotency, constraint, and CRUD tests.
 
 ## 3. Daily API And Rendering
 

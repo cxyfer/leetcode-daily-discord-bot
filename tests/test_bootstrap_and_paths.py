@@ -141,8 +141,17 @@ def test_database_manager_resolves_default_path_from_repo_root(tmp_path, monkeyp
             return None
 
     class DummyConnection:
+        def execute(self, *_args, **_kwargs):
+            return DummyCursorResult()
+
         def cursor(self):
             return DummyCursor()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
 
         def commit(self):
             return None

@@ -25,3 +25,11 @@ No evidence has been recorded yet.
 - Source: uv run pytest tests/test_database_schema_assets.py; ruff targeted checks
 - Summary: Normalized schema, constraints, and legacy cleanup conversion tests pass; targeted lint and format pass
 - Verifier: Codex
+
+## EvidenceBundleDraft
+
+- Artifact key: task2-database-green
+- Type: command
+- Source: uv run pytest tests/test_settings_database.py tests/test_database_schema_assets.py tests/test_bootstrap_and_paths.py; targeted Ruff
+- Summary: Runtime backup/migration/rollback/idempotency and normalized settings CRUD tests pass; targeted lint and format pass
+- Verifier: Codex

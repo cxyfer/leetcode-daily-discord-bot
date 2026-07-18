@@ -1,16 +1,17 @@
 {
   "schemaVersion": "aegis.schema.v0",
   "taskId": "2026-07-18-redesign-daily-push-mechanism",
-  "currentTodo": "Implement Task 2 runtime migration and normalized CRUD",
+  "currentTodo": "Implement Task 3 source-aware API and scheduled rendering",
   "completedTodos": [
-    "Task 1 canonical sources and normalized schema assets"
+    "Task 1 canonical sources and schema assets",
+    "Task 2 backed-up migration and normalized CRUD"
   ],
-  "activeSlice": "Task 2 database migration and CRUD",
+  "activeSlice": "Task 3 daily API and rendering",
   "evidenceRefs": [
-    "tests/test_database_schema_assets.py: pass",
-    "targeted Ruff check and format: pass"
+    "settings/schema/path targeted pytest: pass",
+    "targeted Ruff: pass"
   ],
   "blockedOn": null,
-  "nextStep": "Write RED tests in tests/test_settings_database.py",
+  "nextStep": "Write RED daily source request and multi-problem delivery tests",
   "updatedAt": "2026-07-18"
 }

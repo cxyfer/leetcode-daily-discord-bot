@@ -50,3 +50,25 @@
 - targeted Ruff check and format: pass
 - Blocked on: none
 - Next step: Write RED tests in tests/test_settings_database.py
+
+## DriftCheckDraft
+
+- Scope status: Task 2 stayed within SettingsDatabaseManager and focused database tests
+- Compatibility status: Legacy rows preserve language and delivery fields as leetcode.com; source-less command compatibility remains for later task
+- Retirement status: Legacy table is dropped only after backup and validation; combined CRUD removed from owner, callers pending
+- New risk signals:
+- none
+- Advisory decision: continue
+
+## Checkpoint Update
+
+- Current todo: Implement Task 3 source-aware API and scheduled rendering
+- Active slice: Task 3 daily API and rendering
+- Completed todos:
+- Task 1 canonical sources and schema assets
+- Task 2 backed-up migration and normalized CRUD
+- Evidence refs:
+- settings/schema/path targeted pytest: pass
+- targeted Ruff: pass
+- Blocked on: none
+- Next step: Write RED daily source request and multi-problem delivery tests

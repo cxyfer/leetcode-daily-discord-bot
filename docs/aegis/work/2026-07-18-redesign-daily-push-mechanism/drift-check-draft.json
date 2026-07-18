@@ -3,11 +3,11 @@
   "taskId": "2026-07-18-redesign-daily-push-mechanism",
   "taskIntentRef": "docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/task-intent-draft.json",
   "baselineRefs": [
-    "openspec/changes/redesign-daily-push-mechanism/specs/database-layer/spec.md"
+    "openspec/changes/redesign-daily-push-mechanism/design.md"
   ],
-  "scopeStatus": "Task 1 changed only canonical source identity and schema assets",
-  "compatStatus": "Legacy cleanup conversion maps old schedules to leetcode.com",
-  "retirementStatus": "No runtime legacy fallback added; runtime migration remains Task 2",
+  "scopeStatus": "Task 2 stayed within SettingsDatabaseManager and focused database tests",
+  "compatStatus": "Legacy rows preserve language and delivery fields as leetcode.com; source-less command compatibility remains for later task",
+  "retirementStatus": "Legacy table is dropped only after backup and validation; combined CRUD removed from owner, callers pending",
   "newRiskSignals": [],
   "decision": "continue"
 }

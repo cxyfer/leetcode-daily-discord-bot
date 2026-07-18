@@ -20,3 +20,4 @@ Entries are workspace records, not authoritative runtime decisions.
 | 2026-07-18 | artifact | docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/resume-state-hint.json | 2026-07-18-redesign-daily-push-mechanism resume state hint |
 | 2026-07-18 | plan | docs/aegis/plans/2026-07-18-redesign-daily-push-mechanism.md | Redesign Daily Push Mechanism Implementation Plan |
 | 2026-07-18 | artifact | docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/evidence-bundle-draft-task1-schema-assets-green.json | 2026-07-18-redesign-daily-push-mechanism evidence task1-schema-assets-green |
+| 2026-07-18 | artifact | docs/aegis/work/2026-07-18-redesign-daily-push-mechanism/evidence-bundle-draft-task2-database-green.json | 2026-07-18-redesign-daily-push-mechanism evidence task2-database-green |
