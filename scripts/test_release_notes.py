@@ -274,6 +274,40 @@ class ReleaseNotesTests(unittest.TestCase):
         self.assertIn("## New Contributors", text)
         self.assertIn("ghcr.io/owner/example:v0.2.0-rc.1", text)
 
+    def test_version_scoped_release_bumps_are_omitted_without_api_calls(self):
+        self.tag("v0.1.0")
+        subjects = (
+            "🔖 release(v0.2.0-rc.1): bump version",
+            "🔖release(v0.2.0-rc.2): bump version and update changelog (#7)",
+            "🔖 release(v0.2.0): bump version and update changelog",
+            "chore(release): bump version to v0.2.0 (#8)",
+            "build: prepare v0.2.0",
+        )
+        commits = [self.commit(subject) for subject in subjects]
+        self.tag("v0.2.0")
+        text = self.generate("v0.2.0")
+        self.assertIn("No user-facing changes were recorded in this release range.", text)
+        for commit in commits:
+            with self.subTest(commit=commit):
+                self.assertNotIn(f"/commit/{commit}", text)
+        self.assertEqual(self.calls, [])
+
+    def test_release_related_changes_are_preserved(self):
+        self.tag("v0.1.0")
+        subjects = (
+            "✨ feat(release): support v0.2.0 candidates",
+            "🐛 fix(v0.2.0): bump version compatibility checks",
+            "🔖 release(v0.2.0): fix migration guidance",
+            "🔧 chore(release): update v0.2.0 upgrade notes",
+        )
+        commits = [self.commit(subject) for subject in subjects]
+        self.tag("v0.2.0")
+        text = self.generate("v0.2.0")
+        for commit in commits:
+            with self.subTest(commit=commit):
+                self.assertIn(f"/commit/{commit}", text)
+        self.assertEqual(self.calls, [])
+
     def test_no_new_contributors_omits_section(self):
         self.pull(1)
         self.pull(2)
