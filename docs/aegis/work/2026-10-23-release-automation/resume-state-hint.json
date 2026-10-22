@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "taskId": "2026-10-23-release-automation",
+  "lastCheckpointRef": "docs/aegis/work/2026-10-23-release-automation/todo-checkpoint-draft.json",
+  "resumeInstruction": "PR 47 remains open against main. Keep its branch; no merge or production release is authorized",
+  "knownPartialWork": [
+    "Hosted runtime CI passes at 2302cbc",
+    "Hosted image build, offline launcher/SQLite smoke and image export pass in run 39851777266",
+    "Automatic approval recovered with gpt-6-luna configuration unchanged"
+  ],
+  "mustReadBeforeContinuing": [
+    "docs/aegis/work/2026-10-23-release-automation/10-intent.md",
+    "docs/aegis/work/2026-10-23-release-automation/20-checkpoint.md",
+    "docs/aegis/work/2026-10-23-release-automation/todo-checkpoint-draft.json"
+  ],
+  "unsafeToAssume": [
+    "Live tag-triggered GHCR writes and GitHub draft creation remain unexecuted"
+  ]
+}

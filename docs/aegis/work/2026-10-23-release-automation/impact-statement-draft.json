@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "affectedLayers": [
+    "release tooling",
+    "versioned image workflow",
+    "operator documentation"
+  ],
+  "owners": [
+    ".github/workflows/ghcr.yml",
+    "scripts/release_notes.py"
+  ],
+  "invariants": [
+    "Image published before draft",
+    "RC never updates latest",
+    "Existing release notes preserved",
+    "No credentials or network used in smoke test"
+  ],
+  "compatBoundary": "Preserve exact image names, runtime and historical changelog; restrict latest to newest stable.",
+  "nonGoals": [
+    "No version bump or release tag",
+    "No production image or release publication",
+    "No application or persistent-data changes",
+    "No merge or source oj-api-rs changes"
+  ]
+}

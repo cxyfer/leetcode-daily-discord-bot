@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "taskId": "2026-10-23-release-automation",
+  "currentTodo": "Finalize verification record and retain open PR 47",
+  "completedTodos": [
+    "Hosted runtime CI passes at 2302cbc",
+    "Hosted image build, offline launcher/SQLite smoke and image export pass in run 39851777266",
+    "Automatic approval recovered with gpt-6-luna configuration unchanged"
+  ],
+  "activeSlice": "closeout",
+  "evidenceRefs": [
+    "GitHub Actions 39851777181 and 39851777266"
+  ],
+  "blockedOn": null,
+  "nextStep": "Commit this evidence-only update, verify final-head checks and remove the clean temporary worktree",
+  "updatedAt": "2026-10-23"
+}

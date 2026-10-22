@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "requestedOutcome": "Apply the reviewed oj-api-rs release process to the Discord bot",
+  "goal": "Apply the reviewed oj-api-rs release process to the Discord bot",
+  "successEvidence": [
+    "Source release review has no blocking finding",
+    "20 helper tests and 204 runtime tests pass",
+    "Pinned Ruff and hosted image build/smoke pass",
+    "Task branch pushed and PR opened against main"
+  ],
+  "stopCondition": "Finish with a verified unmerged PR; stop before version/tag/production publication.",
+  "nonGoals": [
+    "No version bump or release tag",
+    "No production image or release publication",
+    "No application or persistent-data changes",
+    "No merge or source oj-api-rs changes"
+  ],
+  "scope": "Versioned GHCR workflow, Python release helper, tests and operator docs",
+  "changeKinds": [
+    "ci"
+  ],
+  "riskHints": [
+    "Local Docker is unavailable; require hosted image verification",
+    "Actual tag publication remains unexecuted"
+  ]
+}
