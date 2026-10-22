@@ -2,11 +2,11 @@
   "schemaVersion": "aegis.schema.v0",
   "taskId": "2026-10-23-release-automation",
   "lastCheckpointRef": "docs/aegis/work/2026-10-23-release-automation/todo-checkpoint-draft.json",
-  "resumeInstruction": "Do not bypass approval review. Preserve uncommitted work and run hosted image checks after authorized Git mutations succeed",
+  "resumeInstruction": "PR 47 remains open against main. Keep its branch; no merge or production release is authorized",
   "knownPartialWork": [
-    "Closed mistaken PR 46 without merging; branch retained",
-    "Reviewed source release flow and implemented bot adaptation",
-    "20 helper tests, 204 runtime tests, pinned Ruff, actionlint and independent review pass"
+    "Hosted runtime CI passes at 2302cbc",
+    "Hosted image build, offline launcher/SQLite smoke and image export pass in run 39851777266",
+    "Automatic approval recovered with gpt-6-luna configuration unchanged"
   ],
   "mustReadBeforeContinuing": [
     "docs/aegis/work/2026-10-23-release-automation/10-intent.md",
@@ -14,6 +14,6 @@
     "docs/aegis/work/2026-10-23-release-automation/todo-checkpoint-draft.json"
   ],
   "unsafeToAssume": [
-    "No commit, push or new PR exists; container build and formal tag publication remain unverified"
+    "Live tag-triggered GHCR writes and GitHub draft creation remain unexecuted"
   ]
 }

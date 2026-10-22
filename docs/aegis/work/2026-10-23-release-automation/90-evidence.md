@@ -13,3 +13,7 @@
 Actual version tags, production image pushes, GitHub draft creation and publication have not been executed. Existing release notes have not been modified. The mistaken bot PR #46 is closed and unmerged; branch deletion was rejected by automatic approval review and the branch is retained.
 
 Commit attempt was not executed: automatic approval review returned HTTP 404 for configured gpt-6-luna. No push or PR creation was attempted after that failure. Hosted image verification is blocked until the approval service is repaired.
+
+Approval retry recovered: commit `2302cbc` and the branch push succeeded. Reviewer configuration still selects `gpt-6-luna`; no model override was changed. PR #47 targets `main`. Hosted CI run `39851777181` passes at that commit, and prepare/helper checks in run `39851777266` pass. The image job is still running.
+
+Hosted image verification completed successfully at `2302cbc`: run `39851777266`, job `120079644397`, built the real Docker image, executed the offline launcher/import/locale/SQLite assertions and exported/uploaded the image. Artifact `12456769633` (`leetcode-daily-discord-bot-validation-image`, 67,563,258 bytes) is retained for three days. Release publication jobs were correctly skipped for the PR. Runtime CI run `39851777181` also passed. No review threads are outstanding. Actual versioned publication remains outside verification.

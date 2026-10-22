@@ -1,15 +1,17 @@
 {
   "schemaVersion": "aegis.schema.v0",
   "taskId": "2026-10-23-release-automation",
-  "currentTodo": "Commit and create PR after automatic approval service is repaired",
+  "currentTodo": "Finalize verification record and retain open PR 47",
   "completedTodos": [
-    "Closed mistaken PR 46 without merging; branch retained",
-    "Reviewed source release flow and implemented bot adaptation",
-    "20 helper tests, 204 runtime tests, pinned Ruff, actionlint and independent review pass"
+    "Hosted runtime CI passes at 2302cbc",
+    "Hosted image build, offline launcher/SQLite smoke and image export pass in run 39851777266",
+    "Automatic approval recovered with gpt-6-luna configuration unchanged"
   ],
-  "activeSlice": "approval-blocked",
-  "evidenceRefs": [],
-  "blockedOn": "Automatic approval review failed: configured gpt-6-luna returned 404; git commit was not executed",
-  "nextStep": "Resolve approval service error, then commit, push, open PR and observe hosted build",
+  "activeSlice": "closeout",
+  "evidenceRefs": [
+    "GitHub Actions 39851777181 and 39851777266"
+  ],
+  "blockedOn": null,
+  "nextStep": "Commit this evidence-only update, verify final-head checks and remove the clean temporary worktree",
   "updatedAt": "2026-10-23"
 }

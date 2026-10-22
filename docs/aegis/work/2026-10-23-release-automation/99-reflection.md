@@ -5,3 +5,5 @@ The source process can be reused in the existing publisher. Python/uv metadata a
 Architecture review: one publisher, no duplicate release owner, write permissions isolated to image/release jobs, stable-only `latest`, image-before-draft ordering and preservation of existing notes. Scope and baseline remain aligned. Complexity is bounded to the source helper, workflow and meaningful adaptation tests; no fallback publisher is retained.
 
 Confidence is bounded by the unexecuted formal tag publication path. Hosted PR image verification must pass before the branch is reported complete. No version, tag, merge or production publication is part of this work.
+
+Hosted Docker build and offline smoke verification now pass. The earlier approval infrastructure failure recovered on retry without a reviewer-model change. The task is delivered as open PR #47 against main; the clean temporary worktree can be removed after the final documentation commit is verified.
