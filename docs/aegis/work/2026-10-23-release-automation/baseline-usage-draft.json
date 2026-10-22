@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "aegis.schema.v0",
+  "taskId": "2026-10-23-release-automation",
+  "requiredBaselineRefs": [
+    "docs/aegis/plans/2026-10-23-release-automation.md",
+    ".github/workflows/ghcr.yml",
+    "pyproject.toml",
+    "uv.lock"
+  ],
+  "deliveredContextRefs": [],
+  "acknowledgedBeforePlanRefs": [
+    "README.md",
+    "Dockerfile",
+    "src/bot/app.py"
+  ],
+  "citedInPlanRefs": [
+    "oj-api-rs:1be7e2dc"
+  ],
+  "missingRefs": [],
+  "decision": "continue"
+}

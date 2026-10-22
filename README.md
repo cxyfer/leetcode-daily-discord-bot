@@ -260,6 +260,8 @@ When querying multiple problems, the bot displays:
 
 See [CHANGELOG.md](CHANGELOG.md) for versioned release notes and history.
 
+See [RELEASING.md](RELEASING.md) for stable and RC image publication, automated English release drafts, and the maintainer publishing process.
+
 ## 🛠️ Development
 
 ### Setup Development Environment
